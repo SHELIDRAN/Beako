@@ -1,0 +1,168 @@
+package eu.kanade.tachiyomi.ui.manga.info
+
+import android.app.Dialog
+import android.os.Bundle
+import android.view.View
+import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.WhichButton
+import com.afollestad.materialdialogs.actions.setActionButtonEnabled
+import com.afollestad.materialdialogs.customview.customView
+import com.jakewharton.rxbinding.widget.itemClicks
+import com.jakewharton.rxbinding.widget.textChanges
+import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.database.DatabaseHelper
+import eu.kanade.tachiyomi.data.database.models.Manga
+import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.data.track.model.TrackSearch
+import eu.kanade.tachiyomi.ui.base.controller.DialogController
+import eu.kanade.tachiyomi.ui.manga.track.TrackController
+import eu.kanade.tachiyomi.ui.manga.track.TrackSearchAdapter
+import eu.kanade.tachiyomi.ui.manga.track.TrackSearchDialog
+import eu.kanade.tachiyomi.util.plusAssign
+import kotlinx.android.synthetic.main.track_controller.*
+import kotlinx.android.synthetic.main.track_search_dialog.view.*
+import rx.Subscription
+import rx.android.schedulers.AndroidSchedulers
+import rx.subscriptions.CompositeSubscription
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.util.concurrent.TimeUnit
+
+class EditMangaDialog : DialogController {
+
+    private var dialogView: View? = null
+
+    private var adapter: TrackSearchAdapter? = null
+
+    private var selectedItem: Track? = null
+
+    private val manga: Manga
+
+    private var subscriptions = CompositeSubscription()
+
+    private var searchTextSubscription: Subscription? = null
+
+    private val trackController
+        get() = targetController as TrackController
+
+    private var wasPreviouslyTracked:Boolean = false
+
+    constructor(target: TrackController, manga: Manga, wasTracked:Boolean) : super(Bundle()
+        .apply {
+            putLong(KEY_MANGA, manga.id!!)
+        }) {
+        wasPreviouslyTracked = wasTracked
+        targetController = target
+        this.manga = manga
+    }
+
+    @Suppress("unused")
+    constructor(bundle: Bundle) : super(bundle) {
+        manga = Injekt.get<DatabaseHelper>().getManga(bundle.getLong(KEY_MANGA))
+        .executeAsBlocking()!!
+    }
+
+    override fun onCreateDialog(savedViewState: Bundle?): Dialog {
+        val dialog = MaterialDialog(activity!!).apply {
+            customView(viewRes = R.layout.track_search_dialog, scrollable = false)
+            negativeButton(android.R.string.cancel)
+            positiveButton(
+                if (wasPreviouslyTracked) R.string.action_clear
+                else R.string.action_track){ onPositiveButtonClick() }
+            setActionButtonEnabled(WhichButton.POSITIVE, wasPreviouslyTracked)
+        }
+
+        if (subscriptions.isUnsubscribed) {
+            subscriptions = CompositeSubscription()
+        }
+
+        dialogView = dialog.view
+        onViewCreated(dialog.view, savedViewState)
+
+        return dialog
+    }
+
+    fun onViewCreated(view: View, savedState: Bundle?) {
+        // Create adapter
+        val adapter = TrackSearchAdapter(view.context)
+        this.adapter = adapter
+        view.track_search_list.adapter = adapter
+
+        // Set listeners
+        selectedItem = null
+
+        subscriptions += view.track_search_list.itemClicks().subscribe { position ->
+            selectedItem = adapter.getItem(position)
+            (dialog as? MaterialDialog)?.positiveButton(R.string.action_track)
+            (dialog as? MaterialDialog)?.setActionButtonEnabled(WhichButton.POSITIVE, true)
+        }
+
+        // Do an initial search based on the manga's title
+        if (savedState == null) {
+            val title = trackController.presenter.manga.trueTitle()
+            view.track_search.append(title)
+            search(title)
+        }
+    }
+
+    override fun onDestroyView(view: View) {
+        super.onDestroyView(view)
+        subscriptions.unsubscribe()
+        dialogView = null
+        adapter = null
+    }
+
+    override fun onAttach(view: View) {
+        super.onAttach(view)
+        searchTextSubscription = dialogView!!.track_search.textChanges()
+            .skip(1)
+            .debounce(1, TimeUnit.SECONDS, AndroidSchedulers.mainThread())
+            .map { it.toString() }
+            .filter(String::isNotBlank)
+            .subscribe { search(it) }
+    }
+
+    override fun onDetach(view: View) {
+        super.onDetach(view)
+        searchTextSubscription?.unsubscribe()
+    }
+
+    private fun search(query: String) {
+        val view = dialogView ?: return
+        view.progress.visibility = View.VISIBLE
+        view.track_search_list.visibility = View.INVISIBLE
+        //trackController.presenter.search(query, service)
+    }
+
+    fun onSearchResults(results: List<TrackSearch>) {
+        selectedItem = null
+        val view = dialogView ?: return
+        view.progress.visibility = View.INVISIBLE
+        view.track_search_list.visibility = View.VISIBLE
+        adapter?.setItems(results)
+        if (results.size == 1 && !wasPreviouslyTracked) {
+            selectedItem = adapter?.getItem(0)
+            (dialog as? MaterialDialog)?.positiveButton(R.string.action_track)
+            (dialog as? MaterialDialog)?.setActionButtonEnabled(WhichButton.POSITIVE, true)
+        }
+    }
+
+    fun onSearchResultsError() {
+        val view = dialogView ?: return
+        view.progress.visibility = View.VISIBLE
+        view.track_search_list.visibility = View.INVISIBLE
+        adapter?.setItems(emptyList())
+    }
+
+    private fun onPositiveButtonClick() {
+        //trackController.swipe_refresh.isRefreshing = true
+        //trackController.presenter.registerTracking(selectedItem, service)
+    }
+
+    private companion object {
+        const val KEY_MANGA = "manga_id"
+    }
+
+}
