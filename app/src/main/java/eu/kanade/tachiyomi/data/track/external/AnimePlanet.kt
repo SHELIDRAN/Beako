@@ -1,11 +1,10 @@
 package eu.kanade.tachiyomi.data.track.mdlist
 
-import android.content.Context
 import android.graphics.Color
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.TrackService
 
-class AnimePlanet(private val context: Context, id: Int) : TrackService(id) {
+class AnimePlanet(id: Int) : TrackService(id) {
 
 
     override val name = "AnimePlanet"
@@ -19,4 +18,8 @@ class AnimePlanet(private val context: Context, id: Int) : TrackService(id) {
     }
 
     override fun isExternalLink() = true
+
+    companion object {
+        val URL = "https://www.anime-planet.com/manga/"
+    }
 }
