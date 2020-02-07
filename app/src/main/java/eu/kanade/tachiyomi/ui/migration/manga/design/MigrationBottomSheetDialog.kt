@@ -2,12 +2,22 @@ package eu.kanade.tachiyomi.ui.migration.manga.design
 
 import android.app.Activity
 import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.CompoundButton
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.graphics.ColorUtils
 import com.bluelinelabs.conductor.Controller
 import com.f2prateek.rx.preferences.Preference
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -17,6 +27,8 @@ import eu.kanade.tachiyomi.data.preference.getOrDefault
 import eu.kanade.tachiyomi.ui.migration.MigrationFlags
 import eu.kanade.tachiyomi.util.view.gone
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.view.marginBottom
+import eu.kanade.tachiyomi.util.view.updateLayoutParams
 import eu.kanade.tachiyomi.util.view.visible
 import kotlinx.android.synthetic.main.migration_bottom_sheet.*
 import kotlinx.android.synthetic.main.migration_bottom_sheet.extra_search_param
@@ -24,9 +36,10 @@ import kotlinx.android.synthetic.main.migration_bottom_sheet.extra_search_param_
 import kotlinx.android.synthetic.main.migration_bottom_sheet.mig_categories
 import kotlinx.android.synthetic.main.migration_bottom_sheet.mig_chapters
 import kotlinx.android.synthetic.main.migration_bottom_sheet.mig_tracking
+import kotlinx.android.synthetic.main.migration_bottom_sheet.view.*
 import uy.kohesive.injekt.injectLazy
 
-class MigrationBottomSheetDialog(activity: Activity, theme: Int, private val listener:
+class MigrationBottomSheetDialog(private val activity: Activity, theme: Int, private val listener:
 StartMigrationListener) :
     BottomSheetDialog(activity,
     theme) {
@@ -45,6 +58,28 @@ StartMigrationListener) :
         if (activity.resources.configuration?.orientation == Configuration.ORIENTATION_LANDSCAPE)
             sourceGroup.orientation = LinearLayout.HORIZONTAL
         window?.setBackgroundDrawable(null)
+        val currentNightMode = activity.resources.configuration.uiMode and Configuration
+            .UI_MODE_NIGHT_MASK
+        if (currentNightMode == Configuration.UI_MODE_NIGHT_NO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            window?.decorView?.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val nView = View(context)
+            val height = activity.window.decorView.rootWindowInsets.systemWindowInsetBottom
+            val params = ConstraintLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, height
+            )
+            params.bottomToBottom = constraintLayout.id
+            params.startToStart = constraintLayout.id
+            params.endToEnd = constraintLayout.id
+            nView.layoutParams = params
+            nView.background = GradientDrawable(
+                GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(
+                    ColorUtils.setAlphaComponent(Color.BLACK, 179), Color.TRANSPARENT
+                )
+            )
+            constraintLayout.addView(nView)
+        }
     }
 
     /**
@@ -54,6 +89,16 @@ StartMigrationListener) :
         super.onCreate(savedInstanceState)
 
         initPreferences()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            val marginB = skip_step.marginBottom
+            skip_step.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                bottomMargin = marginB +
+                    activity.window.decorView.rootWindowInsets.systemWindowInsetBottom
+            }
+        }
+
 
         fab.setOnClickListener {
             preferences.skipPreMigration().set(skip_step.isChecked)
