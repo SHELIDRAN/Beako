@@ -39,7 +39,7 @@ import eu.kanade.tachiyomi.util.view.visible
 import kotlinx.android.synthetic.main.webview_activity.*
 import uy.kohesive.injekt.injectLazy
 
-class WebViewActivity : BaseActivity() {
+open class WebViewActivity : BaseActivity() {
 
     private val sourceManager by injectLazy<SourceManager>()
     private var bundle: Bundle? = null
