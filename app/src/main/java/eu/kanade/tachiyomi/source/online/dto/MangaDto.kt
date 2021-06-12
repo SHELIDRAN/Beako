@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.source.online.handlers.dto
+package eu.kanade.tachiyomi.source.online.dto
 
 import kotlinx.serialization.Serializable
 
