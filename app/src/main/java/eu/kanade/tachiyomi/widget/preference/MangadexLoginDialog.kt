@@ -18,7 +18,7 @@ import uy.kohesive.injekt.api.get
 
 class MangadexLoginDialog(bundle: Bundle? = null) : LoginDialogPreference(bundle = bundle) {
 
-    val source: Source by lazy { Injekt.get<SourceManager>().getMangadex() }
+    val source: Source by lazy { Injekt.get<SourceManager>().mangaDex }
 
     constructor(source: Source) : this(
         Bundle().apply {
@@ -52,7 +52,7 @@ class MangadexLoginDialog(bundle: Bundle? = null) : LoginDialogPreference(bundle
                 startAnimation()
             }
 
-            if (binding.username.text.isNullOrBlank() || binding.password.text.isNullOrBlank() || (binding.twoFactorCheck.isChecked && binding.twoFactorEdit.text.isNullOrBlank())) {
+            if (binding.username.text.isNullOrBlank() || binding.password.text.isNullOrBlank()) {
                 errorResult()
                 context.toast(R.string.fields_cannot_be_blank)
                 return
@@ -66,7 +66,6 @@ class MangadexLoginDialog(bundle: Bundle? = null) : LoginDialogPreference(bundle
                     val result = source.login(
                         binding.username.text.toString(),
                         binding.password.text.toString(),
-                        binding.twoFactorEdit.text.toString(),
                     )
                     if (result) {
                         dialog?.dismiss()
