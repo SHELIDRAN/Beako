@@ -110,12 +110,19 @@ private fun UpdatesRow(
             onClick = mangaClick,
         )
         Column(modifier = Modifier.padding(horizontal = Size.small).weight(3f)) {
+            Text(
+                text = mangaTitle,
+                style = MaterialTheme.typography.bodyLarge,
+                color = titleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             FeedChapterTitleLine(
                 isBookmarked = chapterItem.chapter.bookmark,
                 language = chapterItem.chapter.language,
                 title = chapterItem.chapter.name,
-                style = MaterialTheme.typography.bodyLarge,
-                textColor = titleColor,
+                style = MaterialTheme.typography.bodyMedium,
+                textColor = updatedColor,
             )
             Text(
                 text = "Updated ${chapterItem.chapter.dateUpload.timeSpanFromNow}",
@@ -124,14 +131,8 @@ private fun UpdatesRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = mangaTitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = updatedColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (isGrouped) {
+
+            if (isGrouped && numberOfChapters > 1) {
                 Text(
                     text = "$numberOfChapters total chapters",
                     style = MaterialTheme.typography.labelSmall,
