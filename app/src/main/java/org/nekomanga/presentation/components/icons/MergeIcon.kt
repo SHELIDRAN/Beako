@@ -8,62 +8,59 @@ import androidx.compose.ui.unit.dp
 
 val MergeIcon: ImageVector
     get() {
-        if (_MergeIcon != null) {
-            return _MergeIcon!!
+        if (_IconName != null) {
+            return _IconName!!
         }
-        _MergeIcon =
+        _IconName =
             ImageVector.Builder(
-                    name = "MergeIcon",
-                    defaultWidth = 32.dp,
-                    defaultHeight = 32.dp,
-                    viewportWidth = 32f,
-                    viewportHeight = 32f,
+                    name = "IconName",
+                    defaultWidth = 24.dp,
+                    defaultHeight = 24.dp,
+                    viewportWidth = 24f,
+                    viewportHeight = 24f,
                 )
                 .apply {
-                    path(fill = SolidColor(Color(0xFF444444))) {
-                        moveTo(23.308f, 14.459f)
-                        curveToRelative(-1.36f, 0f, -2.53f, 0.751f, -3.158f, 1.853f)
-                        curveToRelative(-0.164f, -0.012f, -0.325f, -0.026f, -0.496f, -0.026f)
-                        curveToRelative(-3.742f, 0f, -7.292f, -2.85f, -8.588f, -6.379f)
-                        curveToRelative(0.779f, -0.67f, 1.279f, -1.651f, 1.279f, -2.757f)
-                        curveToRelative(0f, -2.017f, -1.637f, -3.654f, -3.654f, -3.654f)
-                        reflectiveCurveToRelative(-3.654f, 1.637f, -3.654f, 3.654f)
-                        curveToRelative(0f, 1.348f, 0.738f, 2.514f, 1.827f, 3.148f)
-                        verticalLineToRelative(11.975f)
-                        curveToRelative(-1.089f, 0.633f, -1.827f, 1.799f, -1.827f, 3.147f)
-                        curveToRelative(0f, 2.016f, 1.637f, 3.654f, 3.654f, 3.654f)
-                        reflectiveCurveToRelative(3.654f, -1.638f, 3.654f, -3.654f)
-                        curveToRelative(0f, -1.349f, -0.738f, -2.514f, -1.827f, -3.147f)
-                        verticalLineToRelative(-6.574f)
-                        curveToRelative(2.403f, 2.542f, 5.72f, 4.24f, 9.135f, 4.24f)
-                        curveToRelative(0.182f, 0f, 0.332f, -0.012f, 0.496f, -0.018f)
-                        curveToRelative(0.632f, 1.097f, 1.802f, 1.845f, 3.158f, 1.845f)
-                        curveToRelative(2.016f, 0f, 3.654f, -1.638f, 3.654f, -3.654f)
-                        reflectiveCurveToRelative(-1.638f, -3.654f, -3.654f, -3.654f)
-                        close()
-                        moveTo(8.692f, 27.248f)
-                        curveToRelative(-1.008f, 0f, -1.827f, -0.817f, -1.827f, -1.827f)
-                        curveToRelative(0f, -1.008f, 0.819f, -1.827f, 1.827f, -1.827f)
-                        curveToRelative(1.011f, 0f, 1.827f, 0.819f, 1.827f, 1.827f)
-                        curveToRelative(0f, 1.01f, -0.816f, 1.827f, -1.827f, 1.827f)
-                        close()
-                        moveTo(8.692f, 8.977f)
-                        curveToRelative(-1.008f, 0f, -1.827f, -0.816f, -1.827f, -1.827f)
-                        reflectiveCurveToRelative(0.819f, -1.827f, 1.827f, -1.827f)
-                        curveToRelative(1.011f, 0f, 1.827f, 0.816f, 1.827f, 1.827f)
-                        reflectiveCurveToRelative(-0.816f, 1.827f, -1.827f, 1.827f)
-                        close()
-                        moveTo(23.308f, 19.94f)
-                        curveToRelative(-1.008f, 0f, -1.827f, -0.817f, -1.827f, -1.827f)
-                        reflectiveCurveToRelative(0.819f, -1.827f, 1.827f, -1.827f)
-                        curveToRelative(1.01f, 0f, 1.827f, 0.816f, 1.827f, 1.827f)
-                        reflectiveCurveToRelative(-0.817f, 1.827f, -1.827f, 1.827f)
+                    path(fill = SolidColor(Color.Black)) {
+                        moveTo(13f, 14f)
+                        curveTo(9.64f, 14f, 8.54f, 15.35f, 8.18f, 16.24f)
+                        curveTo(9.25f, 16.7f, 10f, 17.76f, 10f, 19f)
+                        arcTo(3f, 3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 7f, 22f)
+                        arcTo(3f, 3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 4f, 19f)
+                        curveTo(4f, 17.69f, 4.83f, 16.58f, 6f, 16.17f)
+                        verticalLineTo(7.83f)
+                        curveTo(4.83f, 7.42f, 4f, 6.31f, 4f, 5f)
+                        arcTo(3f, 3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 7f, 2f)
+                        arcTo(3f, 3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 10f, 5f)
+                        curveTo(10f, 6.31f, 9.17f, 7.42f, 8f, 7.83f)
+                        verticalLineTo(13.12f)
+                        curveTo(8.88f, 12.47f, 10.16f, 12f, 12f, 12f)
+                        curveTo(14.67f, 12f, 15.56f, 10.66f, 15.85f, 9.77f)
+                        curveTo(14.77f, 9.32f, 14f, 8.25f, 14f, 7f)
+                        arcTo(3f, 3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 17f, 4f)
+                        arcTo(3f, 3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 20f, 7f)
+                        curveTo(20f, 8.34f, 19.12f, 9.5f, 17.91f, 9.86f)
+                        curveTo(17.65f, 11.29f, 16.68f, 14f, 13f, 14f)
+                        moveTo(7f, 18f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 6f, 19f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 7f, 20f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 8f, 19f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 7f, 18f)
+                        moveTo(7f, 4f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 6f, 5f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 7f, 6f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 8f, 5f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 7f, 4f)
+                        moveTo(17f, 6f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 16f, 7f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 17f, 8f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 18f, 7f)
+                        arcTo(1f, 1f, 0f, isMoreThanHalf = false, isPositiveArc = false, 17f, 6f)
                         close()
                     }
                 }
                 .build()
 
-        return _MergeIcon!!
+        return _IconName!!
     }
 
-@Suppress("ObjectPropertyName") private var _MergeIcon: ImageVector? = null
+@Suppress("ObjectPropertyName") private var _IconName: ImageVector? = null
