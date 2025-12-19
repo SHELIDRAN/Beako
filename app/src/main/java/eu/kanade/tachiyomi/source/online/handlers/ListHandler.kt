@@ -52,7 +52,10 @@ class ListHandler {
                     true ->
                         Ok(
                             ListResults(
-                                DisplayScreenType.List(UiText.String(""), listUUID),
+                                DisplayScreenType.List(
+                                    UiText.String(listDto.data.attributes.name ?: ""),
+                                    listUUID,
+                                ),
                                 persistentListOf(),
                             )
                         )
