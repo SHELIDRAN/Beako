@@ -209,17 +209,17 @@ class SimilarHandler {
                     }
                 }
                 .toMap()
-        if (idPairs.isEmpty()) {
-            return
-        }
+        val filteredIdPairs = idPairs.filterKeys { it != dexId }
+        if (filteredIdPairs.isEmpty()) return
 
-        val mangaListDto = getMangadexMangaList(idPairs.mapNotNull { it.key }, false)
+        val mangaListDto = getMangadexMangaList(filteredIdPairs.mapNotNull { it.key }, false)
 
         // Convert to lookup array
-        // TODO: Also filter out manga here that are already presented
         val thumbQuality = mangaDexPreferences.coverQuality().get()
         val mangaList =
-            mangaListDto.data.map { it.toRelatedMangaDto(thumbQuality, idPairs[it.id] ?: "") }
+            mangaListDto.data.map {
+                it.toRelatedMangaDto(thumbQuality, filteredIdPairs[it.id] ?: "")
+            }
 
         // update db
         val mangaDb = db.getSimilar(dexId).executeAsBlocking()
@@ -350,17 +350,17 @@ class SimilarHandler {
                 val text = it.votes.toString() + " user votes"
                 id to text
             }
-        if (idPairs.isEmpty()) {
-            return
-        }
+        val filteredIdPairs = idPairs.filterKeys { it != dexId }
+        if (filteredIdPairs.isEmpty()) return
 
-        val mangaListDto = getMangadexMangaList(idPairs.mapNotNull { it.key }, false)
+        val mangaListDto = getMangadexMangaList(filteredIdPairs.mapNotNull { it.key }, false)
 
         // Convert to lookup array
-        // TODO: Also filter out manga here that are already presented
         val thumbQuality = mangaDexPreferences.coverQuality().get()
         val mangaList =
-            mangaListDto.data.map { it.toRelatedMangaDto(thumbQuality, idPairs[it.id] ?: "") }
+            mangaListDto.data.map {
+                it.toRelatedMangaDto(thumbQuality, filteredIdPairs[it.id] ?: "")
+            }
 
         // update db
         val mangaDb = db.getSimilar(dexId).executeAsBlocking()
@@ -427,17 +427,17 @@ class SimilarHandler {
                 val text = "Similar"
                 id to text
             }
-        if (idPairs.isEmpty()) {
-            return
-        }
+        val filteredIdPairs = idPairs.filterKeys { it != dexId }
+        if (filteredIdPairs.isEmpty()) return
 
-        val mangaListDto = getMangadexMangaList(idPairs.mapNotNull { it.key }, false)
+        val mangaListDto = getMangadexMangaList(filteredIdPairs.mapNotNull { it.key }, false)
 
         // Convert to lookup array
-        // TODO: Also filter out manga here that are already presented
         val thumbQuality = mangaDexPreferences.coverQuality().get()
         val mangaList =
-            mangaListDto.data.map { it.toRelatedMangaDto(thumbQuality, idPairs[it.id] ?: "") }
+            mangaListDto.data.map {
+                it.toRelatedMangaDto(thumbQuality, filteredIdPairs[it.id] ?: "")
+            }
 
         // update db
         val mangaDb = db.getSimilar(dexId).executeAsBlocking()
