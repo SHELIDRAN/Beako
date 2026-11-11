@@ -1,64 +1,102 @@
 # Neko for Windows
 
-A rebuild of Neko's core reading experience as a native Windows desktop app, written in Rust
-with [egui](https://github.com/emilk/egui) and designed in Apple's design language.
+A rebuild of Neko's reading experience as a native Windows desktop app, written in Rust with
+[egui](https://github.com/emilk/egui) and designed in Apple's design language.
 
-![Browse](docs/browse-light.jpg)
+![Browse with filters](docs/browse-filters.jpg)
 
-| Title details (dark) | Reader |
+| Title page | Reader with frosted controls |
 | --- | --- |
-| ![Details](docs/details-dark.jpg) | ![Reader](docs/reader-chrome.jpg) |
+| ![Details](docs/details-dark.jpg) | ![Reader](docs/reader.jpg) |
 
-| Library | Settings (dark) |
+| MangaBaka catalog | Reader settings |
 | --- | --- |
-| ![Library](docs/library-light.jpg) | ![Settings](docs/settings-dark.jpg) |
+| ![MangaBaka](docs/mangabaka-dark.jpg) | ![Reader settings](docs/reader-settings.jpg) |
+
+| Library | Two-page spread |
+| --- | --- |
+| ![Library](docs/library.jpg) | ![Spread](docs/reader-spread.jpg) |
 
 ## What it does
 
-- **Browse** MangaDex by Popular, Latest, New, or Top Rated, or search by title. Results load
-  as you scroll.
-- **Title details**: cover, authors, status, tags, description, and the full chapter list in
-  your language, newest or oldest first. Right-click a chapter to mark it read or unread, or to
-  mark every earlier chapter as read. Chapters hosted by a publisher open in your browser.
-- **Reader**: paged (left to right or right to left) or vertical scroll for webtoons. Turn
-  pages with the arrow keys, Space, Page Up/Down, the mouse wheel, or by clicking the left and
-  right thirds of the page. `[` and `]` jump between chapters, `F` or F11 toggles full screen,
-  and Esc closes the reader. Pages load ahead of you. If a MangaDex@Home server fails, the page
-  comes from MangaDex's own server instead.
-- **Library**: saves titles locally with your place in each one. Reopening a title picks up
-  where you left off, and the sidebar lists recently read titles.
-- **Settings**: chapter language, Data Saver, default reading mode, and content filters.
+- **Browse two catalogs.** MangaDex lists Popular, Latest, New, and Top Rated titles; MangaBaka
+  is a metadata database with ratings and richer filters. You can search either one. MangaBaka
+  results open on MangaDex: the app matches them by shared AniList, MyAnimeList,
+  MangaUpdates, or Kitsu IDs, or else by exact title.
+- **Filters.**
+  - MangaDex uses Comix's tag set: genres, formats, types (Manga, Manhwa, Manhua),
+    statuses, demographics, and its sort orders. These are mapped onto MangaDex's tags, and
+    MangaDex's own themes are listed too. Tags are tri-state: click once to include a tag,
+    again to exclude it, and a third time to clear it. You can require any or all included
+    tags.
+  - MangaBaka adds minimum rating, minimum chapters, a publication year range, anime
+    adaptation, licensing, and sorts such as Trending This Week and Surprise Me.
+- **MangaDex account (optional).** Sign in with a
+  [personal API client](https://api.mangadex.org/docs/02-authentication/personal-clients/).
+  Neko then syncs your follows into the Library, shows and sets reading statuses, and mirrors
+  read chapters and library changes to MangaDex. Your password is used once to sign in and is
+  never stored. The client secret and refresh token go into Windows Credential Manager.
+- **Title page.** It shows the cover over a soft wash of its own colors, plus metadata,
+  tags, the description, and the full chapter list. Right-click a chapter to mark it read or
+  unread. Chapters hosted by a publisher open in your browser.
+- **Reader.**
+  - Modes: left to right, right to left, or vertical scroll for webtoons.
+  - Page size: fit screen, width, or height, or original size.
+  - Two-page spreads (always or automatic), with the cover shown alone and wide scans
+    kept whole.
+  - Zoom: Ctrl + wheel, `+` / `-`, or double-click. Drag to pan.
+  - Cropping of blank borders, dimming, and a black, gray, or white background.
+  - Strip width and page spacing for vertical mode.
+  - Click zones (which can be swapped), wheel page turns, continuing into the next chapter,
+    how many pages to read ahead, when the controls hide, an always-visible page number, and
+    keeping the screen on.
+  - The controls float on frosted glass that picks up the colors of the page beneath them.
+- **Library.** A Continue Reading shelf, every saved title with your place in it, and a
+  reading-status filter when you're signed in.
 
-Your library and progress are saved to `%APPDATA%\Neko\Neko Desktop\data\library.json`.
-Cover thumbnails are cached in `%LOCALAPPDATA%\Neko\Neko Desktop\cache`.
+Your library and settings are saved to `%APPDATA%\Neko\Neko Desktop\data\library.json`. Cover
+thumbnails are cached in `%LOCALAPPDATA%\Neko\Neko Desktop\cache`.
 
-Not ported yet from the Android app: MangaDex login and follows sync, trackers (MAL, AniList,
-Kitsu, MangaUpdates), merged sources, downloads for offline reading, and backups.
+### Keyboard
+
+| Where | Keys |
+| --- | --- |
+| Anywhere | Ctrl+F search, Ctrl+1 Library, Ctrl+2 Browse, Ctrl+, Settings, Esc or Alt+← back |
+| Reader | ← → / Space / Page Up / Page Down turn pages, `[` `]` previous and next chapter, `F` or F11 full screen, `S` reader settings, `+` `-` `0` zoom, Esc close |
+
+Not ported yet from the Android app: trackers (MyAnimeList, AniList, Kitsu, MangaUpdates),
+merged sources, offline downloads, and backups.
+
+## Signing in to MangaDex
+
+1. On [mangadex.org](https://mangadex.org/settings), open **Settings → API Clients** and create
+   a personal client. MangaDex has to approve it before it works.
+2. In Neko, open **Settings → MangaDex Account**. Enter your username, password, and the
+   client's ID and secret, then click **Sign In**.
+3. Neko adds the titles you follow to your Library. **Sync Now** pulls changes again, and
+   **Sync Reading to MangaDex** controls whether reading is mirrored back.
 
 ## Design
 
 The interface follows Apple's Human Interface Guidelines, adapted for a Windows window:
 
-- **Structure**: a sidebar for top-level navigation (Library, Browse, Settings), large titles,
-  and inset grouped lists with hairline separators. Settings is a short grouped form with
-  switches.
-- **Type**: the bundled [Inter](https://rsms.me/inter/) family, which is close to SF Pro.
-  Body text is 14 pt and nothing is smaller than 11 pt. On Windows, the system's Japanese,
-  Korean, and Chinese fonts are used as fallbacks.
-- **Color**: semantic tokens with light and dark values, defined in `src/theme.rs`. The app
-  follows the Windows light/dark setting and has no in-app appearance switch. Neko's red is
-  kept for the primary action and the selection. Every text color meets WCAG AA; the ratios are
-  noted next to each token.
-- **Reader**: pages sit on black, and the controls float above them on a translucent layer that
-  fades after 2.5 seconds without mouse movement. Glass is used only for these floating
-  controls, never for content.
-- **Accessibility**: every custom control reports its role and label to screen readers
-  (AccessKit), shows a focus ring for keyboard use, and works with Tab and the keyboard. Read
-  state is shown with a symbol as well as color.
+- **Frosted glass, where Apple uses it.** On Windows 11 the window uses the system's Mica
+  material (Acrylic on Windows 10), so the sidebar is real translucent glass. Inside the app,
+  floating layers use glass made from a pre-blurred copy of what's behind them: the reader's
+  controls and the title-page header. Content itself is never glass.
+- **Structure:** a sidebar, large titles, inset grouped lists, segmented controls, capsule
+  filter chips, switches, and sliders.
+- **Type:** the bundled [Inter](https://rsms.me/inter/) family, which is close to SF Pro. On
+  Windows, the system's Japanese, Korean, and Chinese fonts are used as fallbacks.
+- **Color:** semantic light and dark tokens in `src/theme.rs` that follow the Windows setting.
+  Every text color meets WCAG AA. Neko's red is kept for primary actions and selections.
+- **Accessibility:** every custom control reports its role and label to screen readers
+  (AccessKit), shows a keyboard focus ring, and works with the keyboard. State is never shown
+  by color alone; included and excluded tags, for example, also get a symbol and a strikethrough.
 
 ## Build
 
-You need a Rust toolchain (1.85 or newer, for edition 2024).
+You need Rust 1.85 or newer.
 
 On Windows:
 
@@ -66,8 +104,8 @@ On Windows:
 cargo run --release
 ```
 
-The release `.exe` is `target\release\neko-desktop.exe`. It's self-contained, so you can copy
-it anywhere. It needs an OpenGL 2.0+ driver, which every current Windows GPU driver provides.
+The release `.exe` is `target\release\neko-desktop.exe`. It's self-contained and needs an
+OpenGL 2.0+ driver, which every current Windows GPU driver provides.
 
 Cross-compiling from Linux with MinGW:
 
@@ -79,23 +117,29 @@ rustup target add x86_64-pc-windows-gnu
 cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-The `Neko Desktop (Rust)` GitHub Actions workflow builds and tests on Windows. It uploads
-`neko-desktop.exe` as the `Neko-windows-x64` artifact.
+The `Neko Desktop (Rust)` GitHub Actions workflow formats, lints, tests, and builds on Windows
+and uploads the `.exe`. A manual run with **publish** checked, or pushing a `desktop-v*` tag,
+publishes a GitHub release.
 
 For development on Linux or macOS, `cargo run` works too. Set `NEKO_APPEARANCE=light` or
-`NEKO_APPEARANCE=dark` to force an appearance when taking screenshots.
+`NEKO_APPEARANCE=dark` to force an appearance for screenshots.
 
 ## Layout
 
 | File | Purpose |
 | --- | --- |
-| `src/api.rs` | MangaDex API client and response parsing |
-| `src/jobs.rs` | Background thread pools for API calls and image downloads |
-| `src/images.rs` | Texture cache with least-recently-used eviction |
-| `src/library.rs` | Library, reading progress, and settings persisted as JSON |
+| `src/api.rs` | MangaDex API client: titles, chapters, pages, tags, follows, statuses, read markers |
+| `src/auth.rs` | Personal-client sign-in, token refresh, and Credential Manager storage |
+| `src/search.rs` | MangaDex filters (Comix vocabulary), the MangaBaka client and filters, and matching to MangaDex |
+| `src/jobs.rs` | Background thread pools, image decoding, blurring, and border cropping |
+| `src/images.rs` | Texture cache with least-recently-used eviction and fade-in |
+| `src/library.rs` | Library, progress, statuses, and settings persisted as JSON |
+| `src/glass.rs` | Window material (Mica/Acrylic), frosted panels, and keep-awake |
 | `src/theme.rs` | Design tokens: colors, type scale, spacing, fonts |
-| `src/widgets.rs` | Buttons, segmented control, search field, symbols, and more |
-| `src/app.rs` | App state, navigation, and the sidebar shell |
-| `src/browse.rs`, `library_view.rs`, `details.rs`, `settings_view.rs`, `reader.rs` | Screens |
+| `src/widgets.rs` | Buttons, chips, segmented control, switch, slider, search field, symbols |
+| `src/app.rs` | App state, navigation, sync, and the sidebar shell |
+| `src/browse.rs`, `filters_view.rs`, `library_view.rs`, `details.rs`, `settings_view.rs`, `reader.rs` | Screens |
 
-Inter is licensed under the SIL Open Font License; see `assets/fonts/OFL.txt`.
+Neko is unofficial and isn't affiliated with MangaDex, MangaBaka, or Comix. MangaBaka data is
+free for personal, non-commercial use with credit to MangaBaka and its sources. Inter is
+licensed under the SIL Open Font License; see `assets/fonts/OFL.txt`.

@@ -14,14 +14,7 @@ use crate::widgets::{self, Icon};
 pub const COVER_ASPECT: f32 = 1.5;
 
 /// Paints a cover filling `rect` (cropping to fit), or a placeholder while it loads.
-pub fn paint_cover(
-    ui: &Ui,
-    images: &mut Images,
-    jobs: &Jobs,
-    manga: &Manga,
-    rect: Rect,
-    corner: u8,
-) {
+pub fn paint_cover(ui: &Ui, images: &mut Images, jobs: &Jobs, manga: &Manga, rect: Rect, corner: u8) {
     let p = Palette::of(ui.ctx());
     let size = if rect.width() > 140.0 {
         CoverSize::Large
@@ -32,10 +25,18 @@ pub fn paint_cover(
         .cover_url(size)
         .map(|url| images.get(jobs, ui.ctx(), &url, ImageKind::Cover));
     match state {
-        Some(ImageState::Ready(tex)) => {
-            let uv = aspect_fill_uv(texture_size(tex), rect.size());
-            egui::Image::new(egui::load::SizedTexture::from_handle(tex))
+        Some(ImageState::Ready(loaded)) => {
+            let now = ui.input(|i| i.time);
+            let fade = loaded.fade(now);
+            if fade < 1.0 {
+                ui.painter()
+                    .rect_filled(rect, CornerRadius::same(corner), p.placeholder);
+                ui.ctx().request_repaint();
+            }
+            let uv = aspect_fill_uv(texture_size(&loaded.texture), rect.size());
+            egui::Image::new(egui::load::SizedTexture::from_handle(&loaded.texture))
                 .uv(uv)
+                .tint(egui::Color32::from_white_alpha((255.0 * fade) as u8))
                 .corner_radius(CornerRadius::same(corner))
                 .paint_at(ui, rect);
         }
@@ -118,40 +119,19 @@ pub fn cover_card(
         // A small badge so library titles stand out while browsing; it's labeled for screen readers
         // through the card's tooltip.
         let badge = Rect::from_min_size(cover.right_top() + vec2(-30.0, 8.0), Vec2::splat(22.0));
-        ui.painter()
-            .circle_filled(badge.center(), 11.0, p.accent_fill);
-        widgets::paint_icon(
-            ui.painter(),
-            Icon::Check,
-            badge.shrink(5.0),
-            egui::Color32::WHITE,
-        );
+        ui.painter().circle_filled(badge.center(), 11.0, p.accent_fill);
+        widgets::paint_icon(ui.painter(), Icon::Check, badge.shrink(5.0), egui::Color32::WHITE);
     }
     widgets::focus_ring(ui, &response, cover, radius::COVER);
 
     let mut y = cover.bottom() + space::S;
-    let title = widgets::wrapped_text(
-        ui,
-        &manga.title,
-        font(13.0, Weight::Semibold),
-        p.label,
-        width,
-        2,
-    );
+    let title = widgets::wrapped_text(ui, &manga.title, font(13.0, Weight::Semibold), p.label, width, 2);
     let title_h = title.size().y;
     ui.painter().galley(pos2(rect.left(), y), title, p.label);
     y += title_h + 2.0;
     if !caption.is_empty() {
-        let cap = widgets::wrapped_text(
-            ui,
-            caption,
-            text::subheadline(),
-            p.secondary_label,
-            width,
-            1,
-        );
-        ui.painter()
-            .galley(pos2(rect.left(), y), cap, p.secondary_label);
+        let cap = widgets::wrapped_text(ui, caption, text::subheadline(), p.secondary_label, width, 1);
+        ui.painter().galley(pos2(rect.left(), y), cap, p.secondary_label);
     }
     let response = if in_library {
         response.on_hover_text("In your library")
@@ -192,11 +172,10 @@ pub fn grid<T>(
                 let top = ui.cursor().top();
                 let origin_y = top - ui.min_rect().top();
                 // Translate the viewport into row indices, leaving one row of slack each way.
-                let first = (((viewport.top() - origin_y) / row_h).floor().max(0.0) as usize)
-                    .saturating_sub(1);
-                let last = ((((viewport.bottom() - origin_y) / row_h).ceil().max(0.0)) as usize
-                    + 1)
-                .min(rows);
+                let first =
+                    (((viewport.top() - origin_y) / row_h).floor().max(0.0) as usize).saturating_sub(1);
+                let last =
+                    ((((viewport.bottom() - origin_y) / row_h).ceil().max(0.0)) as usize + 1).min(rows);
                 ui.allocate_space(vec2(avail, row_h * rows as f32));
                 for row in first..last {
                     for col in 0..cols {
@@ -224,4 +203,26 @@ pub fn grid<T>(
             });
         });
     reached_end
+}
+
+/// A cover blurred into a soft wash of its colors, used behind the title header.
+pub fn paint_cover_backdrop(
+    ui: &Ui,
+    images: &mut Images,
+    jobs: &Jobs,
+    manga: &Manga,
+    rect: Rect,
+    strength: f32,
+) {
+    let Some(url) = manga.cover_url(CoverSize::Small) else {
+        return;
+    };
+    if let ImageState::Ready(loaded) = images.get(jobs, ui.ctx(), &url, ImageKind::CoverBlur) {
+        let fade = loaded.fade(ui.input(|i| i.time)) * strength;
+        let uv = aspect_fill_uv(texture_size(&loaded.texture), rect.size());
+        egui::Image::new(egui::load::SizedTexture::from_handle(&loaded.texture))
+            .uv(uv)
+            .tint(egui::Color32::from_white_alpha((255.0 * fade) as u8))
+            .paint_at(ui, rect);
+    }
 }

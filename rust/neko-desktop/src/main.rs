@@ -5,14 +5,18 @@
 
 mod api;
 mod app;
+mod auth;
 mod browse;
 mod cards;
 mod details;
+mod filters_view;
+mod glass;
 mod images;
 mod jobs;
 mod library;
 mod library_view;
 mod reader;
+mod search;
 mod settings_view;
 mod theme;
 mod widgets;
@@ -34,7 +38,9 @@ fn main() -> eframe::Result {
         .with_title("Neko")
         .with_app_id("org.neko.desktop")
         .with_inner_size([1280.0, 820.0])
-        .with_min_inner_size([900.0, 600.0]);
+        .with_min_inner_size([960.0, 620.0])
+        // A transparent surface lets the Windows Mica material show through the sidebar.
+        .with_transparent(cfg!(windows));
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
     }
@@ -43,9 +49,5 @@ fn main() -> eframe::Result {
         persist_window: true,
         ..Default::default()
     };
-    eframe::run_native(
-        "Neko",
-        options,
-        Box::new(|cc| Ok(Box::new(app::App::new(cc)))),
-    )
+    eframe::run_native("Neko", options, Box::new(|cc| Ok(Box::new(app::App::new(cc)))))
 }

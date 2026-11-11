@@ -2,12 +2,16 @@
 //!
 //! Every call here runs on a background worker thread (see `jobs.rs`), never on the UI thread.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context as _, Result, bail};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
+
+use crate::auth::Session;
+use crate::search::{Search, Sort};
 
 pub const API: &str = "https://api.mangadex.org";
 pub const UPLOADS: &str = "https://uploads.mangadex.org";
@@ -49,11 +53,20 @@ pub struct Manga {
     pub tags: Vec<String>,
     #[serde(default)]
     pub languages: Vec<String>,
+    /// IDs on other sites, keyed by MangaDex's short names (`al`, `mal`, `mu`, `kt`, ...).
+    #[serde(default)]
+    pub links: BTreeMap<String, String>,
+    /// A cover from another catalog (MangaBaka), used before the MangaDex cover is known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover_override: Option<String>,
 }
 
 impl Manga {
     /// Cover thumbnail URL. MangaDex serves 256 px and 512 px wide variants.
     pub fn cover_url(&self, width: CoverSize) -> Option<String> {
+        if let Some(url) = &self.cover_override {
+            return Some(url.clone());
+        }
         let file = self.cover_file.as_ref()?;
         let suffix = match width {
             CoverSize::Small => ".256.jpg",
@@ -209,8 +222,35 @@ impl Filters {
     }
 }
 
+/// A MangaDex tag, used by the search filters.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Tag {
+    pub id: String,
+    pub name: String,
+    /// `genre`, `theme`, `format`, or `content`.
+    pub group: String,
+}
+
+/// Reading statuses MangaDex keeps for signed-in people.
+pub const READING_STATUSES: [(&str, &str); 6] = [
+    ("reading", "Reading"),
+    ("on_hold", "On Hold"),
+    ("plan_to_read", "Plan to Read"),
+    ("re_reading", "Re-reading"),
+    ("completed", "Completed"),
+    ("dropped", "Dropped"),
+];
+
+pub fn reading_status_label(status: &str) -> &str {
+    READING_STATUSES
+        .iter()
+        .find(|(k, _)| *k == status)
+        .map_or(status, |(_, l)| l)
+}
+
 pub struct Client {
-    http: reqwest::blocking::Client,
+    pub(crate) http: reqwest::blocking::Client,
+    pub session: Arc<Session>,
 }
 
 impl Client {
@@ -220,7 +260,185 @@ impl Client {
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(45))
             .build()?;
-        Ok(Self { http })
+        let session = Arc::new(Session::load());
+        Ok(Self { http, session })
+    }
+
+    /// A request on behalf of the signed-in person.
+    fn authed(
+        &self,
+        method: reqwest::Method,
+        url: &str,
+        query: &[(&str, String)],
+        body: Option<Value>,
+    ) -> Result<Value> {
+        let token = self.session.access_token(&self.http)?;
+        let mut req = self.http.request(method, url).bearer_auth(token).query(query);
+        if let Some(body) = body {
+            req = req.json(&body);
+        }
+        let resp = req.send().context("Couldn't reach MangaDex")?;
+        let status = resp.status();
+        let text = resp.text().unwrap_or_default();
+        let body: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+        if !status.is_success() || body["result"] == "error" {
+            let detail = body["errors"][0]["detail"].as_str().unwrap_or("");
+            bail!(
+                "MangaDex returned {status}{}",
+                if detail.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {detail}")
+                }
+            );
+        }
+        Ok(body)
+    }
+
+    /// The signed-in person's username.
+    pub fn me(&self) -> Result<String> {
+        let body = self.authed(reqwest::Method::GET, &format!("{API}/user/me"), &[], None)?;
+        Ok(body["data"]["attributes"]["username"]
+            .as_str()
+            .unwrap_or("")
+            .to_owned())
+    }
+
+    /// Every title the signed-in person follows.
+    pub fn follows(&self) -> Result<Vec<Manga>> {
+        let mut out = Vec::new();
+        let mut offset = 0u32;
+        loop {
+            let q = [
+                ("limit", "100".to_owned()),
+                ("offset", offset.to_string()),
+                ("includes[]", "cover_art".to_owned()),
+                ("includes[]", "author".to_owned()),
+                ("includes[]", "artist".to_owned()),
+            ];
+            let body = self.authed(
+                reqwest::Method::GET,
+                &format!("{API}/user/follows/manga"),
+                &q,
+                None,
+            )?;
+            let batch: Vec<Manga> = body["data"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(parse_manga)
+                .collect();
+            let total = body["total"].as_u64().unwrap_or(0) as u32;
+            offset += batch.len() as u32;
+            let done = batch.is_empty() || offset >= total;
+            out.extend(batch);
+            if done {
+                return Ok(out);
+            }
+        }
+    }
+
+    /// Reading status for every title that has one.
+    pub fn reading_statuses(&self) -> Result<HashMap<String, String>> {
+        let body = self.authed(reqwest::Method::GET, &format!("{API}/manga/status"), &[], None)?;
+        Ok(body["statuses"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_owned())))
+            .collect())
+    }
+
+    /// Sets or clears a title's reading status.
+    pub fn set_reading_status(&self, manga_id: &str, status: Option<&str>) -> Result<()> {
+        let body = json!({ "status": status });
+        self.authed(
+            reqwest::Method::POST,
+            &format!("{API}/manga/{manga_id}/status"),
+            &[],
+            Some(body),
+        )?;
+        Ok(())
+    }
+
+    pub fn set_follow(&self, manga_id: &str, follow: bool) -> Result<()> {
+        let method = if follow {
+            reqwest::Method::POST
+        } else {
+            reqwest::Method::DELETE
+        };
+        self.authed(method, &format!("{API}/manga/{manga_id}/follow"), &[], None)?;
+        Ok(())
+    }
+
+    /// Chapter IDs the signed-in person has read in a title.
+    pub fn read_markers(&self, manga_id: &str) -> Result<Vec<String>> {
+        let body = self.authed(
+            reqwest::Method::GET,
+            &format!("{API}/manga/{manga_id}/read"),
+            &[],
+            None,
+        )?;
+        Ok(body["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(str::to_owned))
+            .collect())
+    }
+
+    pub fn set_read_markers(&self, manga_id: &str, read: &[String], unread: &[String]) -> Result<()> {
+        let body = json!({ "chapterIdsRead": read, "chapterIdsUnread": unread });
+        self.authed(
+            reqwest::Method::POST,
+            &format!("{API}/manga/{manga_id}/read"),
+            &[],
+            Some(body),
+        )?;
+        Ok(())
+    }
+
+    /// All MangaDex tags, for the search filters.
+    pub fn tags(&self) -> Result<Vec<Tag>> {
+        let body = self.get_json(&format!("{API}/manga/tag"), &[])?;
+        let mut tags: Vec<Tag> = body["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|t| Tag {
+                id: t["id"].as_str().unwrap_or_default().to_owned(),
+                name: t["attributes"]["name"]["en"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+                group: t["attributes"]["group"].as_str().unwrap_or_default().to_owned(),
+            })
+            .collect();
+        tags.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(tags)
+    }
+
+    /// Finds MangaDex titles by name; used to open titles found on other catalogs.
+    pub fn find_by_title(&self, title: &str) -> Result<Vec<Manga>> {
+        let q = [
+            ("title", title.to_owned()),
+            ("limit", "20".to_owned()),
+            ("includes[]", "cover_art".to_owned()),
+            ("includes[]", "author".to_owned()),
+            ("includes[]", "artist".to_owned()),
+            ("order[relevance]", "desc".to_owned()),
+            ("contentRating[]", "safe".to_owned()),
+            ("contentRating[]", "suggestive".to_owned()),
+            ("contentRating[]", "erotica".to_owned()),
+            ("contentRating[]", "pornographic".to_owned()),
+        ];
+        let body = self.get_json(&format!("{API}/manga"), &q)?;
+        Ok(body["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(parse_manga)
+            .collect())
     }
 
     fn get_json(&self, url: &str, query: &[(&str, String)]) -> Result<Value> {
@@ -235,10 +453,7 @@ impl Client {
             .json()
             .context("MangaDex sent a response Neko couldn't read")?;
         if !status.is_success() || body["result"] == "error" {
-            let detail = body["errors"][0]["detail"]
-                .as_str()
-                .unwrap_or("")
-                .to_owned();
+            let detail = body["errors"][0]["detail"].as_str().unwrap_or("").to_owned();
             bail!(
                 "MangaDex returned {status}{}",
                 if detail.is_empty() {
@@ -266,6 +481,7 @@ impl Client {
         query: &str,
         offset: u32,
         filters: &Filters,
+        search: &Search,
     ) -> Result<Page<Manga>> {
         let mut q: Vec<(&str, String)> = vec![
             ("limit", "32".into()),
@@ -277,13 +493,21 @@ impl Client {
             ("availableTranslatedLanguage[]", filters.language.clone()),
         ];
         q.extend(filters.ratings());
+        search.apply(&mut q);
         let query = query.trim();
-        if query.is_empty() {
-            let (k, v) = feed.order();
-            q.push((k, v.into()));
-        } else {
+        if !query.is_empty() {
             q.push(("title", query.into()));
-            q.push(("order[relevance]", "desc".into()));
+        }
+        match (search.sort, query.is_empty()) {
+            (Some(sort), _) if sort != Sort::Relevance || !query.is_empty() => {
+                let (k, v) = sort.mangadex_order();
+                q.push((k, v.into()));
+            }
+            (_, true) => {
+                let (k, v) = feed.order();
+                q.push((k, v.into()));
+            }
+            (_, false) => q.push(("order[relevance]", "desc".into())),
         }
         let body = self.get_json(&format!("{API}/manga"), &q)?;
         Ok(Page {
@@ -345,11 +569,7 @@ impl Client {
 
     /// Image URLs for a chapter's pages. The first list uses the MangaDex@Home server MangaDex
     /// assigns; the second is the origin server, used when a page fails from the first.
-    pub fn page_urls(
-        &self,
-        chapter_id: &str,
-        data_saver: bool,
-    ) -> Result<(Vec<String>, Vec<String>)> {
+    pub fn page_urls(&self, chapter_id: &str, data_saver: bool) -> Result<(Vec<String>, Vec<String>)> {
         let body = self.get_json(&format!("{API}/at-home/server/{chapter_id}"), &[])?;
         let base = body["baseUrl"]
             .as_str()
@@ -453,6 +673,13 @@ pub fn parse_manga(v: &Value) -> Manga {
         demographic: a["publicationDemographic"].as_str().map(str::to_owned),
         tags,
         languages,
+        links: a["links"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_owned())))
+            .collect(),
+        cover_override: None,
     }
 }
 
@@ -474,9 +701,7 @@ fn parse_chapter(v: &Value) -> Chapter {
         language: s("translatedLanguage").unwrap_or_default(),
         pages: a["pages"].as_u64().unwrap_or(0) as u32,
         group,
-        published: s("readableAt")
-            .or_else(|| s("publishAt"))
-            .unwrap_or_default(),
+        published: s("readableAt").or_else(|| s("publishAt")).unwrap_or_default(),
         external_url: s("externalUrl"),
     }
 }
