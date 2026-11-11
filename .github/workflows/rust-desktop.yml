@@ -1,0 +1,54 @@
+name: Neko Desktop (Rust)
+
+on:
+  push:
+    paths:
+      - "rust/neko-desktop/**"
+      - ".github/workflows/rust-desktop.yml"
+  pull_request:
+    paths:
+      - "rust/neko-desktop/**"
+      - ".github/workflows/rust-desktop.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: rust/neko-desktop
+
+jobs:
+  windows:
+    name: Build and test on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/neko-desktop/target
+          key: windows-cargo-${{ hashFiles('rust/neko-desktop/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build release
+        run: cargo build --release --locked
+
+      - name: Upload Neko.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Neko-windows-x64
+          path: rust/neko-desktop/target/release/neko-desktop.exe
