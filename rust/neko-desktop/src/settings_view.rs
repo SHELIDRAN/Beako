@@ -27,6 +27,9 @@ impl App {
                 section_label(ui, "MangaDex Account");
                 self.account_group(ui, &mut settings.pause_sync);
 
+                section_label(ui, "Comick");
+                self.comick_group(ui);
+
                 section_label(ui, "Chapters");
                 group(ui, |ui| {
                     row(ui, "Chapter Language", Some("Browse shows titles with chapters in this language."), |ui| {
@@ -100,6 +103,128 @@ impl App {
         {
             self.library.settings = settings;
             self.library.save();
+        }
+    }
+
+    fn comick_group(&mut self, ui: &mut Ui) {
+        let p = Palette::of(ui.ctx());
+        match self.comick.username.clone() {
+            Some(name) => group(ui, |ui| {
+                row(
+                    ui,
+                    &format!("Connected as {name}"),
+                    Some("Track titles from their pages in Neko."),
+                    |ui| {
+                        if widgets::button(ui, ButtonStyle::Bordered, None, "Disconnect").clicked() {
+                            self.actions.push(Action::ComickDisconnect);
+                        }
+                    },
+                );
+                divider(ui);
+                let mut auto = self.library.settings.comick_auto_progress();
+                row(
+                    ui,
+                    "Update Progress Automatically",
+                    Some("When you finish a chapter, Neko updates its chapter on Comick."),
+                    |ui| {
+                        widgets::toggle(ui, &mut auto, "Update Progress Automatically");
+                    },
+                );
+                if auto != self.library.settings.comick_auto_progress() {
+                    self.library.settings.comick_auto_progress = Some(auto);
+                    self.library.save();
+                }
+            }),
+            None => group(ui, |ui| {
+                ui.add_space(space::M);
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(
+                            "Track your reading on Comick. Register an app on comick.dev under Developer apps: \
+                             choose “Browser or mobile app without a private backend” and “Native mobile or \
+                             desktop app”, allow library:write, and add the callback URL below. Then paste the \
+                             app’s client ID here and connect. Comick opens in your browser to approve access.",
+                        )
+                        .font(text::callout())
+                        .color(p.secondary_label),
+                    )
+                    .wrap(),
+                );
+                ui.add_space(space::S);
+                if widgets::button(
+                    ui,
+                    ButtonStyle::Plain,
+                    Some(Icon::External),
+                    "Open Comick Developer Apps",
+                )
+                .clicked()
+                {
+                    self.actions
+                        .push(Action::OpenUrl("https://comick.dev/developers/apps".into()));
+                }
+                ui.add_space(space::S);
+                egui::Grid::new("comick")
+                    .num_columns(2)
+                    .spacing([space::M, space::S])
+                    .show(ui, |ui| {
+                        ui.label(RichText::new("Callback URL").font(text::body()).color(p.label));
+                        ui.horizontal(|ui| {
+                            let mut url = crate::comick::CALLBACK_URL.to_owned();
+                            ui.add(
+                                egui::TextEdit::singleline(&mut url)
+                                    .desired_width(300.0)
+                                    .interactive(false)
+                                    .margin(egui::Margin::symmetric(10, 6)),
+                            );
+                            if widgets::button(ui, ButtonStyle::Bordered, None, "Copy").clicked() {
+                                ui.ctx().copy_text(crate::comick::CALLBACK_URL.to_owned());
+                                self.actions
+                                    .push(Action::Notice("Copied the callback URL".into()));
+                            }
+                        });
+                        ui.end_row();
+                        ui.label(RichText::new("Client ID").font(text::body()).color(p.label));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.library.settings.comick_client_id)
+                                .hint_text("From your Comick developer app")
+                                .desired_width(320.0)
+                                .margin(egui::Margin::symmetric(10, 6)),
+                        );
+                        ui.end_row();
+                    });
+                ui.add_space(space::S);
+                if let Some(err) = &self.comick.error {
+                    ui.add(egui::Label::new(RichText::new(err).font(text::callout()).color(p.accent)).wrap());
+                    ui.add_space(space::XS);
+                }
+                ui.horizontal(|ui| {
+                    let busy = self.comick.busy;
+                    ui.add_enabled_ui(
+                        !busy && !self.library.settings.comick_client_id.trim().is_empty(),
+                        |ui| {
+                            if widgets::button(
+                                ui,
+                                ButtonStyle::Prominent,
+                                Some(Icon::Person),
+                                "Connect Comick",
+                            )
+                            .clicked()
+                            {
+                                self.actions.push(Action::ComickConnect);
+                            }
+                        },
+                    );
+                    if busy {
+                        widgets::spinner(ui, 18.0);
+                        ui.label(
+                            RichText::new("Waiting for you to approve in the browser…")
+                                .font(text::callout())
+                                .color(p.secondary_label),
+                        );
+                    }
+                });
+                ui.add_space(space::M);
+            }),
         }
     }
 

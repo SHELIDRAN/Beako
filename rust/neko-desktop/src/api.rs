@@ -251,6 +251,7 @@ pub fn reading_status_label(status: &str) -> &str {
 pub struct Client {
     pub(crate) http: reqwest::blocking::Client,
     pub session: Arc<Session>,
+    pub comick: Arc<crate::comick::ComickSession>,
 }
 
 impl Client {
@@ -261,7 +262,12 @@ impl Client {
             .timeout(Duration::from_secs(45))
             .build()?;
         let session = Arc::new(Session::load());
-        Ok(Self { http, session })
+        let comick = Arc::new(crate::comick::ComickSession::load());
+        Ok(Self {
+            http,
+            session,
+            comick,
+        })
     }
 
     /// A request on behalf of the signed-in person.

@@ -11,6 +11,7 @@ use eframe::egui::{self, ColorImage};
 
 use crate::api::{Chapter, Client, Feed, Filters, Manga, Page, Tag};
 use crate::auth::Credentials;
+use crate::comick::{Chart, ComickSearch, ComickTag, Genre, LibraryEntry};
 use crate::search::{BakaSearch, BakaSeries, Search};
 
 /// A decoded image plus, for pages, a tiny blurred copy used as the frosted-glass backdrop
@@ -66,6 +67,24 @@ pub enum Event {
     },
     /// A background write to MangaDex failed.
     Notice(String),
+    ComickList {
+        request: u64,
+        result: Result<Page<BakaSeries>, String>,
+    },
+    ComickChart {
+        chart: Chart,
+        days: u32,
+        result: Result<Vec<BakaSeries>, String>,
+    },
+    ComickGenres(Result<Vec<Genre>, String>),
+    ComickTags(Result<Vec<ComickTag>, String>),
+    /// The connected Comick username, `None` after disconnecting, or why connecting failed.
+    ComickAccount(Result<Option<String>, String>),
+    /// A title's Comick library entry: `Ok(None)` when it's linked but not in the library.
+    ComickEntry {
+        manga_id: String,
+        result: Result<Option<LibraryEntry>, String>,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
@@ -120,6 +139,100 @@ impl Jobs {
 
     pub fn signed_in_as(&self) -> Option<String> {
         self.client.session.username()
+    }
+
+    pub fn comick_user(&self) -> Option<String> {
+        self.client.comick.username()
+    }
+
+    pub fn comick_search(
+        &self,
+        request: u64,
+        query: String,
+        page: u32,
+        search: ComickSearch,
+        filters: Filters,
+    ) {
+        self.send(&self.api, move |c| Event::ComickList {
+            request,
+            result: c.comick_search(&query, page, &search, &filters).map_err(err),
+        });
+    }
+
+    pub fn comick_chart(&self, chart: Chart, days: u32, filters: Filters) {
+        self.send(&self.api, move |c| Event::ComickChart {
+            chart,
+            days,
+            result: c.comick_chart(chart, days, &filters).map_err(err),
+        });
+    }
+
+    pub fn comick_catalog(&self) {
+        self.send(&self.api, |c| Event::ComickGenres(c.comick_genres().map_err(err)));
+        self.send(&self.api, |c| Event::ComickTags(c.comick_tags().map_err(err)));
+    }
+
+    pub fn comick_connect(&self, client_id: String) {
+        // Waiting on the browser can take minutes, so this runs on its own thread.
+        let tx = self.events_tx.clone();
+        let ctx = self.ctx.clone();
+        let client = Arc::clone(&self.client);
+        std::thread::spawn(move || {
+            let result = client
+                .comick
+                .connect(&client.http, &client_id)
+                .map(Some)
+                .map_err(err);
+            let _ = tx.send(Event::ComickAccount(result));
+            ctx.request_repaint();
+        });
+    }
+
+    pub fn comick_disconnect(&self) {
+        self.client.comick.sign_out();
+        let _ = self.events_tx.send(Event::ComickAccount(Ok(None)));
+    }
+
+    /// Finds the title on Comick and loads its library entry.
+    pub fn comick_link(&self, manga: Manga) {
+        self.send(&self.api, move |c| {
+            let result = c.comick_find(&manga).and_then(|series| {
+                let hid = series.hid.clone().unwrap_or_default();
+                let found = c.comick.entry(&c.http, &hid)?;
+                Ok(Some(found.unwrap_or(LibraryEntry {
+                    hid,
+                    title: series.title,
+                    ..Default::default()
+                })))
+            });
+            Event::ComickEntry {
+                manga_id: manga.id,
+                result: result.map_err(err),
+            }
+        });
+    }
+
+    pub fn comick_refresh(&self, manga_id: String, hid: String) {
+        self.send(&self.api, move |c| {
+            let result = c.comick.entry(&c.http, &hid).map(Some).map_err(err);
+            Event::ComickEntry {
+                manga_id,
+                result: result.map(|e| e.flatten()),
+            }
+        });
+    }
+
+    pub fn comick_save(&self, manga_id: String, entry: LibraryEntry) {
+        self.send(&self.api, move |c| {
+            let result = c.comick.save_entry(&c.http, &entry).map(Some).map_err(err);
+            Event::ComickEntry { manga_id, result }
+        });
+    }
+
+    pub fn comick_remove(&self, hid: String) {
+        self.write("remove the title from your Comick library", move |c| {
+            c.comick.remove_entry(&c.http, &hid)
+        });
     }
 
     pub fn drain(&self) -> impl Iterator<Item = Event> + '_ {

@@ -30,6 +30,9 @@ impl App {
         let mut newest_first = details.newest_first;
         let mut expanded = details.expanded;
         let signed_in = self.account.username.is_some();
+        let comick_connected = self.comick.username.is_some();
+        let comick_entry = self.library.comick.get(&manga.id).cloned();
+        let comick_linking = self.comick.linking.contains(&manga.id);
         let status = self.library.statuses.get(&manga.id).cloned();
         let actions = &mut self.actions;
         let images = &mut self.images;
@@ -131,6 +134,10 @@ impl App {
                         }
                     }
 
+                    if comick_connected {
+                        ui.add_space(space::XL);
+                        tracking_row(ui, &manga, comick_entry.as_ref(), comick_linking, actions);
+                    }
                     ui.add_space(space::XXL);
                     chapter_section(
                         ui,
@@ -492,4 +499,111 @@ fn status_picker(ui: &mut Ui, manga_id: &str, current: Option<&str>, actions: &m
             status: choice,
         });
     }
+}
+
+/// The Comick tracker for this title: link it, then set status, see progress, and rate it.
+fn tracking_row(
+    ui: &mut Ui,
+    manga: &Manga,
+    entry: Option<&crate::comick::LibraryEntry>,
+    linking: bool,
+    actions: &mut Vec<Action>,
+) {
+    use crate::comick::{LIST_STATUSES, list_status_label};
+    let p = Palette::of(ui.ctx());
+    egui::Frame::NONE
+        .fill(p.grouped_background)
+        .corner_radius(CornerRadius::same(radius::GROUP))
+        .inner_margin(egui::Margin::symmetric(16, 12))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width().min(760.0));
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(RichText::new("Comick").font(text::headline()).color(p.label));
+                    let detail = match entry {
+                        None => "Not tracked".to_owned(),
+                        Some(e) if e.status.is_none() => {
+                            format!("Found “{}”, not in your Comick library", e.title)
+                        }
+                        Some(e) => {
+                            let mut parts = vec![list_status_label(e.status.unwrap_or(1)).to_owned()];
+                            if let Some(pr) = &e.progress {
+                                parts.push(format!("Chapter {pr}"));
+                            }
+                            if let Some(r) = e.rating.filter(|r| *r > 0) {
+                                parts.push(format!("★ {r}"));
+                            }
+                            parts.join("  ·  ")
+                        }
+                    };
+                    ui.label(
+                        RichText::new(detail)
+                            .font(text::subheadline())
+                            .color(p.secondary_label),
+                    );
+                });
+                ui.with_layout(
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| match entry {
+                        _ if linking => widgets::spinner(ui, 18.0),
+                        None => {
+                            if widgets::button(ui, ButtonStyle::Bordered, Some(Icon::Plus), "Track on Comick")
+                                .clicked()
+                            {
+                                actions.push(Action::ComickLink(manga.clone()));
+                            }
+                        }
+                        Some(e) if e.status.is_none() => {
+                            if widgets::button(ui, ButtonStyle::Bordered, Some(Icon::Plus), "Add to Comick")
+                                .clicked()
+                            {
+                                let mut added = e.clone();
+                                added.status = Some(5);
+                                actions.push(Action::ComickSave {
+                                    manga_id: manga.id.clone(),
+                                    entry: added,
+                                });
+                            }
+                        }
+                        Some(e) => {
+                            if widgets::button(ui, ButtonStyle::Plain, None, "Remove").clicked() {
+                                actions.push(Action::ComickUnlink(manga.id.clone()));
+                            }
+                            let mut rating = e.rating.unwrap_or(0);
+                            egui::ComboBox::from_id_salt(("comick-rating", &manga.id))
+                                .selected_text(if rating == 0 {
+                                    "No Score".to_owned()
+                                } else {
+                                    format!("★ {rating}")
+                                })
+                                .width(96.0)
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut rating, 0, "No Score");
+                                    for r in (1..=10).rev() {
+                                        ui.selectable_value(&mut rating, r, format!("★ {r}"));
+                                    }
+                                });
+                            let mut status = e.status.unwrap_or(1);
+                            egui::ComboBox::from_id_salt(("comick-status", &manga.id))
+                                .selected_text(list_status_label(status))
+                                .width(130.0)
+                                .show_ui(ui, |ui| {
+                                    for (k, label) in LIST_STATUSES {
+                                        ui.selectable_value(&mut status, k, label);
+                                    }
+                                });
+                            if Some(status) != e.status || Some(rating) != e.rating.or(Some(0)) {
+                                let mut updated = e.clone();
+                                updated.status = Some(status);
+                                updated.rating = (rating > 0).then_some(rating);
+                                actions.push(Action::ComickSave {
+                                    manga_id: manga.id.clone(),
+                                    entry: updated,
+                                });
+                            }
+                        }
+                    },
+                );
+            });
+        });
 }

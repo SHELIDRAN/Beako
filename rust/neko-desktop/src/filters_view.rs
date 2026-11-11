@@ -6,6 +6,8 @@
 
 use eframe::egui::{self, CornerRadius, Margin, RichText, ScrollArea, Ui, vec2};
 
+use crate::search::TagState;
+
 use crate::api::Tag;
 use crate::app::{App, Loadable};
 use crate::library::Catalog;
@@ -24,6 +26,7 @@ impl App {
         let p = Palette::of(ui.ctx());
         let before_md = self.library.settings.search.clone();
         let before_baka = self.library.settings.baka.clone();
+        let before_comick = self.library.settings.comick.clone();
         let catalog = self.library.settings.catalog;
         let mut close = false;
 
@@ -60,12 +63,14 @@ impl App {
                     let active = match catalog {
                         Catalog::MangaDex => self.library.settings.search.active_count(),
                         Catalog::MangaBaka => self.library.settings.baka.active_count(),
+                        Catalog::Comick => self.library.settings.comick.active_count(),
                     };
                     ui.add_enabled_ui(active > 0, |ui| {
                         if widgets::button(ui, ButtonStyle::Plain, None, "Reset").clicked() {
                             match catalog {
                                 Catalog::MangaDex => self.library.settings.search.clear(),
                                 Catalog::MangaBaka => self.library.settings.baka = Default::default(),
+                                Catalog::Comick => self.library.settings.comick = Default::default(),
                             }
                         }
                     });
@@ -83,6 +88,16 @@ impl App {
                             mangadex_filters(ui, &mut self.library.settings.search, &tags);
                         }
                         Catalog::MangaBaka => baka_filters(ui, &mut self.library.settings.baka),
+                        Catalog::Comick => {
+                            let genres = self.comick.genres.clone();
+                            comick_filters(
+                                ui,
+                                &mut self.library.settings.comick,
+                                &genres,
+                                &self.comick.tags,
+                                &mut self.comick.tag_query,
+                            );
+                        }
                     }
                     ui.add_space(space::L);
                 });
@@ -91,7 +106,9 @@ impl App {
         if close {
             self.browse.show_filters = false;
         }
-        let changed = before_md != self.library.settings.search || before_baka != self.library.settings.baka;
+        let changed = before_md != self.library.settings.search
+            || before_baka != self.library.settings.baka
+            || before_comick != self.library.settings.comick;
         if changed {
             self.library.save();
         }
@@ -342,4 +359,298 @@ fn baka_filters(ui: &mut Ui, s: &mut search::BakaSearch) {
     tri_state(ui, "anime", &mut s.has_anime, ["Any", "Has Anime", "No Anime"]);
     heading(ui, "Licensed in English", None);
     tri_state(ui, "licensed", &mut s.licensed, ["Any", "Licensed", "Unlicensed"]);
+}
+
+fn comick_filters(
+    ui: &mut Ui,
+    s: &mut crate::comick::ComickSearch,
+    genres: &Loadable<Vec<crate::comick::Genre>>,
+    tags: &Loadable<Vec<crate::comick::ComickTag>>,
+    tag_query: &mut String,
+) {
+    use crate::comick::{CREATED, DEMOGRAPHICS, RATINGS, SORTS, STATUSES, TYPES};
+    let p = Palette::of(ui.ctx());
+
+    heading(ui, "Sort By", None);
+    let current = SORTS
+        .iter()
+        .find(|(k, _)| *k == s.sort)
+        .map_or("Most Followed", |(_, l)| l);
+    egui::ComboBox::from_id_salt("comick-sort")
+        .selected_text(current)
+        .width(SHEET_WIDTH - 70.0)
+        .show_ui(ui, |ui| {
+            for (key, label) in SORTS {
+                ui.selectable_value(&mut s.sort, key.to_owned(), label);
+            }
+        });
+
+    // Tags: type to find one of Comick's thousands of community tags.
+    heading(
+        ui,
+        "Tags",
+        Some("Search, then click once to include or twice to exclude."),
+    );
+    let chosen: Vec<(String, String, TagState)> = s
+        .tags
+        .iter()
+        .map(|(slug, name)| (slug.clone(), name.clone(), TagState::Include))
+        .chain(
+            s.excluded_tags
+                .iter()
+                .map(|(slug, name)| (slug.clone(), name.clone(), TagState::Exclude)),
+        )
+        .collect();
+    if !chosen.is_empty() {
+        wrap(ui, |ui| {
+            for (slug, name, state) in &chosen {
+                if widgets::chip(ui, name, *state).clicked() {
+                    s.set_tag(slug, name, state.next());
+                }
+            }
+        });
+        ui.add_space(space::S);
+    }
+    widgets::search_field(ui, tag_query, "Search tags", SHEET_WIDTH - 70.0);
+    ui.add_space(space::XS);
+    match tags {
+        Loadable::Ready(list) => {
+            let needle = tag_query.trim().to_lowercase();
+            let matches: Vec<&crate::comick::ComickTag> = list
+                .iter()
+                .filter(|t| needle.is_empty() || t.name.to_lowercase().contains(&needle))
+                .filter(|t| s.tag_state(&t.slug) == TagState::Any)
+                .take(if needle.is_empty() { 12 } else { 24 })
+                .collect();
+            if matches.is_empty() {
+                ui.label(
+                    RichText::new("No tags match")
+                        .font(text::subheadline())
+                        .color(p.secondary_label),
+                );
+            }
+            for t in matches {
+                let r = suggestion_row(ui, &t.name, t.count);
+                if r.clicked() {
+                    s.set_tag(&t.slug, &t.name, TagState::Include);
+                } else if r.secondary_clicked() {
+                    s.set_tag(&t.slug, &t.name, TagState::Exclude);
+                }
+            }
+        }
+        Loadable::Failed(e) => {
+            ui.label(RichText::new(format!("Couldn’t load tags: {e}")).font(text::subheadline()));
+        }
+        _ => widgets::spinner(ui, 16.0),
+    }
+
+    heading(ui, "Type", None);
+    wrap(ui, |ui| {
+        for (key, label) in TYPES {
+            toggle_in(ui, &mut s.countries, key, label);
+        }
+    });
+
+    heading(ui, "Demographic", None);
+    wrap(ui, |ui| {
+        for (key, label) in DEMOGRAPHICS {
+            let on = s.demographics.contains(&key);
+            if widgets::choice_chip(ui, label, on).clicked() {
+                if on {
+                    s.demographics.remove(&key);
+                } else {
+                    s.demographics.insert(key);
+                }
+            }
+        }
+    });
+
+    heading(ui, "Status", None);
+    wrap(ui, |ui| {
+        for (key, label) in STATUSES {
+            let on = s.statuses.contains(&key);
+            if widgets::choice_chip(ui, label, on).clicked() {
+                if on {
+                    s.statuses.remove(&key);
+                } else {
+                    s.statuses.insert(key);
+                }
+            }
+        }
+    });
+
+    heading(
+        ui,
+        "Content Rating",
+        Some("Limited by the content settings in Settings."),
+    );
+    wrap(ui, |ui| {
+        for (key, label) in RATINGS {
+            toggle_in(ui, &mut s.content_ratings, key, label);
+        }
+    });
+
+    heading(ui, "Added to Comick", None);
+    let added = CREATED
+        .iter()
+        .find(|(d, _)| *d == s.created_within)
+        .map_or("Any Time", |(_, l)| l);
+    egui::ComboBox::from_id_salt("comick-created")
+        .selected_text(added)
+        .width(160.0)
+        .show_ui(ui, |ui| {
+            for (days, label) in CREATED {
+                ui.selectable_value(&mut s.created_within, days, label);
+            }
+        });
+
+    heading(ui, "Chapters", None);
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("At least")
+                .font(text::callout())
+                .color(p.secondary_label),
+        );
+        widgets::slider(
+            ui,
+            &mut s.min_chapters,
+            0..=500,
+            10,
+            SHEET_WIDTH - 200.0,
+            "Minimum chapters",
+        );
+        ui.label(
+            RichText::new(if s.min_chapters == 0 {
+                "Any".to_owned()
+            } else {
+                s.min_chapters.to_string()
+            })
+            .font(text::callout()),
+        );
+    });
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new("At most")
+                .font(text::callout())
+                .color(p.secondary_label),
+        );
+        ui.add_space(4.0);
+        widgets::slider(
+            ui,
+            &mut s.max_chapters,
+            0..=500,
+            10,
+            SHEET_WIDTH - 200.0,
+            "Maximum chapters",
+        );
+        ui.label(
+            RichText::new(if s.max_chapters == 0 {
+                "Any".to_owned()
+            } else {
+                s.max_chapters.to_string()
+            })
+            .font(text::callout()),
+        );
+    });
+
+    heading(ui, "Minimum Score", None);
+    ui.horizontal(|ui| {
+        widgets::slider(
+            ui,
+            &mut s.min_score,
+            0..=9,
+            1,
+            SHEET_WIDTH - 140.0,
+            "Minimum score",
+        );
+        let label = if s.min_score == 0 {
+            "Any".to_owned()
+        } else {
+            format!("★ {}+", s.min_score)
+        };
+        ui.label(
+            RichText::new(label)
+                .font(text::callout())
+                .color(p.secondary_label),
+        );
+    });
+
+    heading(ui, "Published", None);
+    ui.horizontal(|ui| {
+        year_picker(ui, "comick-from", &mut s.year_from, 105.0);
+        ui.label(RichText::new("to").font(text::callout()).color(p.secondary_label));
+        year_picker(ui, "comick-to", &mut s.year_to, 105.0);
+    });
+
+    match genres {
+        Loadable::Ready(list) => {
+            for (group, title) in [
+                ("genre", "Genres"),
+                ("theme", "Themes"),
+                ("format", "Formats"),
+                ("content", "Content"),
+            ] {
+                let items: Vec<&crate::comick::Genre> = list.iter().filter(|g| g.group == group).collect();
+                if items.is_empty() {
+                    continue;
+                }
+                heading(
+                    ui,
+                    title,
+                    (group == "genre").then_some("Click once to include, twice to exclude."),
+                );
+                wrap(ui, |ui| {
+                    for g in items {
+                        let state = s.genre_state(&g.slug);
+                        if widgets::chip(ui, &g.name, state).clicked() {
+                            s.set_genre(&g.slug, state.next());
+                        }
+                    }
+                });
+            }
+        }
+        Loadable::Failed(e) => {
+            heading(ui, "Genres", None);
+            ui.label(RichText::new(format!("Couldn’t load genres: {e}")).font(text::subheadline()));
+        }
+        _ => {
+            heading(ui, "Genres", None);
+            widgets::spinner(ui, 16.0);
+        }
+    }
+}
+
+/// A row in the tag suggestions: the name and how many titles use it. Right-click excludes.
+fn suggestion_row(ui: &mut Ui, name: &str, count: u32) -> egui::Response {
+    let p = Palette::of(ui.ctx());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 30.0), egui::Sense::click());
+    response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, format!("Include tag {name}")));
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, CornerRadius::same(crate::theme::radius::CONTROL), p.fill);
+    }
+    let plus = egui::Rect::from_center_size(
+        egui::pos2(rect.left() + 14.0, rect.center().y),
+        egui::Vec2::splat(12.0),
+    );
+    widgets::paint_icon(ui.painter(), crate::widgets::Icon::Plus, plus, p.accent);
+    ui.painter().text(
+        egui::pos2(rect.left() + 30.0, rect.center().y),
+        egui::Align2::LEFT_CENTER,
+        name,
+        text::callout(),
+        p.label,
+    );
+    ui.painter().text(
+        egui::pos2(rect.right() - 8.0, rect.center().y),
+        egui::Align2::RIGHT_CENTER,
+        count.to_string(),
+        text::subheadline(),
+        p.secondary_label,
+    );
+    widgets::focus_ring(ui, &response, rect, crate::theme::radius::CONTROL);
+    response
+        .on_hover_text("Click to include. Right-click to exclude.")
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
 }

@@ -114,6 +114,30 @@ pub enum Action {
     SignOut,
     Sync,
     Notice(String),
+    ComickConnect,
+    ComickDisconnect,
+    ComickLink(Manga),
+    ComickSave {
+        manga_id: String,
+        entry: crate::comick::LibraryEntry,
+    },
+    ComickUnlink(String),
+    ChartPeriod(crate::comick::Chart, u32),
+}
+
+/// Comick's catalog data and the tracker connection.
+#[derive(Default)]
+pub struct ComickState {
+    pub username: Option<String>,
+    pub busy: bool,
+    pub error: Option<String>,
+    pub genres: Loadable<Vec<crate::comick::Genre>>,
+    pub tags: Loadable<Vec<crate::comick::ComickTag>>,
+    /// Each chart's selected period in days and its titles.
+    pub charts: HashMap<crate::comick::Chart, (u32, Loadable<Vec<BakaSeries>>)>,
+    /// Titles being matched to Comick.
+    pub linking: HashSet<String>,
+    pub tag_query: String,
 }
 
 pub struct App {
@@ -126,6 +150,7 @@ pub struct App {
     pub browse: BrowseState,
     pub tags: Loadable<Vec<Tag>>,
     pub account: AccountState,
+    pub comick: ComickState,
     /// Chapter lists keyed by manga id; each knows the language it was fetched in.
     pub chapters: HashMap<String, (String, Loadable<Vec<Chapter>>)>,
     pub actions: Vec<Action>,
@@ -184,6 +209,7 @@ impl App {
                 resolving: None,
             },
             tags: Loadable::Loading,
+            comick: ComickState::default(),
             account: AccountState {
                 username: username.clone(),
                 form,
@@ -196,6 +222,10 @@ impl App {
             vibrancy,
         };
         app.jobs.tags();
+        app.comick.username = app.jobs.comick_user();
+        if app.library.settings.catalog == Catalog::Comick {
+            app.load_comick_catalog();
+        }
         app.load_browse(false);
         if username.is_some() && !app.library.settings.pause_sync {
             app.account.syncing = true;
@@ -240,6 +270,16 @@ impl App {
                     search,
                 );
             }
+            Catalog::Comick => {
+                let page = (b.items.len() as u32) / 30 + 1;
+                self.jobs.comick_search(
+                    b.request,
+                    b.results_query.clone(),
+                    page,
+                    settings.comick.clone(),
+                    settings.filters.clone(),
+                );
+            }
             Catalog::MangaBaka => {
                 let page = (b.items.len() as u32) / 30 + 1;
                 self.jobs.baka_search(
@@ -271,9 +311,69 @@ impl App {
         self.notice = Some((message.into(), ctx.input(|i| i.time) + 3.5));
     }
 
-    /// Marks a chapter read locally and, when syncing, on MangaDex.
+    /// Loads Comick's genres, tags, and charts the first time its catalog is shown.
+    pub fn load_comick_catalog(&mut self) {
+        if matches!(self.comick.genres, Loadable::Idle) {
+            self.comick.genres = Loadable::Loading;
+            self.comick.tags = Loadable::Loading;
+            self.jobs.comick_catalog();
+        }
+        for chart in crate::comick::Chart::ALL {
+            if !self.comick.charts.contains_key(&chart) {
+                self.load_chart(chart, 7);
+            }
+        }
+    }
+
+    pub fn load_chart(&mut self, chart: crate::comick::Chart, days: u32) {
+        self.comick.charts.insert(chart, (days, Loadable::Loading));
+        self.jobs
+            .comick_chart(chart, days, self.library.settings.filters.clone());
+    }
+
+    /// After reading a chapter, moves the Comick progress forward (never back).
+    fn push_comick_progress(&mut self, manga_id: &str, chapter_id: &str) {
+        if self.comick.username.is_none() || !self.library.settings.comick_auto_progress() {
+            return;
+        }
+        let Some(entry) = self.library.comick.get(manga_id).cloned() else {
+            return;
+        };
+        let number = self
+            .chapters
+            .get(manga_id)
+            .and_then(|(_, c)| c.ready())
+            .and_then(|list| list.iter().find(|c| c.id == chapter_id))
+            .and_then(Chapter::number);
+        let Some(number) = number else { return };
+        let current = entry
+            .progress
+            .as_deref()
+            .and_then(|p| p.parse::<f64>().ok())
+            .unwrap_or(0.0);
+        if number <= current {
+            return;
+        }
+        let mut updated = entry;
+        updated.progress = Some(if number.fract() == 0.0 {
+            format!("{number:.0}")
+        } else {
+            number.to_string()
+        });
+        if matches!(updated.status, None | Some(5)) {
+            updated.status = Some(1);
+        }
+        self.library.comick.insert(manga_id.to_owned(), updated.clone());
+        self.library.save();
+        self.jobs.comick_save(manga_id.to_owned(), updated);
+    }
+
+    /// Marks a chapter read locally and, when syncing, on MangaDex and Comick.
     pub fn mark_read(&mut self, manga_id: &str, chapter_id: &str, read: bool) {
         self.library.set_read(manga_id, chapter_id, read);
+        if read {
+            self.push_comick_progress(manga_id, chapter_id);
+        }
         if self.syncing_enabled() {
             let ids = vec![chapter_id.to_owned()];
             let (r, u) = if read { (ids, vec![]) } else { (vec![], ids) };
@@ -431,6 +531,78 @@ impl App {
                     }
                 }
                 Event::Notice(n) => self.notify(ctx, n),
+                Event::ComickList { request, result } => {
+                    if request != self.browse.request {
+                        continue;
+                    }
+                    self.browse.loading = false;
+                    match result {
+                        Ok(page) => {
+                            self.browse.total = page.total;
+                            for series in page.items {
+                                if self.browse.baka.contains_key(&series.id) {
+                                    continue;
+                                }
+                                self.browse.items.push(series.as_manga());
+                                self.browse.baka.insert(series.id, series);
+                            }
+                        }
+                        Err(e) => self.browse.error = Some(e),
+                    }
+                }
+                Event::ComickChart { chart, days, result } => {
+                    if self.comick.charts.get(&chart).is_some_and(|(d, _)| *d == days) {
+                        let state = match result {
+                            Ok(list) => Loadable::Ready(list),
+                            Err(e) => Loadable::Failed(e),
+                        };
+                        self.comick.charts.insert(chart, (days, state));
+                    }
+                }
+                Event::ComickGenres(result) => {
+                    self.comick.genres = match result {
+                        Ok(g) => Loadable::Ready(g),
+                        Err(e) => Loadable::Failed(e),
+                    };
+                }
+                Event::ComickTags(result) => {
+                    self.comick.tags = match result {
+                        Ok(t) => Loadable::Ready(t),
+                        Err(e) => Loadable::Failed(e),
+                    };
+                }
+                Event::ComickAccount(result) => {
+                    self.comick.busy = false;
+                    match result {
+                        Ok(Some(name)) => {
+                            self.comick.error = None;
+                            self.notify(ctx, format!("Connected to Comick as {name}"));
+                            self.comick.username = Some(name);
+                        }
+                        Ok(None) => {
+                            self.comick.username = None;
+                            self.library.comick.clear();
+                            self.library.save();
+                        }
+                        Err(e) => self.comick.error = Some(e),
+                    }
+                }
+                Event::ComickEntry { manga_id, result } => {
+                    self.comick.linking.remove(&manga_id);
+                    match result {
+                        Ok(Some(entry)) => {
+                            self.library.comick.insert(manga_id, entry);
+                            self.library.save();
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            if e.contains("expired") {
+                                self.comick.username = None;
+                            }
+                            self.notify(ctx, e);
+                        }
+                    }
+                }
             }
         }
     }
@@ -448,6 +620,11 @@ impl App {
                     self.ensure_chapters(&manga.id, false);
                     if self.syncing_enabled() {
                         self.jobs.read_markers(manga.id.clone());
+                    }
+                    if self.comick.username.is_some()
+                        && let Some(e) = self.library.comick.get(&manga.id)
+                    {
+                        self.jobs.comick_refresh(manga.id.clone(), e.hid.clone());
                     }
                     self.details = Some(Details {
                         manga,
@@ -534,6 +711,9 @@ impl App {
                 }
                 Action::ReloadBrowse => self.load_browse(false),
                 Action::SetCatalog(c) => {
+                    if c == Catalog::Comick {
+                        self.load_comick_catalog();
+                    }
                     if self.library.settings.catalog != c {
                         self.library.settings.catalog = c;
                         self.library.save();
@@ -541,7 +721,12 @@ impl App {
                     }
                 }
                 Action::ResolveBaka(id) => {
-                    if let Some(series) = self.browse.baka.get(&id).cloned() {
+                    let from_charts = || {
+                        self.comick.charts.values().find_map(|(_, list)| {
+                            list.ready().and_then(|l| l.iter().find(|s| s.id == id).cloned())
+                        })
+                    };
+                    if let Some(series) = self.browse.baka.get(&id).cloned().or_else(from_charts) {
                         self.browse.resolving = Some(id);
                         self.jobs.resolve_baka(series);
                     }
@@ -574,6 +759,36 @@ impl App {
                     }
                 }
                 Action::Notice(n) => self.notify(ctx, n),
+                Action::ComickConnect => {
+                    self.comick.busy = true;
+                    self.comick.error = None;
+                    self.library.settings.comick_client_id =
+                        self.library.settings.comick_client_id.trim().to_owned();
+                    self.library.save();
+                    self.jobs
+                        .comick_connect(self.library.settings.comick_client_id.clone());
+                }
+                Action::ComickDisconnect => {
+                    self.jobs.comick_disconnect();
+                    self.notify(ctx, "Disconnected from Comick");
+                }
+                Action::ComickLink(manga) => {
+                    self.comick.linking.insert(manga.id.clone());
+                    self.jobs.comick_link(manga);
+                }
+                Action::ComickSave { manga_id, entry } => {
+                    self.library.comick.insert(manga_id.clone(), entry.clone());
+                    self.library.save();
+                    self.jobs.comick_save(manga_id, entry);
+                }
+                Action::ComickUnlink(manga_id) => {
+                    if let Some(entry) = self.library.comick.remove(&manga_id) {
+                        self.library.save();
+                        self.jobs.comick_remove(entry.hid);
+                        self.notify(ctx, format!("Removed “{}” from your Comick library", entry.title));
+                    }
+                }
+                Action::ChartPeriod(chart, days) => self.load_chart(chart, days),
             }
         }
     }
