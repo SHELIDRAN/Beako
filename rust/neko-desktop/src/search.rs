@@ -433,10 +433,30 @@ impl BakaSearch {
     }
 }
 
-/// A MangaBaka series, with the IDs used to find it on MangaDex.
+/// Which catalog an outside title came from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Origin {
+    #[default]
+    MangaBaka,
+    Comick,
+}
+
+impl Origin {
+    pub fn prefix(self) -> &'static str {
+        match self {
+            Origin::MangaBaka => "mangabaka",
+            Origin::Comick => "comick",
+        }
+    }
+}
+
+/// A title from MangaBaka or Comick, with the IDs used to find it on MangaDex.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BakaSeries {
     pub id: u64,
+    pub origin: Origin,
+    /// Comick's short ID, used by its library API.
+    pub hid: Option<String>,
     pub title: String,
     pub native_title: Option<String>,
     pub romanized_title: Option<String>,
@@ -455,7 +475,7 @@ impl BakaSeries {
     /// A placeholder `Manga` so MangaBaka results can share the cover grid.
     pub fn as_manga(&self) -> Manga {
         Manga {
-            id: format!("mangabaka:{}", self.id),
+            id: format!("{}:{}", self.origin.prefix(), self.id),
             title: self.title.clone(),
             authors: self.authors.clone(),
             year: self.year,
@@ -494,6 +514,8 @@ fn parse_baka(v: &Value) -> BakaSeries {
     let s = |k: &str| v[k].as_str().map(str::to_owned).filter(|s| !s.is_empty());
     BakaSeries {
         id: v["id"].as_u64().unwrap_or(0),
+        origin: Origin::MangaBaka,
+        hid: None,
         title: s("title").unwrap_or_default(),
         native_title: s("native_title"),
         romanized_title: s("romanized_title"),
@@ -621,7 +643,7 @@ impl Client {
                 return Ok(m.clone());
             }
         }
-        bail!("“{}” isn’t on MangaDex", series.title)
+        bail!("Couldn’t find “{}” on MangaDex", series.title)
     }
 }
 

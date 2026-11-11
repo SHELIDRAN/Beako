@@ -8,6 +8,7 @@ mod app;
 mod auth;
 mod browse;
 mod cards;
+mod comick;
 mod details;
 mod filters_view;
 mod glass;

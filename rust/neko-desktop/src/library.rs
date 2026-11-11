@@ -169,6 +169,7 @@ pub enum Catalog {
     #[default]
     MangaDex,
     MangaBaka,
+    Comick,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -185,6 +186,17 @@ pub struct Settings {
     pub mangadex_client_id: String,
     /// Stop mirroring read chapters and library changes to MangaDex while signed in.
     pub pause_sync: bool,
+    pub comick: crate::comick::ComickSearch,
+    /// The public client ID of the person's Comick developer app.
+    pub comick_client_id: String,
+    /// Update Comick progress automatically as chapters are read.
+    pub comick_auto_progress: Option<bool>,
+}
+
+impl Settings {
+    pub fn comick_auto_progress(&self) -> bool {
+        self.comick_auto_progress.unwrap_or(true)
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -195,6 +207,8 @@ pub struct Library {
     pub settings: Settings,
     /// MangaDex reading statuses, refreshed while signed in.
     pub statuses: HashMap<String, String>,
+    /// Comick library entries for linked titles, keyed by MangaDex ID.
+    pub comick: HashMap<String, crate::comick::LibraryEntry>,
     #[serde(skip)]
     path: Option<PathBuf>,
     #[serde(skip)]

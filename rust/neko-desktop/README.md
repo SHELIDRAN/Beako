@@ -17,18 +17,34 @@ A rebuild of Neko's reading experience as a native Windows desktop app, written 
 | --- | --- |
 | ![Library](docs/library.jpg) | ![Spread](docs/reader-spread.jpg) |
 
+| Comick charts | Comick tag search |
+| --- | --- |
+| ![Comick charts](docs/comick-charts.jpg) | ![Comick tag search](docs/comick-tag-search.jpg) |
+
 ## What it does
 
-- **Browse two catalogs.** MangaDex lists Popular, Latest, New, and Top Rated titles; MangaBaka
-  is a metadata database with ratings and richer filters. You can search either one. MangaBaka
-  results open on MangaDex: the app matches them by shared AniList, MyAnimeList,
-  MangaUpdates, or Kitsu IDs, or else by exact title.
+- **Browse three catalogs.**
+  - MangaDex lists Popular, Latest, New, and Top Rated titles.
+  - Comick shows its charts: Most Followed New Comics, Most Recent Popular, and Trending, each
+    for the past 7 days, month, or 3 months.
+  - MangaBaka is a metadata database with ratings and richer filters.
+
+  You can search any of them. Comick and MangaBaka results open on MangaDex: the app
+  matches them by shared AniList, MyAnimeList, MangaUpdates, or Kitsu IDs, or else by
+  exact title.
 - **Filters.**
   - MangaDex uses Comix's tag set: genres, formats, types (Manga, Manhwa, Manhua),
     statuses, demographics, and its sort orders. These are mapped onto MangaDex's tags, and
     MangaDex's own themes are listed too. Tags are tri-state: click once to include a tag,
     again to exclude it, and a third time to clear it. You can require any or all included
     tags.
+  - Comick has its own filters:
+    - Genres, themes, formats, and content descriptors, each included or excluded.
+    - A searchable list of its thousands of community tags, with title counts. Click a
+      tag to include it, click its chip again to exclude it, or right-click a suggestion
+      to exclude it directly.
+    - Demographic, status, content rating, type, when the title was added to Comick,
+      minimum and maximum chapters, minimum score, publication years, and sort order.
   - MangaBaka adds minimum rating, minimum chapters, a publication year range, anime
     adaptation, licensing, and sorts such as Trending This Week and Surprise Me.
 - **MangaDex account (optional).** Sign in with a
@@ -36,6 +52,10 @@ A rebuild of Neko's reading experience as a native Windows desktop app, written 
   Neko then syncs your follows into the Library, shows and sets reading statuses, and mirrors
   read chapters and library changes to MangaDex. Your password is used once to sign in and is
   never stored. The client secret and refresh token go into Windows Credential Manager.
+- **Comick tracker (optional).** Connect your Comick account with your own Comick developer
+  app (see below). Then, from any title page, you can find the title on Comick, add it to
+  your Comick library, and set its status (Reading, Completed, On Hold, Dropped, or Plan to
+  Read) and score. Finishing a chapter moves the Comick progress forward automatically.
 - **Title page.** It shows the cover over a soft wash of its own colors, plus metadata,
   tags, the description, and the full chapter list. Right-click a chapter to mark it read or
   unread. Chapters hosted by a publisher open in your browser.
@@ -75,6 +95,22 @@ merged sources, offline downloads, and backups.
    client's ID and secret, then click **Sign In**.
 3. Neko adds the titles you follow to your Library. **Sync Now** pulls changes again, and
    **Sync Reading to MangaDex** controls whether reading is mirrored back.
+
+## Connecting Comick
+
+1. Sign in on [comick.dev](https://comick.dev/developers/apps), open **Developer apps**, and
+   register an app:
+   - **Client type:** Browser or mobile app without a private backend.
+   - **Application platform:** Native mobile or desktop app.
+   - **Permissions:** add, update, and remove library entries (`library:write`).
+   - **Callback URL:** `http://127.0.0.1:47823/comick/callback`.
+2. In Neko, open **Settings → Comick**, paste the app's client ID, and click
+   **Connect Comick**.
+3. Approve access in the browser window that opens. Neko listens on that callback address for
+   the moment it takes to finish signing in.
+
+Neko signs in with OAuth and PKCE, so no client secret is needed. It asks for `library:read`,
+`library:write`, and `offline_access`. Tokens are kept in Windows Credential Manager.
 
 ## Design
 
@@ -131,6 +167,7 @@ For development on Linux or macOS, `cargo run` works too. Set `NEKO_APPEARANCE=l
 | `src/api.rs` | MangaDex API client: titles, chapters, pages, tags, follows, statuses, read markers |
 | `src/auth.rs` | Personal-client sign-in, token refresh, and Credential Manager storage |
 | `src/search.rs` | MangaDex filters (Comix vocabulary), the MangaBaka client and filters, and matching to MangaDex |
+| `src/comick.rs` | Comick catalog (search, genres, tags, charts) and tracker (OAuth with PKCE, library entries) |
 | `src/jobs.rs` | Background thread pools, image decoding, blurring, and border cropping |
 | `src/images.rs` | Texture cache with least-recently-used eviction and fade-in |
 | `src/library.rs` | Library, progress, statuses, and settings persisted as JSON |
@@ -140,6 +177,6 @@ For development on Linux or macOS, `cargo run` works too. Set `NEKO_APPEARANCE=l
 | `src/app.rs` | App state, navigation, sync, and the sidebar shell |
 | `src/browse.rs`, `filters_view.rs`, `library_view.rs`, `details.rs`, `settings_view.rs`, `reader.rs` | Screens |
 
-Neko is unofficial and isn't affiliated with MangaDex, MangaBaka, or Comix. MangaBaka data is
+Neko is unofficial and isn't affiliated with MangaDex, Comick, MangaBaka, or Comix. MangaBaka data is
 free for personal, non-commercial use with credit to MangaBaka and its sources. Inter is
 licensed under the SIL Open Font License; see `assets/fonts/OFL.txt`.
