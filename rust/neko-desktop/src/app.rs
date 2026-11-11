@@ -1,14 +1,16 @@
 //! App state, navigation, and the window shell (sidebar + content area).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use eframe::egui::{self, CornerRadius, Frame, Key, Margin, Rect, Stroke, StrokeKind, pos2, vec2};
+use eframe::egui::{self, Color32, CornerRadius, Frame, Key, Margin, Rect, Stroke, pos2, vec2};
 
-use crate::api::{Chapter, Feed, Manga};
+use crate::api::{Chapter, Feed, Manga, Tag};
+use crate::auth::Credentials;
 use crate::images::Images;
 use crate::jobs::{Event, Jobs};
-use crate::library::Library;
+use crate::library::{Catalog, Library};
 use crate::reader::Reader;
+use crate::search::BakaSeries;
 use crate::theme::{self, Palette, space, text};
 use crate::widgets::{self, Icon};
 
@@ -44,12 +46,17 @@ pub struct BrowseState {
     /// The query the current results are for.
     pub results_query: String,
     pub items: Vec<Manga>,
+    /// MangaBaka results behind the placeholder `Manga`s in `items`, keyed by MangaBaka ID.
+    pub baka: HashMap<u64, BakaSeries>,
     pub total: u32,
     pub loading: bool,
     pub error: Option<String>,
     pub request: u64,
     pub last_edit: Option<f64>,
     pub focus_search: bool,
+    pub show_filters: bool,
+    /// The MangaBaka series being matched to MangaDex.
+    pub resolving: Option<u64>,
 }
 
 pub struct Details {
@@ -57,6 +64,17 @@ pub struct Details {
     pub details_loaded: bool,
     pub newest_first: bool,
     pub expanded: bool,
+}
+
+/// The sign-in form in Settings. The password is cleared after every attempt.
+#[derive(Default)]
+pub struct AccountState {
+    pub username: Option<String>,
+    pub busy: bool,
+    pub syncing: bool,
+    pub error: Option<String>,
+    pub form: Credentials,
+    pub last_sync: Option<String>,
 }
 
 /// User intents collected while drawing a frame and applied after it, which keeps the drawing
@@ -80,12 +98,21 @@ pub enum Action {
         manga_id: String,
         chapter_id: String,
     },
+    SetStatus {
+        manga_id: String,
+        status: Option<String>,
+    },
     LoadMoreBrowse,
     ReloadBrowse,
+    SetCatalog(Catalog),
+    ResolveBaka(u64),
     ReloadChapters(String),
     OpenUrl(String),
     CloseReader,
     FiltersChanged,
+    SignIn,
+    SignOut,
+    Sync,
     Notice(String),
 }
 
@@ -97,11 +124,15 @@ pub struct App {
     pub details: Option<Details>,
     pub reader: Option<Reader>,
     pub browse: BrowseState,
+    pub tags: Loadable<Vec<Tag>>,
+    pub account: AccountState,
     /// Chapter lists keyed by manga id; each knows the language it was fetched in.
     pub chapters: HashMap<String, (String, Loadable<Vec<Chapter>>)>,
     pub actions: Vec<Action>,
     notice: Option<(String, f64)>,
     pub data_dir: Option<std::path::PathBuf>,
+    /// Whether the window has a system backdrop (Mica) behind the sidebar.
+    pub vibrancy: bool,
 }
 
 impl App {
@@ -113,16 +144,22 @@ impl App {
             Ok("dark") => cc.egui_ctx.set_theme(egui::Theme::Dark),
             _ => {}
         }
+        let vibrancy = crate::glass::apply_window_material(cc);
         let dirs = directories::ProjectDirs::from("org", "Neko", "Neko Desktop");
         let data_dir = dirs.as_ref().map(|d| d.data_dir().to_path_buf());
         let cache_dir = dirs.as_ref().map(|d| d.cache_dir().to_path_buf());
         let library = Library::load(data_dir.as_ref().map(|d| d.join("library.json")));
-        let jobs =
-            Jobs::new(cc.egui_ctx.clone(), cache_dir).expect("couldn't start the network client");
+        let jobs = Jobs::new(cc.egui_ctx.clone(), cache_dir).expect("couldn't start the network client");
         let section = if library.entries.is_empty() {
             Section::Browse
         } else {
             Section::Library
+        };
+        let username = jobs.signed_in_as();
+        let form = Credentials {
+            username: library.settings.mangadex_username.clone(),
+            client_id: library.settings.mangadex_client_id.clone(),
+            ..Default::default()
         };
         let mut app = Self {
             jobs,
@@ -136,40 +173,84 @@ impl App {
                 query: String::new(),
                 results_query: String::new(),
                 items: Vec::new(),
+                baka: HashMap::new(),
                 total: 0,
                 loading: false,
                 error: None,
                 request: 0,
                 last_edit: None,
                 focus_search: false,
+                show_filters: false,
+                resolving: None,
+            },
+            tags: Loadable::Loading,
+            account: AccountState {
+                username: username.clone(),
+                form,
+                ..Default::default()
             },
             chapters: HashMap::new(),
             actions: Vec::new(),
             notice: None,
             data_dir,
+            vibrancy,
         };
+        app.jobs.tags();
         app.load_browse(false);
+        if username.is_some() && !app.library.settings.pause_sync {
+            app.account.syncing = true;
+            app.jobs.sync();
+        }
         app
     }
 
+    pub fn signed_in(&self) -> bool {
+        self.account.username.is_some()
+    }
+
+    fn syncing_enabled(&self) -> bool {
+        self.signed_in() && !self.library.settings.pause_sync
+    }
+
     pub fn load_browse(&mut self, append: bool) {
+        let settings = &self.library.settings;
         let b = &mut self.browse;
         b.request += 1;
         b.loading = true;
         b.error = None;
         if !append {
             b.items.clear();
+            b.baka.clear();
             b.total = 0;
             b.results_query = b.query.trim().to_owned();
         }
-        let offset = b.items.len() as u32;
-        self.jobs.list_manga(
-            b.request,
-            b.feed,
-            b.results_query.clone(),
-            offset,
-            self.library.settings.filters.clone(),
-        );
+        match settings.catalog {
+            Catalog::MangaDex => {
+                let offset = b.items.len() as u32;
+                let mut search = settings.search.clone();
+                if let Some(tags) = self.tags.ready() {
+                    search.tag_ids = tags.iter().map(|t| (t.name.clone(), t.id.clone())).collect();
+                }
+                self.jobs.list_manga(
+                    b.request,
+                    b.feed,
+                    b.results_query.clone(),
+                    offset,
+                    settings.filters.clone(),
+                    search,
+                );
+            }
+            Catalog::MangaBaka => {
+                let page = (b.items.len() as u32) / 30 + 1;
+                self.jobs.baka_search(
+                    b.request,
+                    b.results_query.clone(),
+                    page,
+                    settings.baka.clone(),
+                    settings.filters.clone(),
+                );
+            }
+        }
     }
 
     pub fn ensure_chapters(&mut self, manga_id: &str, force: bool) {
@@ -190,6 +271,16 @@ impl App {
         self.notice = Some((message.into(), ctx.input(|i| i.time) + 3.5));
     }
 
+    /// Marks a chapter read locally and, when syncing, on MangaDex.
+    pub fn mark_read(&mut self, manga_id: &str, chapter_id: &str, read: bool) {
+        self.library.set_read(manga_id, chapter_id, read);
+        if self.syncing_enabled() {
+            let ids = vec![chapter_id.to_owned()];
+            let (r, u) = if read { (ids, vec![]) } else { (vec![], ids) };
+            self.jobs.push_read(manga_id.to_owned(), r, u);
+        }
+    }
+
     fn handle_events(&mut self, ctx: &egui::Context) {
         let events: Vec<Event> = self.jobs.drain().collect();
         for event in events {
@@ -202,13 +293,41 @@ impl App {
                     match result {
                         Ok(page) => {
                             self.browse.total = page.total;
-                            let known: std::collections::HashSet<String> =
+                            let known: HashSet<String> =
                                 self.browse.items.iter().map(|m| m.id.clone()).collect();
                             self.browse
                                 .items
                                 .extend(page.items.into_iter().filter(|m| !known.contains(&m.id)));
                         }
                         Err(e) => self.browse.error = Some(e),
+                    }
+                }
+                Event::BakaList { request, result } => {
+                    if request != self.browse.request {
+                        continue;
+                    }
+                    self.browse.loading = false;
+                    match result {
+                        Ok(page) => {
+                            self.browse.total = page.total;
+                            for series in page.items {
+                                if self.browse.baka.contains_key(&series.id) {
+                                    continue;
+                                }
+                                self.browse.items.push(series.as_manga());
+                                self.browse.baka.insert(series.id, series);
+                            }
+                        }
+                        Err(e) => self.browse.error = Some(e),
+                    }
+                }
+                Event::Resolved { baka_id, result } => {
+                    if self.browse.resolving == Some(baka_id) {
+                        self.browse.resolving = None;
+                        match result {
+                            Ok(manga) => self.actions.push(Action::OpenManga(manga)),
+                            Err(e) => self.notify(ctx, e),
+                        }
                     }
                 }
                 Event::MangaDetails { id, result } => {
@@ -236,7 +355,82 @@ impl App {
                         reader.pages_loaded(&chapter_id, result);
                     }
                 }
-                Event::Image { url, result } => self.images.finish(ctx, url, result),
+                Event::Image { key, result } => self.images.finish(ctx, key, result),
+                Event::Tags(result) => {
+                    let reload = matches!(self.library.settings.catalog, Catalog::MangaDex)
+                        && (!self.library.settings.search.include.is_empty()
+                            || !self.library.settings.search.exclude.is_empty());
+                    self.tags = match result {
+                        Ok(t) => Loadable::Ready(t),
+                        Err(e) => Loadable::Failed(e),
+                    };
+                    // Saved tag filters can only be sent once tag IDs are known.
+                    if reload {
+                        self.load_browse(false);
+                    }
+                }
+                Event::Account(result) => {
+                    self.account.busy = false;
+                    self.account.form.password.clear();
+                    match result {
+                        Ok(Some(name)) => {
+                            self.account.error = None;
+                            self.notify(ctx, format!("Signed in to MangaDex as {name}"));
+                            self.account.username = Some(name);
+                            self.library.settings.mangadex_username =
+                                self.account.form.username.trim().to_owned();
+                            self.library.settings.mangadex_client_id =
+                                self.account.form.client_id.trim().to_owned();
+                            self.account.form.client_secret.clear();
+                            self.library.save();
+                            self.actions.push(Action::Sync);
+                        }
+                        Ok(None) => {
+                            self.account.username = None;
+                            self.library.statuses.clear();
+                            self.library.save();
+                        }
+                        Err(e) => self.account.error = Some(e),
+                    }
+                }
+                Event::Synced(result) => {
+                    self.account.syncing = false;
+                    match result {
+                        Ok(sync) => {
+                            let mut added = 0;
+                            for manga in &sync.follows {
+                                if !self.library.contains(&manga.id) {
+                                    self.library.add(manga);
+                                    added += 1;
+                                }
+                            }
+                            self.library.statuses = sync.statuses;
+                            self.library.save();
+                            let msg = match added {
+                                0 => format!(
+                                    "Library is up to date with your {} MangaDex follows",
+                                    sync.follows.len()
+                                ),
+                                1 => "Added 1 title from your MangaDex follows".to_owned(),
+                                n => format!("Added {n} titles from your MangaDex follows"),
+                            };
+                            self.account.last_sync = Some(msg.clone());
+                            self.notify(ctx, msg);
+                        }
+                        Err(e) => {
+                            if e.contains("expired") {
+                                self.account.username = None;
+                            }
+                            self.notify(ctx, format!("Couldn’t sync with MangaDex: {e}"));
+                        }
+                    }
+                }
+                Event::ReadMarkers { manga_id, result } => {
+                    if let Ok(ids) = result {
+                        self.library.merge_read(&manga_id, &ids);
+                    }
+                }
+                Event::Notice(n) => self.notify(ctx, n),
             }
         }
     }
@@ -252,6 +446,9 @@ impl App {
                 Action::OpenManga(manga) => {
                     self.jobs.manga_details(manga.id.clone());
                     self.ensure_chapters(&manga.id, false);
+                    if self.syncing_enabled() {
+                        self.jobs.read_markers(manga.id.clone());
+                    }
                     self.details = Some(Details {
                         manga,
                         details_loaded: false,
@@ -271,8 +468,7 @@ impl App {
                     chapter_id,
                     page,
                 } => {
-                    let Some(list) = self.chapters.get(&manga.id).and_then(|(_, c)| c.ready())
-                    else {
+                    let Some(list) = self.chapters.get(&manga.id).and_then(|(_, c)| c.ready()) else {
                         continue;
                     };
                     let readable: Vec<Chapter> = list
@@ -289,38 +485,46 @@ impl App {
                     }
                 }
                 Action::ToggleLibrary(manga) => {
-                    if self.library.contains(&manga.id) {
-                        self.library.remove(&manga.id);
-                        self.notify(ctx, format!("Removed “{}” from your library", manga.title));
-                    } else {
+                    let adding = !self.library.contains(&manga.id);
+                    if adding {
                         self.library.add(&manga);
                         self.notify(ctx, format!("Added “{}” to your library", manga.title));
+                    } else {
+                        self.library.remove(&manga.id);
+                        self.notify(ctx, format!("Removed “{}” from your library", manga.title));
+                    }
+                    if self.syncing_enabled() {
+                        self.jobs.set_follow(manga.id.clone(), adding);
                     }
                 }
                 Action::SetRead {
                     manga_id,
                     chapter_id,
                     read,
-                } => self.library.set_read(&manga_id, &chapter_id, read),
-                Action::MarkPreviousRead {
-                    manga_id,
-                    chapter_id,
-                } => {
+                } => self.mark_read(&manga_id, &chapter_id, read),
+                Action::MarkPreviousRead { manga_id, chapter_id } => {
                     if let Some(list) = self.chapters.get(&manga_id).and_then(|(_, c)| c.ready()) {
                         let ids: Vec<String> = list
                             .iter()
                             .take_while(|c| c.id != chapter_id)
                             .map(|c| c.id.clone())
                             .collect();
-                        for id in ids {
-                            self.library
-                                .progress
-                                .entry(manga_id.clone())
-                                .or_default()
-                                .read
-                                .insert(id);
-                        }
+                        let progress = self.library.progress.entry(manga_id.clone()).or_default();
+                        progress.read.extend(ids.iter().cloned());
                         self.library.save();
+                        if self.syncing_enabled() && !ids.is_empty() {
+                            self.jobs.push_read(manga_id, ids, vec![]);
+                        }
+                    }
+                }
+                Action::SetStatus { manga_id, status } => {
+                    match &status {
+                        Some(s) => self.library.statuses.insert(manga_id.clone(), s.clone()),
+                        None => self.library.statuses.remove(&manga_id),
+                    };
+                    self.library.save();
+                    if self.signed_in() {
+                        self.jobs.set_status(manga_id, status);
                     }
                 }
                 Action::LoadMoreBrowse => {
@@ -329,6 +533,19 @@ impl App {
                     }
                 }
                 Action::ReloadBrowse => self.load_browse(false),
+                Action::SetCatalog(c) => {
+                    if self.library.settings.catalog != c {
+                        self.library.settings.catalog = c;
+                        self.library.save();
+                        self.load_browse(false);
+                    }
+                }
+                Action::ResolveBaka(id) => {
+                    if let Some(series) = self.browse.baka.get(&id).cloned() {
+                        self.browse.resolving = Some(id);
+                        self.jobs.resolve_baka(series);
+                    }
+                }
                 Action::ReloadChapters(id) => self.ensure_chapters(&id, true),
                 Action::OpenUrl(url) => {
                     if let Err(e) = open::that_detached(&url) {
@@ -341,6 +558,21 @@ impl App {
                     self.chapters.clear();
                     self.load_browse(false);
                 }
+                Action::SignIn => {
+                    self.account.busy = true;
+                    self.account.error = None;
+                    self.jobs.sign_in(self.account.form.clone());
+                }
+                Action::SignOut => {
+                    self.jobs.sign_out();
+                    self.notify(ctx, "Signed out of MangaDex");
+                }
+                Action::Sync => {
+                    if self.signed_in() && !self.account.syncing {
+                        self.account.syncing = true;
+                        self.jobs.sync();
+                    }
+                }
                 Action::Notice(n) => self.notify(ctx, n),
             }
         }
@@ -348,6 +580,7 @@ impl App {
 
     fn close_reader(&mut self) {
         if let Some(reader) = self.reader.take() {
+            crate::glass::keep_awake(false);
             let id = reader.manga.id.clone();
             self.library.save();
             if self.details.as_ref().is_none_or(|d| d.manga.id != id) {
@@ -412,24 +645,7 @@ impl App {
         }
         ui.add_space(space::L);
         // Recently read titles give a one-click way back into reading.
-        let mut recent: Vec<(&String, &crate::library::Progress)> = self
-            .library
-            .progress
-            .iter()
-            .filter(|(_, p)| p.chapter_id.is_some())
-            .collect();
-        recent.sort_by_key(|(_, p)| std::cmp::Reverse(p.updated));
-        let recent: Vec<Manga> = recent
-            .into_iter()
-            .filter_map(|(id, _)| {
-                self.library
-                    .entries
-                    .iter()
-                    .find(|e| &e.manga.id == id)
-                    .map(|e| e.manga.clone())
-            })
-            .take(5)
-            .collect();
+        let recent = self.recent_titles(5);
         if !recent.is_empty() {
             ui.horizontal(|ui| {
                 ui.add_space(space::S);
@@ -441,10 +657,7 @@ impl App {
             });
             ui.add_space(space::XS);
             for manga in recent {
-                let selected = self
-                    .details
-                    .as_ref()
-                    .is_some_and(|d| d.manga.id == manga.id);
+                let selected = self.details.as_ref().is_some_and(|d| d.manga.id == manga.id);
                 let r = recent_row(ui, &mut self.images, &self.jobs, &manga, selected);
                 if r.clicked() {
                     self.actions.push(Action::OpenManga(manga));
@@ -464,7 +677,42 @@ impl App {
             {
                 self.actions.push(Action::Section(Section::Settings));
             }
+            if let Some(name) = &self.account.username {
+                ui.add_space(2.0);
+                let label = if self.account.syncing {
+                    "Syncing…".to_owned()
+                } else {
+                    name.clone()
+                };
+                let r = widgets::sidebar_item(ui, Icon::Person, &label, false, None)
+                    .on_hover_text("Signed in to MangaDex. Click to sync your follows.");
+                if r.clicked() {
+                    self.actions.push(Action::Sync);
+                }
+            }
         });
+    }
+
+    /// Library titles with reading progress, most recent first.
+    pub fn recent_titles(&self, limit: usize) -> Vec<Manga> {
+        let mut recent: Vec<(&String, &crate::library::Progress)> = self
+            .library
+            .progress
+            .iter()
+            .filter(|(_, p)| p.chapter_id.is_some())
+            .collect();
+        recent.sort_by_key(|(_, p)| std::cmp::Reverse(p.updated));
+        recent
+            .into_iter()
+            .filter_map(|(id, _)| {
+                self.library
+                    .entries
+                    .iter()
+                    .find(|e| &e.manga.id == id)
+                    .map(|e| e.manga.clone())
+            })
+            .take(limit)
+            .collect()
     }
 
     fn notice_overlay(&mut self, ctx: &egui::Context) {
@@ -484,24 +732,9 @@ impl App {
             egui::Id::unique("notice"),
         ));
         let galley = painter.layout_no_wrap(message, text::callout(), p.label);
-        let size = galley.size() + vec2(36.0, 18.0);
-        let rect = Rect::from_center_size(pos2(screen.center().x, screen.bottom() - 40.0), size);
-        painter.add(
-            egui::epaint::Shadow {
-                offset: [0, 6],
-                blur: 24,
-                spread: 0,
-                color: p.shadow,
-            }
-            .as_shape(rect, CornerRadius::same(255)),
-        );
-        painter.rect(
-            rect,
-            CornerRadius::same(255),
-            p.elevated,
-            Stroke::new(1.0, p.separator),
-            StrokeKind::Inside,
-        );
+        let size = galley.size() + vec2(40.0, 20.0);
+        let rect = Rect::from_center_size(pos2(screen.center().x, screen.bottom() - 44.0), size);
+        crate::glass::panel(&painter, rect, CornerRadius::same(255), &p);
         painter.galley(rect.center() - galley.size() / 2.0, galley, p.label);
     }
 }
@@ -514,33 +747,22 @@ fn recent_row(
     selected: bool,
 ) -> egui::Response {
     let p = Palette::of(ui.ctx());
-    let (rect, response) =
-        ui.allocate_exact_size(vec2(ui.available_width(), 40.0), egui::Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 40.0), egui::Sense::click());
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Link, true, &manga.title));
     let fill = if selected {
         p.fill_hover
     } else if response.hovered() {
         p.fill
     } else {
-        egui::Color32::TRANSPARENT
+        Color32::TRANSPARENT
     };
     ui.painter()
         .rect_filled(rect, CornerRadius::same(theme::radius::CONTROL), fill);
     let thumb = Rect::from_min_size(pos2(rect.left() + 8.0, rect.top() + 4.0), vec2(22.0, 32.0));
     crate::cards::paint_cover(ui, images, jobs, manga, thumb, 3);
-    let galley = widgets::wrapped_text(
-        ui,
-        &manga.title,
-        text::callout(),
-        p.label,
-        rect.width() - 46.0,
-        1,
-    );
+    let galley = widgets::wrapped_text(ui, &manga.title, text::callout(), p.label, rect.width() - 46.0, 1);
     ui.painter().galley(
-        pos2(
-            thumb.right() + 10.0,
-            rect.center().y - galley.size().y / 2.0,
-        ),
+        pos2(thumb.right() + 10.0, rect.center().y - galley.size().y / 2.0),
         galley,
         p.label,
     );
@@ -565,13 +787,20 @@ impl eframe::App for App {
                 self.reader = Some(reader);
             }
         } else {
+            // With Mica behind the window, the sidebar is a tint over the system material;
+            // without it, an opaque color that matches.
+            let sidebar_fill = if self.vibrancy {
+                p.sidebar.gamma_multiply(0.55)
+            } else {
+                p.sidebar
+            };
             egui::Panel::left("sidebar")
-                .exact_size(232.0)
+                .exact_size(236.0)
                 .resizable(false)
                 .show_separator_line(false)
                 .frame(
                     Frame::NONE
-                        .fill(p.sidebar)
+                        .fill(sidebar_fill)
                         .inner_margin(Margin {
                             left: 10,
                             right: 10,
@@ -583,11 +812,8 @@ impl eframe::App for App {
                 .show(ui, |ui| self.sidebar(ui));
             // A hairline between the sidebar and content, the way macOS draws it.
             let content = ui.available_rect_before_wrap();
-            ui.painter().vline(
-                content.left(),
-                content.y_range(),
-                Stroke::new(1.0, p.separator),
-            );
+            ui.painter()
+                .vline(content.left(), content.y_range(), Stroke::new(1.0, p.separator));
 
             egui::CentralPanel::no_frame()
                 .frame(Frame::NONE.fill(p.background))
@@ -608,6 +834,14 @@ impl eframe::App for App {
         }
         self.notice_overlay(&ctx);
         self.apply_actions(&ctx);
+    }
+
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        if self.vibrancy {
+            [0.0; 4]
+        } else {
+            visuals.panel_fill.to_normalized_gamma_f32()
+        }
     }
 
     fn save(&mut self, _storage: &mut dyn eframe::Storage) {

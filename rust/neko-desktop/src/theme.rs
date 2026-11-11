@@ -8,8 +8,8 @@
 use std::sync::Arc;
 
 use eframe::egui::{
-    self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Margin, Shadow,
-    Stroke, Theme, Vec2, Visuals,
+    self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Margin, Shadow, Stroke,
+    Theme, Vec2, Visuals,
 };
 
 /// Semantic colors, named for their role rather than their value.
@@ -177,28 +177,18 @@ pub fn install(ctx: &egui::Context) {
         s.window_margin = Margin::same(16);
         s.scroll.bar_width = 8.0;
         s.scroll.floating = true;
-        style
-            .text_styles
-            .insert(egui::TextStyle::Body, text::body());
-        style
-            .text_styles
-            .insert(egui::TextStyle::Button, text::body());
+        style.text_styles.insert(egui::TextStyle::Body, text::body());
+        style.text_styles.insert(egui::TextStyle::Button, text::body());
         style
             .text_styles
             .insert(egui::TextStyle::Small, text::subheadline());
-        style
-            .text_styles
-            .insert(egui::TextStyle::Heading, text::title2());
+        style.text_styles.insert(egui::TextStyle::Heading, text::title2());
         style.interaction.selectable_labels = false;
     });
 }
 
 fn visuals(p: Palette) -> Visuals {
-    let mut v = if p.dark {
-        Visuals::dark()
-    } else {
-        Visuals::light()
-    };
+    let mut v = if p.dark { Visuals::dark() } else { Visuals::light() };
     v.override_text_color = None;
     v.panel_fill = p.background;
     v.window_fill = p.elevated;
@@ -249,18 +239,12 @@ fn install_fonts(ctx: &egui::Context) {
             "inter-regular",
             include_bytes!("../assets/fonts/Inter-Regular.otf"),
         ),
-        (
-            "inter-medium",
-            include_bytes!("../assets/fonts/Inter-Medium.otf"),
-        ),
+        ("inter-medium", include_bytes!("../assets/fonts/Inter-Medium.otf")),
         (
             "inter-semibold",
             include_bytes!("../assets/fonts/Inter-SemiBold.otf"),
         ),
-        (
-            "inter-bold",
-            include_bytes!("../assets/fonts/Inter-Bold.otf"),
-        ),
+        ("inter-bold", include_bytes!("../assets/fonts/Inter-Bold.otf")),
     ];
     for (name, bytes) in faces {
         fonts
@@ -272,9 +256,7 @@ fn install_fonts(ctx: &egui::Context) {
     // as a fallback so they don't render as empty boxes.
     let fallbacks = system_cjk_fonts();
     for (i, data) in fallbacks.iter().enumerate() {
-        fonts
-            .font_data
-            .insert(format!("cjk-{i}"), Arc::new(data.clone()));
+        fonts.font_data.insert(format!("cjk-{i}"), Arc::new(data.clone()));
     }
     let fallback_names: Vec<String> = (0..fallbacks.len()).map(|i| format!("cjk-{i}")).collect();
     let defaults = fonts
@@ -308,10 +290,7 @@ fn system_cjk_fonts() -> Vec<FontData> {
         ("C:\\Windows\\Fonts\\msyh.ttc", 0),
         // Linux, for development
         ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
-        (
-            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-            0,
-        ),
+        ("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf", 0),
     ];
     candidates
         .iter()

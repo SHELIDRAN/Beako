@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Chapter, Filters, Manga};
+use crate::search::{BakaSearch, Search};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Progress {
@@ -49,11 +50,141 @@ impl ReadingMode {
     }
 }
 
+/// How a page is sized in the paged reading modes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Fit {
+    #[default]
+    Screen,
+    Width,
+    Height,
+    Original,
+}
+
+impl Fit {
+    pub const ALL: [Fit; 4] = [Fit::Screen, Fit::Width, Fit::Height, Fit::Original];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Fit::Screen => "Fit Screen",
+            Fit::Width => "Fit Width",
+            Fit::Height => "Fit Height",
+            Fit::Original => "Original Size",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PageLayout {
+    #[default]
+    Single,
+    Double,
+    /// Two pages side by side when the window is wider than it is tall.
+    Automatic,
+}
+
+impl PageLayout {
+    pub const ALL: [PageLayout; 3] = [PageLayout::Single, PageLayout::Double, PageLayout::Automatic];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            PageLayout::Single => "Single Page",
+            PageLayout::Double => "Two Pages",
+            PageLayout::Automatic => "Automatic",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Backdrop {
+    #[default]
+    Black,
+    Gray,
+    White,
+}
+
+impl Backdrop {
+    pub const ALL: [Backdrop; 3] = [Backdrop::Black, Backdrop::Gray, Backdrop::White];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Backdrop::Black => "Black",
+            Backdrop::Gray => "Gray",
+            Backdrop::White => "White",
+        }
+    }
+}
+
+/// Everything people can adjust about the reader.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ReaderSettings {
+    pub fit: Fit,
+    pub layout: PageLayout,
+    /// In two-page layouts, show the first page (the cover) on its own.
+    pub cover_alone: bool,
+    pub backdrop: Backdrop,
+    /// Width of the vertical strip as a share of the window, 30–100 %.
+    pub strip_width: u32,
+    /// Space between pages in vertical scroll, in points.
+    pub page_gap: u32,
+    pub tap_zones: bool,
+    pub invert_tap_zones: bool,
+    pub wheel_turns_pages: bool,
+    pub always_show_page_number: bool,
+    /// Seconds before the controls fade; 0 keeps them visible.
+    pub hide_controls_after: u32,
+    pub preload: u32,
+    pub crop_borders: bool,
+    /// 0–80 % dimming for night reading.
+    pub dim: u32,
+    pub keep_awake: bool,
+    pub auto_next_chapter: bool,
+}
+
+impl Default for ReaderSettings {
+    fn default() -> Self {
+        Self {
+            fit: Fit::Screen,
+            layout: PageLayout::Single,
+            cover_alone: true,
+            backdrop: Backdrop::Black,
+            strip_width: 60,
+            page_gap: 0,
+            tap_zones: true,
+            invert_tap_zones: false,
+            wheel_turns_pages: true,
+            always_show_page_number: true,
+            hide_controls_after: 3,
+            preload: 4,
+            crop_borders: false,
+            dim: 0,
+            keep_awake: true,
+            auto_next_chapter: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Catalog {
+    #[default]
+    MangaDex,
+    MangaBaka,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub filters: Filters,
     pub reading_mode: ReadingMode,
+    pub reader: ReaderSettings,
+    pub catalog: Catalog,
+    pub search: Search,
+    pub baka: BakaSearch,
+    /// Kept so people don't retype them; the secret lives in the credential store.
+    pub mangadex_username: String,
+    pub mangadex_client_id: String,
+    /// Stop mirroring read chapters and library changes to MangaDex while signed in.
+    pub pause_sync: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -62,6 +193,8 @@ pub struct Library {
     pub entries: Vec<Entry>,
     pub progress: HashMap<String, Progress>,
     pub settings: Settings,
+    /// MangaDex reading statuses, refreshed while signed in.
+    pub statuses: HashMap<String, String>,
     #[serde(skip)]
     path: Option<PathBuf>,
     #[serde(skip)]
@@ -97,9 +230,7 @@ impl Library {
             std::fs::rename(&tmp, path)?;
             Ok(())
         })();
-        self.last_error = result
-            .err()
-            .map(|e| format!("Couldn't save your library: {e}"));
+        self.last_error = result.err().map(|e| format!("Couldn't save your library: {e}"));
     }
 
     pub fn contains(&self, manga_id: &str) -> bool {
@@ -147,6 +278,18 @@ impl Library {
         if changed_chapter {
             self.save();
         }
+    }
+
+    /// Merges read markers from MangaDex into local progress. Returns whether anything changed.
+    pub fn merge_read(&mut self, manga_id: &str, ids: &[String]) -> bool {
+        let p = self.progress.entry(manga_id.to_owned()).or_default();
+        let before = p.read.len();
+        p.read.extend(ids.iter().cloned());
+        let changed = p.read.len() != before;
+        if changed {
+            self.save();
+        }
+        changed
     }
 
     pub fn set_read(&mut self, manga_id: &str, chapter_id: &str, read: bool) {

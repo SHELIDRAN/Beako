@@ -4,7 +4,7 @@ use eframe::egui::{
     self, CornerRadius, CursorIcon, Rect, RichText, Role, Sense, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 
-use crate::api::{Chapter, Manga, language_name, status_label};
+use crate::api::{Chapter, Manga, READING_STATUSES, language_name, reading_status_label, status_label};
 use crate::app::{Action, App, Loadable, page_frame};
 use crate::cards::{self, COVER_ASPECT};
 use crate::theme::{Palette, Weight, font, radius, space, text};
@@ -26,13 +26,11 @@ impl App {
             .map(|(_, c)| c.clone())
             .unwrap_or_default();
         let language = self.library.settings.filters.language.clone();
-        let progress = self
-            .library
-            .progress(&manga.id)
-            .cloned()
-            .unwrap_or_default();
+        let progress = self.library.progress(&manga.id).cloned().unwrap_or_default();
         let mut newest_first = details.newest_first;
         let mut expanded = details.expanded;
+        let signed_in = self.account.username.is_some();
+        let status = self.library.statuses.get(&manga.id).cloned();
         let actions = &mut self.actions;
         let images = &mut self.images;
         let jobs = &self.jobs;
@@ -41,13 +39,15 @@ impl App {
             .id_salt(("details", &manga.id))
             .auto_shrink([false, false])
             .show(ui, |ui| {
+                // A wash of the cover's colors behind the header, fading into the page.
+                let hero = Rect::from_min_size(ui.min_rect().min, vec2(ui.available_width(), 460.0));
+                cards::paint_cover_backdrop(ui, images, jobs, &manga, hero, 1.0);
+                paint_hero_fade(ui, hero, &p);
                 page_frame().show(ui, |ui| {
                     let width = ui.available_width();
                     ui.set_width(width);
                     ui.add_space(space::M);
-                    if widgets::button(ui, ButtonStyle::Plain, Some(Icon::ChevronLeft), "Back")
-                        .clicked()
-                    {
+                    if widgets::button(ui, ButtonStyle::Plain, Some(Icon::ChevronLeft), "Back").clicked() {
                         actions.push(Action::Back);
                     }
                     ui.add_space(space::M);
@@ -55,10 +55,8 @@ impl App {
                     // Header: cover beside title, metadata, and actions.
                     let cover_w = if width > 760.0 { 220.0 } else { 160.0 };
                     ui.horizontal_top(|ui| {
-                        let (cover, _) = ui.allocate_exact_size(
-                            vec2(cover_w, cover_w * COVER_ASPECT),
-                            Sense::hover(),
-                        );
+                        let (cover, _) =
+                            ui.allocate_exact_size(vec2(cover_w, cover_w * COVER_ASPECT), Sense::hover());
                         let shadow = egui::epaint::Shadow {
                             offset: [0, 10],
                             blur: 30,
@@ -76,13 +74,8 @@ impl App {
                             ui.horizontal(|ui| {
                                 let (label, target) = read_target(&chapters, &progress);
                                 ui.add_enabled_ui(target.is_some(), |ui| {
-                                    if widgets::button(
-                                        ui,
-                                        ButtonStyle::Prominent,
-                                        Some(Icon::Book),
-                                        &label,
-                                    )
-                                    .clicked()
+                                    if widgets::button(ui, ButtonStyle::Prominent, Some(Icon::Book), &label)
+                                        .clicked()
                                         && let Some((chapter_id, page)) = target
                                     {
                                         actions.push(Action::Read {
@@ -98,8 +91,7 @@ impl App {
                                 } else {
                                     (Icon::Plus, "Add to Library")
                                 };
-                                let r =
-                                    widgets::button(ui, ButtonStyle::Bordered, Some(icon), label);
+                                let r = widgets::button(ui, ButtonStyle::Bordered, Some(icon), label);
                                 let r = if in_library {
                                     r.on_hover_text("Remove from your library")
                                 } else {
@@ -107,6 +99,10 @@ impl App {
                                 };
                                 if r.clicked() {
                                     actions.push(Action::ToggleLibrary(manga.clone()));
+                                }
+                                if signed_in {
+                                    ui.add_space(space::XS);
+                                    status_picker(ui, &manga.id, status.as_deref(), actions);
                                 }
                             });
                         });
@@ -163,12 +159,12 @@ fn header_text(ui: &mut Ui, manga: &Manga, p: &Palette) {
     let (r, _) = ui.allocate_exact_size(title.size(), Sense::hover());
     ui.painter().galley(r.min, title, p.label);
     ui.add_space(2.0);
-    if let Some(alt) = &manga.alt_title {
-        ui.label(
-            RichText::new(alt)
-                .font(text::callout())
-                .color(p.secondary_label),
-        );
+    if let Some(alt) = manga
+        .alt_title
+        .as_ref()
+        .filter(|a| !a.eq_ignore_ascii_case(&manga.title))
+    {
+        ui.label(RichText::new(alt).font(text::callout()).color(p.secondary_label));
     }
     let byline = manga.byline();
     if !byline.is_empty() {
@@ -235,18 +231,12 @@ fn read_target(
             );
         }
         // Finished that chapter: offer the next one with a different number.
-        let pos = readable
-            .iter()
-            .position(|c| c.id == current.id)
-            .unwrap_or(0);
+        let pos = readable.iter().position(|c| c.id == current.id).unwrap_or(0);
         if let Some(next) = readable[pos..]
             .iter()
             .find(|c| c.chapter != current.chapter && !progress.read.contains(&c.id))
         {
-            return (
-                format!("Read {}", next.short_name()),
-                Some((next.id.clone(), 0)),
-            );
+            return (format!("Read {}", next.short_name()), Some((next.id.clone(), 0)));
         }
     }
     match readable.iter().find(|c| !progress.read.contains(&c.id)) {
@@ -274,28 +264,19 @@ fn chapter_section(
     let count = chapters.ready().map(Vec::len);
     ui.allocate_ui(vec2(width, 32.0), |ui| {
         ui.horizontal(|ui| {
-            ui.label(
-                RichText::new("Chapters")
-                    .font(text::title2())
-                    .color(p.label),
-            );
+            ui.label(RichText::new("Chapters").font(text::title2()).color(p.label));
             let sub = match count {
                 Some(n) => format!("{n} in {}", language_name(language)),
                 None => language_name(language),
             };
-            ui.label(
-                RichText::new(sub)
-                    .font(text::callout())
-                    .color(p.secondary_label),
-            );
+            ui.label(RichText::new(sub).font(text::callout()).color(p.secondary_label));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let label = if *newest_first {
                     "Newest First"
                 } else {
                     "Oldest First"
                 };
-                if widgets::button(ui, ButtonStyle::Plain, Some(Icon::ArrowUpDown), label).clicked()
-                {
+                if widgets::button(ui, ButtonStyle::Plain, Some(Icon::ArrowUpDown), label).clicked() {
                     *newest_first = !*newest_first;
                 }
             });
@@ -306,13 +287,7 @@ fn chapter_section(
     let list = match chapters {
         Loadable::Ready(list) => list,
         Loadable::Failed(e) => {
-            if widgets::placeholder_view(
-                ui,
-                Icon::Retry,
-                "Couldn’t Load Chapters",
-                e,
-                Some("Try Again"),
-            ) {
+            if widgets::placeholder_view(ui, Icon::Retry, "Couldn’t Load Chapters", e, Some("Try Again")) {
                 actions.push(Action::ReloadChapters(manga.id.clone()));
             }
             return;
@@ -334,13 +309,9 @@ fn chapter_section(
 
     // An inset grouped list. Only rows inside the viewport are drawn, so titles with thousands
     // of chapters scroll smoothly.
-    let (group, _) =
-        ui.allocate_exact_size(vec2(width, ROW_HEIGHT * list.len() as f32), Sense::hover());
-    ui.painter().rect_filled(
-        group,
-        CornerRadius::same(radius::GROUP),
-        p.grouped_background,
-    );
+    let (group, _) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT * list.len() as f32), Sense::hover());
+    ui.painter()
+        .rect_filled(group, CornerRadius::same(radius::GROUP), p.grouped_background);
     let origin = group.top();
     let clip = ui.clip_rect();
     let first = (((clip.top() - origin) / ROW_HEIGHT).floor().max(0.0)) as usize;
@@ -355,18 +326,10 @@ fn chapter_section(
         );
         let read = progress.read.contains(&chapter.id);
         let current = progress.chapter_id.as_deref() == Some(chapter.id.as_str()) && !read;
-        let response = ui.interact(
-            rect,
-            ui.scope_id().with(("chapter", &chapter.id)),
-            Sense::click(),
-        );
+        let response = ui.interact(rect, ui.scope_id().with(("chapter", &chapter.id)), Sense::click());
         response.widget_info(|| {
             let state = if read { ", read" } else { "" };
-            WidgetInfo::labeled(
-                Role::Button,
-                true,
-                format!("{}{state}", chapter.display_name()),
-            )
+            WidgetInfo::labeled(Role::Button, true, format!("{}{state}", chapter.display_name()))
         });
         let corner = row_corners(i, list.len());
         if response.hovered() {
@@ -382,8 +345,7 @@ fn chapter_section(
         }
 
         // Leading status: a filled dot for where people left off, a check for read chapters.
-        let status =
-            Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), Vec2::splat(16.0));
+        let status = Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), Vec2::splat(16.0));
         if read {
             widgets::paint_icon(ui.painter(), Icon::Check, status, p.secondary_label);
         } else if current {
@@ -393,19 +355,9 @@ fn chapter_section(
         let title_color = if read { p.secondary_label } else { p.label };
         let title_font = if read { text::body() } else { text::headline() };
         let text_w = width - 44.0 - 56.0;
-        let title = widgets::wrapped_text(
-            ui,
-            &chapter.display_name(),
-            title_font,
-            title_color,
-            text_w,
-            1,
-        );
-        ui.painter().galley(
-            pos2(rect.left() + 44.0, rect.top() + 10.0),
-            title,
-            title_color,
-        );
+        let title = widgets::wrapped_text(ui, &chapter.display_name(), title_font, title_color, text_w, 1);
+        ui.painter()
+            .galley(pos2(rect.left() + 44.0, rect.top() + 10.0), title, title_color);
         let mut sub = Vec::new();
         if let Some(g) = &chapter.group {
             sub.push(g.clone());
@@ -434,10 +386,7 @@ fn chapter_section(
             p.secondary_label,
         );
 
-        let trailing = Rect::from_center_size(
-            pos2(rect.right() - 24.0, rect.center().y),
-            Vec2::splat(14.0),
-        );
+        let trailing = Rect::from_center_size(pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(14.0));
         let icon = if chapter.external_url.is_some() {
             Icon::External
         } else {
@@ -469,11 +418,7 @@ fn chapter_section(
         response
             .on_hover_cursor(CursorIcon::PointingHand)
             .context_menu(|ui| {
-                let label = if read {
-                    "Mark as Unread"
-                } else {
-                    "Mark as Read"
-                };
+                let label = if read { "Mark as Unread" } else { "Mark as Read" };
                 if ui.button(label).clicked() {
                     actions.push(Action::SetRead {
                         manga_id: manga.id.clone(),
@@ -505,4 +450,46 @@ fn row_corners(i: usize, len: usize) -> CornerRadius {
         c.se = r;
     }
     c
+}
+
+/// Fades the hero backdrop into the page and keeps text over it readable: a veil of the
+/// background color at 72 % over the whole area, rising to opaque at the bottom.
+fn paint_hero_fade(ui: &Ui, rect: Rect, p: &Palette) {
+    let bg = p.background;
+    let veil = egui::Color32::from_rgba_unmultiplied(bg.r(), bg.g(), bg.b(), 184);
+    let mut mesh = egui::Mesh::default();
+    let mid = rect.top() + rect.height() * 0.55;
+    for (y, color) in [(rect.top(), veil), (mid, veil), (rect.bottom(), bg)] {
+        mesh.colored_vertex(pos2(rect.left(), y), color);
+        mesh.colored_vertex(pos2(rect.right(), y), color);
+    }
+    for i in 0..2u32 {
+        let b = i * 2;
+        mesh.add_triangle(b, b + 1, b + 2);
+        mesh.add_triangle(b + 1, b + 3, b + 2);
+    }
+    ui.painter().add(egui::Shape::mesh(mesh));
+}
+
+/// MangaDex's reading status for this title, as a pop-up button.
+fn status_picker(ui: &mut Ui, manga_id: &str, current: Option<&str>, actions: &mut Vec<Action>) {
+    let label = current.map_or("No Status", reading_status_label);
+    let mut choice = current.map(str::to_owned);
+    egui::ComboBox::from_id_salt(("status", manga_id))
+        .selected_text(label)
+        .width(150.0)
+        .show_ui(ui, |ui| {
+            ui.selectable_value(&mut choice, None, "No Status");
+            for (key, name) in READING_STATUSES {
+                ui.selectable_value(&mut choice, Some(key.to_owned()), name);
+            }
+        })
+        .response
+        .on_hover_text("Reading status on MangaDex");
+    if choice.as_deref() != current {
+        actions.push(Action::SetStatus {
+            manga_id: manga_id.to_owned(),
+            status: choice,
+        });
+    }
 }
