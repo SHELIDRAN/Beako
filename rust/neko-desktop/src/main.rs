@@ -6,19 +6,19 @@
 mod api;
 mod app;
 mod auth;
-mod browse;
 mod cards;
 mod comick;
 mod details;
-mod filters_view;
+mod filters;
 mod glass;
 mod images;
 mod jobs;
 mod library;
 mod library_view;
 mod reader;
-mod search;
 mod settings_view;
+mod sources;
+mod sources_view;
 mod theme;
 mod widgets;
 

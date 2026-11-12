@@ -84,7 +84,7 @@ impl App {
                 ui.add_space(space::L);
                 ui.label(
                     RichText::new(
-                        "Neko is unofficial and not affiliated with MangaDex, MangaBaka, or Comix. It hosts no content.",
+                        "Neko is unofficial and not affiliated with MangaDex, Comick, or Comix. It hosts no content.",
                     )
                     .font(text::subheadline())
                     .color(p.secondary_label),

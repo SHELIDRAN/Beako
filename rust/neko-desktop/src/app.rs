@@ -4,13 +4,14 @@ use std::collections::{HashMap, HashSet};
 
 use eframe::egui::{self, Color32, CornerRadius, Frame, Key, Margin, Rect, Stroke, pos2, vec2};
 
-use crate::api::{Chapter, Feed, Manga, Tag};
+use crate::api::{Chapter, Manga};
 use crate::auth::Credentials;
+use crate::filters::FilterList;
 use crate::images::Images;
 use crate::jobs::{Event, Jobs};
-use crate::library::{Catalog, Library};
+use crate::library::Library;
 use crate::reader::Reader;
-use crate::search::BakaSeries;
+use crate::sources::{self, Listing};
 use crate::theme::{self, Palette, space, text};
 use crate::widgets::{self, Icon};
 
@@ -41,22 +42,34 @@ impl<T> Loadable<T> {
 }
 
 pub struct BrowseState {
-    pub feed: Feed,
+    /// The open source, or `None` for the list of sources.
+    pub source: Option<&'static str>,
+    /// Popular or Latest; searching and filtering switch to a search listing.
+    pub tab: Listing,
     pub query: String,
     /// The query the current results are for.
     pub results_query: String,
     pub items: Vec<Manga>,
-    /// MangaBaka results behind the placeholder `Manga`s in `items`, keyed by MangaBaka ID.
-    pub baka: HashMap<u64, BakaSeries>,
-    pub total: u32,
+    pub page: u32,
+    pub has_next: bool,
     pub loading: bool,
     pub error: Option<String>,
     pub request: u64,
     pub last_edit: Option<f64>,
     pub focus_search: bool,
     pub show_filters: bool,
-    /// The MangaBaka series being matched to MangaDex.
-    pub resolving: Option<u64>,
+    /// The title being opened through its source.
+    pub opening: Option<String>,
+}
+
+/// A search across every source.
+#[derive(Default)]
+pub struct GlobalSearch {
+    pub query: String,
+    /// The query the results are for; empty means no search is shown.
+    pub submitted: String,
+    pub request: u64,
+    pub results: HashMap<&'static str, Loadable<Vec<Manga>>>,
 }
 
 pub struct Details {
@@ -104,8 +117,13 @@ pub enum Action {
     },
     LoadMoreBrowse,
     ReloadBrowse,
-    SetCatalog(Catalog),
-    ResolveBaka(u64),
+    OpenSource(&'static str, Listing),
+    CloseSource,
+    TogglePin(&'static str),
+    GlobalSearch(String),
+    ShelfPeriod(&'static str, &'static str, u32),
+    /// Saves a source's filters and reloads its results.
+    SourceFiltersChanged(&'static str),
     ReloadChapters(String),
     OpenUrl(String),
     CloseReader,
@@ -122,7 +140,6 @@ pub enum Action {
         entry: crate::comick::LibraryEntry,
     },
     ComickUnlink(String),
-    ChartPeriod(crate::comick::Chart, u32),
 }
 
 /// Comick's catalog data and the tracker connection.
@@ -131,14 +148,12 @@ pub struct ComickState {
     pub username: Option<String>,
     pub busy: bool,
     pub error: Option<String>,
-    pub genres: Loadable<Vec<crate::comick::Genre>>,
-    pub tags: Loadable<Vec<crate::comick::ComickTag>>,
-    /// Each chart's selected period in days and its titles.
-    pub charts: HashMap<crate::comick::Chart, (u32, Loadable<Vec<BakaSeries>>)>,
     /// Titles being matched to Comick.
     pub linking: HashSet<String>,
-    pub tag_query: String,
 }
+
+/// A shelf's chosen period and its titles.
+pub type ShelfState = (u32, Loadable<Vec<Manga>>);
 
 pub struct App {
     pub jobs: Jobs,
@@ -148,7 +163,10 @@ pub struct App {
     pub details: Option<Details>,
     pub reader: Option<Reader>,
     pub browse: BrowseState,
-    pub tags: Loadable<Vec<Tag>>,
+    pub global: GlobalSearch,
+    /// Each source's declared filters, with saved choices applied.
+    pub source_filters: HashMap<&'static str, Loadable<FilterList>>,
+    pub shelves: HashMap<(&'static str, &'static str), ShelfState>,
     pub account: AccountState,
     pub comick: ComickState,
     /// Chapter lists keyed by manga id; each knows the language it was fetched in.
@@ -194,21 +212,24 @@ impl App {
             details: None,
             reader: None,
             browse: BrowseState {
-                feed: Feed::Popular,
+                source: None,
+                tab: Listing::Popular,
                 query: String::new(),
                 results_query: String::new(),
                 items: Vec::new(),
-                baka: HashMap::new(),
-                total: 0,
+                page: 0,
+                has_next: false,
                 loading: false,
                 error: None,
                 request: 0,
                 last_edit: None,
                 focus_search: false,
                 show_filters: false,
-                resolving: None,
+                opening: None,
             },
-            tags: Loadable::Loading,
+            global: GlobalSearch::default(),
+            source_filters: HashMap::new(),
+            shelves: HashMap::new(),
             comick: ComickState::default(),
             account: AccountState {
                 username: username.clone(),
@@ -221,12 +242,7 @@ impl App {
             data_dir,
             vibrancy,
         };
-        app.jobs.tags();
         app.comick.username = app.jobs.comick_user();
-        if app.library.settings.catalog == Catalog::Comick {
-            app.load_comick_catalog();
-        }
-        app.load_browse(false);
         if username.is_some() && !app.library.settings.pause_sync {
             app.account.syncing = true;
             app.jobs.sync();
@@ -242,55 +258,86 @@ impl App {
         self.signed_in() && !self.library.settings.pause_sync
     }
 
+    /// The listing the open source should show: a search when there's a query or filters.
+    fn current_listing(&self, source: &str) -> Listing {
+        let filtering = self.active_filters(source) > 0;
+        let q = self.browse.query.trim();
+        if !q.is_empty() || filtering {
+            Listing::Search(q.to_owned())
+        } else {
+            self.browse.tab.clone()
+        }
+    }
+
+    pub fn active_filters(&self, source: &str) -> usize {
+        self.source_filters
+            .get(source)
+            .and_then(Loadable::ready)
+            .map_or(0, FilterList::active_count)
+    }
+
     pub fn load_browse(&mut self, append: bool) {
-        let settings = &self.library.settings;
+        let Some(source) = self.browse.source else { return };
+        let listing = self.current_listing(source);
+        let filters = self
+            .source_filters
+            .get(source)
+            .and_then(Loadable::ready)
+            .cloned()
+            .unwrap_or_default();
         let b = &mut self.browse;
         b.request += 1;
         b.loading = true;
         b.error = None;
         if !append {
             b.items.clear();
-            b.baka.clear();
-            b.total = 0;
+            b.page = 0;
+            b.has_next = false;
             b.results_query = b.query.trim().to_owned();
         }
-        match settings.catalog {
-            Catalog::MangaDex => {
-                let offset = b.items.len() as u32;
-                let mut search = settings.search.clone();
-                if let Some(tags) = self.tags.ready() {
-                    search.tag_ids = tags.iter().map(|t| (t.name.clone(), t.id.clone())).collect();
-                }
-                self.jobs.list_manga(
-                    b.request,
-                    b.feed,
-                    b.results_query.clone(),
-                    offset,
-                    settings.filters.clone(),
-                    search,
-                );
-            }
-            Catalog::Comick => {
-                let page = (b.items.len() as u32) / 30 + 1;
-                self.jobs.comick_search(
-                    b.request,
-                    b.results_query.clone(),
-                    page,
-                    settings.comick.clone(),
-                    settings.filters.clone(),
-                );
-            }
-            Catalog::MangaBaka => {
-                let page = (b.items.len() as u32) / 30 + 1;
-                self.jobs.baka_search(
-                    b.request,
-                    b.results_query.clone(),
-                    page,
-                    settings.baka.clone(),
-                    settings.filters.clone(),
-                );
+        b.page += 1;
+        self.jobs.source_list(
+            b.request,
+            source,
+            listing,
+            b.page,
+            filters,
+            self.library.settings.filters.clone(),
+        );
+    }
+
+    /// Opens a source: loads its filters and shelves the first time, then its list.
+    fn open_source(&mut self, id: &'static str, tab: Listing) {
+        let Some(source) = sources::get(id) else { return };
+        let id = source.info().id;
+        self.browse.source = Some(id);
+        self.browse.tab = tab;
+        self.browse.show_filters = false;
+        if let Listing::Search(q) = &self.browse.tab {
+            self.browse.query = q.clone();
+            self.browse.tab = Listing::Popular;
+        } else {
+            self.browse.query.clear();
+        }
+        self.library.settings.last_source = Some(id.to_owned());
+        self.library.save();
+        if !self.source_filters.contains_key(id) {
+            self.source_filters.insert(id, Loadable::Loading);
+            self.jobs.source_filters(id);
+        }
+        for shelf in source.shelves() {
+            if !self.shelves.contains_key(&(id, shelf.id)) {
+                let period = shelf.periods.first().map_or(0, |(d, _)| *d);
+                self.load_shelf(id, shelf.id, period);
             }
         }
+        self.load_browse(false);
+    }
+
+    fn load_shelf(&mut self, source: &'static str, shelf: &'static str, period: u32) {
+        self.shelves.insert((source, shelf), (period, Loadable::Loading));
+        self.jobs
+            .shelf(source, shelf, period, self.library.settings.filters.clone());
     }
 
     pub fn ensure_chapters(&mut self, manga_id: &str, force: bool) {
@@ -309,26 +356,6 @@ impl App {
 
     pub fn notify(&mut self, ctx: &egui::Context, message: impl Into<String>) {
         self.notice = Some((message.into(), ctx.input(|i| i.time) + 3.5));
-    }
-
-    /// Loads Comick's genres, tags, and charts the first time its catalog is shown.
-    pub fn load_comick_catalog(&mut self) {
-        if matches!(self.comick.genres, Loadable::Idle) {
-            self.comick.genres = Loadable::Loading;
-            self.comick.tags = Loadable::Loading;
-            self.jobs.comick_catalog();
-        }
-        for chart in crate::comick::Chart::ALL {
-            if !self.comick.charts.contains_key(&chart) {
-                self.load_chart(chart, 7);
-            }
-        }
-    }
-
-    pub fn load_chart(&mut self, chart: crate::comick::Chart, days: u32) {
-        self.comick.charts.insert(chart, (days, Loadable::Loading));
-        self.jobs
-            .comick_chart(chart, days, self.library.settings.filters.clone());
     }
 
     /// After reading a chapter, moves the Comick progress forward (never back).
@@ -385,45 +412,75 @@ impl App {
         let events: Vec<Event> = self.jobs.drain().collect();
         for event in events {
             match event {
-                Event::MangaList { request, result } => {
+                Event::SourceList { request, result } => {
                     if request != self.browse.request {
                         continue; // A newer search replaced this one.
                     }
                     self.browse.loading = false;
                     match result {
-                        Ok(page) => {
-                            self.browse.total = page.total;
+                        Ok((items, has_next)) => {
                             let known: HashSet<String> =
                                 self.browse.items.iter().map(|m| m.id.clone()).collect();
                             self.browse
                                 .items
-                                .extend(page.items.into_iter().filter(|m| !known.contains(&m.id)));
+                                .extend(items.into_iter().filter(|m| !known.contains(&m.id)));
+                            self.browse.has_next = has_next;
                         }
                         Err(e) => self.browse.error = Some(e),
                     }
                 }
-                Event::BakaList { request, result } => {
-                    if request != self.browse.request {
-                        continue;
+                Event::GlobalResults {
+                    request,
+                    source,
+                    result,
+                } => {
+                    if request == self.global.request {
+                        let state = match result {
+                            Ok(items) => Loadable::Ready(items),
+                            Err(e) => Loadable::Failed(e),
+                        };
+                        self.global.results.insert(source, state);
                     }
-                    self.browse.loading = false;
-                    match result {
-                        Ok(page) => {
-                            self.browse.total = page.total;
-                            for series in page.items {
-                                if self.browse.baka.contains_key(&series.id) {
-                                    continue;
-                                }
-                                self.browse.items.push(series.as_manga());
-                                self.browse.baka.insert(series.id, series);
+                }
+                Event::SourceFilters { source, result } => {
+                    let state = match result {
+                        Ok(mut list) => {
+                            if let Some(saved) = self.library.settings.source_filters.get(source) {
+                                list.restore(saved);
                             }
+                            Loadable::Ready(list)
                         }
-                        Err(e) => self.browse.error = Some(e),
+                        Err(e) => Loadable::Failed(e),
+                    };
+                    let had_saved = self.active_filters(source) == 0
+                        && state.ready().is_some_and(|l| l.active_count() > 0);
+                    self.source_filters.insert(source, state);
+                    // Saved filters can only be sent once the list (and its tag IDs) is known.
+                    if had_saved && self.browse.source == Some(source) {
+                        self.load_browse(false);
                     }
                 }
-                Event::Resolved { baka_id, result } => {
-                    if self.browse.resolving == Some(baka_id) {
-                        self.browse.resolving = None;
+                Event::Shelf {
+                    source,
+                    shelf,
+                    period,
+                    result,
+                } => {
+                    if self
+                        .shelves
+                        .get(&(source, shelf))
+                        .is_some_and(|(p, _)| *p == period)
+                    {
+                        let state = match result {
+                            Ok(items) => Loadable::Ready(items),
+                            Err(e) => Loadable::Failed(e),
+                        };
+                        self.shelves.insert((source, shelf), (period, state));
+                    }
+                }
+                Event::Opened { manga_id, result } => {
+                    if self.browse.opening.as_deref() == Some(manga_id.as_str()) {
+                        self.browse.opening = None;
                         match result {
                             Ok(manga) => self.actions.push(Action::OpenManga(manga)),
                             Err(e) => self.notify(ctx, e),
@@ -456,19 +513,6 @@ impl App {
                     }
                 }
                 Event::Image { key, result } => self.images.finish(ctx, key, result),
-                Event::Tags(result) => {
-                    let reload = matches!(self.library.settings.catalog, Catalog::MangaDex)
-                        && (!self.library.settings.search.include.is_empty()
-                            || !self.library.settings.search.exclude.is_empty());
-                    self.tags = match result {
-                        Ok(t) => Loadable::Ready(t),
-                        Err(e) => Loadable::Failed(e),
-                    };
-                    // Saved tag filters can only be sent once tag IDs are known.
-                    if reload {
-                        self.load_browse(false);
-                    }
-                }
                 Event::Account(result) => {
                     self.account.busy = false;
                     self.account.form.password.clear();
@@ -531,46 +575,6 @@ impl App {
                     }
                 }
                 Event::Notice(n) => self.notify(ctx, n),
-                Event::ComickList { request, result } => {
-                    if request != self.browse.request {
-                        continue;
-                    }
-                    self.browse.loading = false;
-                    match result {
-                        Ok(page) => {
-                            self.browse.total = page.total;
-                            for series in page.items {
-                                if self.browse.baka.contains_key(&series.id) {
-                                    continue;
-                                }
-                                self.browse.items.push(series.as_manga());
-                                self.browse.baka.insert(series.id, series);
-                            }
-                        }
-                        Err(e) => self.browse.error = Some(e),
-                    }
-                }
-                Event::ComickChart { chart, days, result } => {
-                    if self.comick.charts.get(&chart).is_some_and(|(d, _)| *d == days) {
-                        let state = match result {
-                            Ok(list) => Loadable::Ready(list),
-                            Err(e) => Loadable::Failed(e),
-                        };
-                        self.comick.charts.insert(chart, (days, state));
-                    }
-                }
-                Event::ComickGenres(result) => {
-                    self.comick.genres = match result {
-                        Ok(g) => Loadable::Ready(g),
-                        Err(e) => Loadable::Failed(e),
-                    };
-                }
-                Event::ComickTags(result) => {
-                    self.comick.tags = match result {
-                        Ok(t) => Loadable::Ready(t),
-                        Err(e) => Loadable::Failed(e),
-                    };
-                }
                 Event::ComickAccount(result) => {
                     self.comick.busy = false;
                     match result {
@@ -614,6 +618,11 @@ impl App {
                 Action::Section(s) => {
                     self.section = s;
                     self.details = None;
+                }
+                Action::OpenManga(manga) if !manga.source.is_empty() && manga.source != "mangadex" => {
+                    // A title from another source: ask the source for its readable version.
+                    self.browse.opening = Some(manga.id.clone());
+                    self.jobs.open(manga);
                 }
                 Action::OpenManga(manga) => {
                     self.jobs.manga_details(manga.id.clone());
@@ -710,26 +719,48 @@ impl App {
                     }
                 }
                 Action::ReloadBrowse => self.load_browse(false),
-                Action::SetCatalog(c) => {
-                    if c == Catalog::Comick {
-                        self.load_comick_catalog();
+                Action::OpenSource(id, tab) => self.open_source(id, tab),
+                Action::CloseSource => {
+                    self.browse.source = None;
+                    self.browse.show_filters = false;
+                    self.browse.query.clear();
+                    self.browse.items.clear();
+                }
+                Action::TogglePin(id) => {
+                    let pinned = &mut self.library.settings.pinned_sources;
+                    if let Some(i) = pinned.iter().position(|p| p == id) {
+                        pinned.remove(i);
+                    } else {
+                        pinned.push(id.to_owned());
                     }
-                    if self.library.settings.catalog != c {
-                        self.library.settings.catalog = c;
-                        self.library.save();
-                        self.load_browse(false);
+                    self.library.save();
+                }
+                Action::GlobalSearch(query) => {
+                    let q = query.trim().to_owned();
+                    self.global.request += 1;
+                    self.global.results.clear();
+                    self.global.submitted = q.clone();
+                    if !q.is_empty() {
+                        for s in sources::all() {
+                            self.global.results.insert(s.info().id, Loadable::Loading);
+                        }
+                        self.jobs.global_search(
+                            self.global.request,
+                            q,
+                            self.library.settings.filters.clone(),
+                        );
                     }
                 }
-                Action::ResolveBaka(id) => {
-                    let from_charts = || {
-                        self.comick.charts.values().find_map(|(_, list)| {
-                            list.ready().and_then(|l| l.iter().find(|s| s.id == id).cloned())
-                        })
-                    };
-                    if let Some(series) = self.browse.baka.get(&id).cloned().or_else(from_charts) {
-                        self.browse.resolving = Some(id);
-                        self.jobs.resolve_baka(series);
+                Action::ShelfPeriod(source, shelf, period) => self.load_shelf(source, shelf, period),
+                Action::SourceFiltersChanged(source) => {
+                    if let Some(list) = self.source_filters.get(source).and_then(Loadable::ready) {
+                        self.library
+                            .settings
+                            .source_filters
+                            .insert(source.to_owned(), list.chosen());
+                        self.library.save();
                     }
+                    self.load_browse(false);
                 }
                 Action::ReloadChapters(id) => self.ensure_chapters(&id, true),
                 Action::OpenUrl(url) => {
@@ -739,9 +770,13 @@ impl App {
                 }
                 Action::CloseReader => self.close_reader(),
                 Action::FiltersChanged => {
+                    // Language or content settings changed: refresh what depends on them.
                     self.library.save();
                     self.chapters.clear();
-                    self.load_browse(false);
+                    self.shelves.clear();
+                    if self.browse.source.is_some() {
+                        self.load_browse(false);
+                    }
                 }
                 Action::SignIn => {
                     self.account.busy = true;
@@ -788,7 +823,6 @@ impl App {
                         self.notify(ctx, format!("Removed “{}” from your Comick library", entry.title));
                     }
                 }
-                Action::ChartPeriod(chart, days) => self.load_chart(chart, days),
             }
         }
     }
@@ -1038,7 +1072,7 @@ impl eframe::App for App {
                     } else {
                         match self.section {
                             Section::Library => self.library_view(ui),
-                            Section::Browse => self.browse_view(ui),
+                            Section::Browse => self.sources_view(ui),
                             Section::Settings => self.settings_view(ui),
                         }
                     }

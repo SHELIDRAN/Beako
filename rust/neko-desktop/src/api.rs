@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::auth::Session;
-use crate::search::{Search, Sort};
 
 pub const API: &str = "https://api.mangadex.org";
 pub const UPLOADS: &str = "https://uploads.mangadex.org";
@@ -56,9 +55,15 @@ pub struct Manga {
     /// IDs on other sites, keyed by MangaDex's short names (`al`, `mal`, `mu`, `kt`, ...).
     #[serde(default)]
     pub links: BTreeMap<String, String>,
-    /// A cover from another catalog (MangaBaka), used before the MangaDex cover is known.
+    /// A cover from another source's catalog (Comick), used before the MangaDex cover is known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cover_override: Option<String>,
+    /// The source the title came from; empty means MangaDex.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source: String,
+    /// A short line under the cover in browse results (rating, type, year).
+    #[serde(skip)]
+    pub caption: Option<String>,
 }
 
 impl Manga {
@@ -150,42 +155,6 @@ pub fn format_date(rfc3339: &str) -> String {
     match (month, d.parse::<u32>()) {
         (Some(month), Ok(day)) => format!("{month} {day}, {y}"),
         _ => date.to_owned(),
-    }
-}
-
-/// The list a Browse page shows.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Feed {
-    Popular,
-    LatestUpdates,
-    NewTitles,
-    TopRated,
-}
-
-impl Feed {
-    pub const ALL: [Feed; 4] = [
-        Feed::Popular,
-        Feed::LatestUpdates,
-        Feed::NewTitles,
-        Feed::TopRated,
-    ];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Feed::Popular => "Popular",
-            Feed::LatestUpdates => "Latest",
-            Feed::NewTitles => "New",
-            Feed::TopRated => "Top Rated",
-        }
-    }
-
-    fn order(self) -> (&'static str, &'static str) {
-        match self {
-            Feed::Popular => ("order[followedCount]", "desc"),
-            Feed::LatestUpdates => ("order[latestUploadedChapter]", "desc"),
-            Feed::NewTitles => ("order[createdAt]", "desc"),
-            Feed::TopRated => ("order[rating]", "desc"),
-        }
     }
 }
 
@@ -480,41 +449,17 @@ impl Client {
         Ok(resp.bytes()?.to_vec())
     }
 
-    /// Browse a feed, or search when `query` isn't empty.
-    pub fn list_manga(
-        &self,
-        feed: Feed,
-        query: &str,
-        offset: u32,
-        filters: &Filters,
-        search: &Search,
-    ) -> Result<Page<Manga>> {
-        let mut q: Vec<(&str, String)> = vec![
-            ("limit", "32".into()),
-            ("offset", offset.to_string()),
+    /// Lists titles with query parameters built by the MangaDex source. Adds the includes, the
+    /// chapter language, and the content ratings every listing needs.
+    pub fn list_manga(&self, mut q: Vec<(&'static str, String)>, filters: &Filters) -> Result<Page<Manga>> {
+        q.extend([
             ("includes[]", "cover_art".into()),
             ("includes[]", "author".into()),
             ("includes[]", "artist".into()),
             ("hasAvailableChapters", "true".into()),
             ("availableTranslatedLanguage[]", filters.language.clone()),
-        ];
+        ]);
         q.extend(filters.ratings());
-        search.apply(&mut q);
-        let query = query.trim();
-        if !query.is_empty() {
-            q.push(("title", query.into()));
-        }
-        match (search.sort, query.is_empty()) {
-            (Some(sort), _) if sort != Sort::Relevance || !query.is_empty() => {
-                let (k, v) = sort.mangadex_order();
-                q.push((k, v.into()));
-            }
-            (_, true) => {
-                let (k, v) = feed.order();
-                q.push((k, v.into()));
-            }
-            (_, false) => q.push(("order[relevance]", "desc".into())),
-        }
         let body = self.get_json(&format!("{API}/manga"), &q)?;
         Ok(Page {
             items: body["data"]
@@ -686,6 +631,8 @@ pub fn parse_manga(v: &Value) -> Manga {
             .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_owned())))
             .collect(),
         cover_override: None,
+        source: String::new(),
+        caption: None,
     }
 }
 
