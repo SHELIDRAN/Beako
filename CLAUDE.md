@@ -13,6 +13,11 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 - Build and test: `./gradlew -PdesktopOnly :desktop:build`
 - Windows installer (on Windows): `./gradlew -PdesktopOnly :desktop:packageMsi`
 
+## Modules
+- `desktop`: Compose Multiplatform for Desktop app (entry point `org.nekomanga.desktop.MainKt`). Versions in `gradle/cmp.versions.toml` (catalog `cmp`).
+- `shared`: not created yet (Phase 0).
+- `app`, `core`, `constants`, `baselineprofile`: upstream Android code, read-only porting source. The Android Compose catalog is `androidxCompose`, because the name `compose` clashes with the Compose Multiplatform plugin's extension.
+
 ## How to work
 - Work on one roadmap item at a time; confirm which phase and item before writing code.
 - Before moving code, check whether it uses Android-only APIs (`android.*`, WorkManager, Room, Coil 2, Android views) and propose the desktop replacement from the plan.

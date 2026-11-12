@@ -1,0 +1,13 @@
+# Compose Multiplatform for the Windows desktop app (:desktop).
+# Kept apart from androidxCompose, which holds the Android Jetpack Compose libraries.
+[versions]
+compose_multiplatform = "1.12.2"
+# Last stable JetBrains Material 3; runs on the 1.12 Compose runtime.
+material3 = "1.9.0"
+
+[libraries]
+material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
+ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "compose_multiplatform" }
+
+[plugins]
+compose = { id = "org.jetbrains.compose", version.ref = "compose_multiplatform" }

@@ -163,14 +163,14 @@ dependencies {
     implementation(libs.cascade.compose)
 
     // Compose
-    implementation(compose.bundles.compose)
-    implementation(compose.gap)
-    implementation(compose.bundles.accompanist)
-    implementation(compose.number.picker)
+    implementation(androidxCompose.bundles.compose)
+    implementation(androidxCompose.gap)
+    implementation(androidxCompose.bundles.accompanist)
+    implementation(androidxCompose.number.picker)
 
-    implementation(compose.bundles.charting)
+    implementation(androidxCompose.bundles.charting)
 
-    implementation(compose.swipe)
+    implementation(androidxCompose.swipe)
 
     implementation(libs.pastelplaceholders)
     implementation(libs.versioncompare)
