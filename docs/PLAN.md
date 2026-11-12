@@ -104,9 +104,10 @@ Reference project: [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server
 First milestone: open the app on Windows, search MangaDex and read a chapter. Each phase ends with something you can run.
 
 1. **Phase 0 — Groundwork**
-   - Fork the repo, build the Android app once so you know the baseline.
-   - Add a `desktop` Compose Multiplatform module; move shared code (models, MangaDex API client, parsers) into a `shared` module.
-   - Set up CI on `windows-latest` that builds the desktop app.
+   - [x] Fork the repo. (Android baseline build skipped: the port is Windows-only; see `-PdesktopOnly`.)
+   - [x] Add a `desktop` Compose Multiplatform module that opens an empty window.
+   - [ ] Move shared code (models, MangaDex API client, parsers) into a `shared` module.
+   - [ ] Set up CI on `windows-latest` that builds the desktop app.
 2. **Phase 1 — Browse and read (MVP)**
    - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then MangaDex search, AniList-powered tag browse and popular page, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.
