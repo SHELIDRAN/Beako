@@ -24,10 +24,17 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 rootProject.name = "Neko"
 
-include(":app")
+// Windows-only port: `-PdesktopOnly` skips the Android modules, so no Android SDK is needed.
+// They stay in the repo as the source to port from.
+val desktopOnly =
+    providers.gradleProperty("desktopOnly").map { it != "false" }.getOrElse(false)
 
-include(":core")
+if (!desktopOnly) {
+  include(":app")
 
-include(":constants")
+  include(":core")
 
-include(":baselineprofile")
+  include(":constants")
+
+  include(":baselineprofile")
+}
