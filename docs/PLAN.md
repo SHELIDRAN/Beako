@@ -142,7 +142,7 @@ Give Claude Code one phase at a time, with this plan in the repo so every sessio
 
 ## Open questions
 
-- [ ] Keep the Android app building in the same repo, or Windows-only?
+- [x] Keep the Android app building in the same repo, or Windows-only? **Windows-only.** Android modules stay as porting source; build with `-PdesktopOnly`.
 - [ ] Compose Multiplatform, or a different stack you already know?
 - [ ] Is backup compatibility with Android Neko required?
 - [ ] Which merge sources matter to you, if any?
