@@ -1,12 +1,10 @@
-//! Comick: a third catalog (search with genres, a searchable tag list, demographics, chapter and
-//! score ranges, and its "most followed" charts) and a tracker that keeps your Comick library in
-//! step with what you read.
+//! Comick: the catalog behind the Comick source (search, genres, community tags, charts) and a
+//! tracker that keeps your Comick library in step with what you read.
 //!
 //! Catalog reads need no account. The tracker signs in with OAuth 2.0 (authorization code with
 //! PKCE) using a Comick developer app's public client ID; the browser hands the code back to a
 //! one-shot listener on 127.0.0.1. Tokens are kept in Windows Credential Manager.
 
-use std::collections::BTreeSet;
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
 use std::sync::Mutex;
@@ -18,8 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::Digest as _;
 
-use crate::api::{Client, Filters, Page};
-use crate::search::{BakaSeries, Origin};
+use crate::api::{Client, Filters, Manga};
 
 pub const API: &str = "https://api.comick.dev";
 pub const COVERS: &str = "https://meo.comick.pictures";
@@ -35,214 +32,6 @@ const SCOPES: &str = "library:read library:write offline_access";
 const RESOURCE: &str = "https://api.comick.dev/integrations/v1";
 const KEYRING_SERVICE: &str = "Neko Desktop";
 const KEYRING_USER: &str = "comick";
-
-// ---------------------------------------------------------------------------------------------
-// Catalog filters
-
-pub const DEMOGRAPHICS: [(u8, &str); 5] = [
-    (1, "Shounen"),
-    (2, "Shoujo"),
-    (3, "Seinen"),
-    (4, "Josei"),
-    (5, "None"),
-];
-pub const STATUSES: [(u8, &str); 4] = [(1, "Ongoing"), (2, "Completed"), (3, "Cancelled"), (4, "Hiatus")];
-pub const RATINGS: [(&str, &str); 3] = [
-    ("safe", "Safe"),
-    ("suggestive", "Suggestive"),
-    ("erotica", "Erotica"),
-];
-pub const TYPES: [(&str, &str); 3] = [("jp", "Manga"), ("kr", "Manhwa"), ("cn", "Manhua")];
-pub const CREATED: [(u32, &str); 5] = [
-    (0, "Any Time"),
-    (7, "Past Week"),
-    (30, "Past Month"),
-    (90, "Past 3 Months"),
-    (365, "Past Year"),
-];
-pub const SORTS: [(&str, &str); 6] = [
-    ("user_follow_count", "Most Followed"),
-    ("view", "Most Viewed"),
-    ("rating", "Highest Rated"),
-    ("uploaded", "Latest Chapter"),
-    ("created_at", "Newest"),
-    ("", "Best Match"),
-];
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default)]
-pub struct ComickSearch {
-    pub sort: String,
-    pub genres: BTreeSet<String>,
-    pub excluded_genres: BTreeSet<String>,
-    /// Tags by slug, with their display names kept for the chips.
-    pub tags: Vec<(String, String)>,
-    pub excluded_tags: Vec<(String, String)>,
-    pub demographics: BTreeSet<u8>,
-    pub statuses: BTreeSet<u8>,
-    pub content_ratings: BTreeSet<String>,
-    pub countries: BTreeSet<String>,
-    pub created_within: u32,
-    pub min_chapters: u32,
-    pub max_chapters: u32,
-    /// Minimum score out of 10.
-    pub min_score: u32,
-    pub year_from: Option<u32>,
-    pub year_to: Option<u32>,
-}
-
-impl Default for ComickSearch {
-    fn default() -> Self {
-        Self {
-            sort: "user_follow_count".into(),
-            genres: BTreeSet::new(),
-            excluded_genres: BTreeSet::new(),
-            tags: Vec::new(),
-            excluded_tags: Vec::new(),
-            demographics: BTreeSet::new(),
-            statuses: BTreeSet::new(),
-            content_ratings: BTreeSet::new(),
-            countries: BTreeSet::new(),
-            created_within: 0,
-            min_chapters: 0,
-            max_chapters: 0,
-            min_score: 0,
-            year_from: None,
-            year_to: None,
-        }
-    }
-}
-
-impl ComickSearch {
-    pub fn active_count(&self) -> usize {
-        let d = ComickSearch::default();
-        self.genres.len()
-            + self.excluded_genres.len()
-            + self.tags.len()
-            + self.excluded_tags.len()
-            + self.demographics.len()
-            + self.statuses.len()
-            + self.content_ratings.len()
-            + self.countries.len()
-            + usize::from(self.created_within > 0)
-            + usize::from(self.min_chapters > 0)
-            + usize::from(self.max_chapters > 0)
-            + usize::from(self.min_score > 0)
-            + usize::from(self.year_from.is_some() || self.year_to.is_some())
-            + usize::from(self.sort != d.sort)
-    }
-
-    pub fn tag_state(&self, slug: &str) -> crate::search::TagState {
-        use crate::search::TagState;
-        if self.tags.iter().any(|(s, _)| s == slug) {
-            TagState::Include
-        } else if self.excluded_tags.iter().any(|(s, _)| s == slug) {
-            TagState::Exclude
-        } else {
-            TagState::Any
-        }
-    }
-
-    pub fn set_tag(&mut self, slug: &str, name: &str, state: crate::search::TagState) {
-        use crate::search::TagState;
-        self.tags.retain(|(s, _)| s != slug);
-        self.excluded_tags.retain(|(s, _)| s != slug);
-        match state {
-            TagState::Include => self.tags.push((slug.to_owned(), name.to_owned())),
-            TagState::Exclude => self.excluded_tags.push((slug.to_owned(), name.to_owned())),
-            TagState::Any => {}
-        }
-    }
-
-    pub fn genre_state(&self, slug: &str) -> crate::search::TagState {
-        use crate::search::TagState;
-        if self.genres.contains(slug) {
-            TagState::Include
-        } else if self.excluded_genres.contains(slug) {
-            TagState::Exclude
-        } else {
-            TagState::Any
-        }
-    }
-
-    pub fn set_genre(&mut self, slug: &str, state: crate::search::TagState) {
-        use crate::search::TagState;
-        self.genres.remove(slug);
-        self.excluded_genres.remove(slug);
-        match state {
-            TagState::Include => {
-                self.genres.insert(slug.to_owned());
-            }
-            TagState::Exclude => {
-                self.excluded_genres.insert(slug.to_owned());
-            }
-            TagState::Any => {}
-        }
-    }
-
-    fn query(&self, q: &mut Vec<(&'static str, String)>, filters: &Filters) {
-        if !self.sort.is_empty() {
-            q.push(("sort", self.sort.clone()));
-        }
-        for g in &self.genres {
-            q.push(("genres", g.clone()));
-        }
-        for g in &self.excluded_genres {
-            q.push(("excludes", g.clone()));
-        }
-        for (t, _) in &self.tags {
-            q.push(("tags", t.clone()));
-        }
-        for (t, _) in &self.excluded_tags {
-            q.push(("excluded-tags", t.clone()));
-        }
-        for d in &self.demographics {
-            q.push(("demographic", d.to_string()));
-        }
-        for s in &self.statuses {
-            q.push(("status", s.to_string()));
-        }
-        // Content ratings the person picked, limited to what Settings allows.
-        let allowed = |r: &str| match r {
-            "suggestive" => filters.show_suggestive,
-            "erotica" => filters.show_erotica,
-            _ => true,
-        };
-        let picked: Vec<&String> = self.content_ratings.iter().filter(|r| allowed(r)).collect();
-        if picked.is_empty() {
-            for (r, _) in RATINGS {
-                if allowed(r) {
-                    q.push(("content_rating", r.to_owned()));
-                }
-            }
-        } else {
-            for r in picked {
-                q.push(("content_rating", r.clone()));
-            }
-        }
-        for c in &self.countries {
-            q.push(("country", c.clone()));
-        }
-        if self.created_within > 0 {
-            q.push(("time", self.created_within.to_string()));
-        }
-        if self.min_chapters > 0 {
-            q.push(("minimum", self.min_chapters.to_string()));
-        }
-        if self.max_chapters > 0 {
-            q.push(("maximum", self.max_chapters.to_string()));
-        }
-        if self.min_score > 0 {
-            q.push(("minimum_rating", self.min_score.to_string()));
-        }
-        if let Some(y) = self.year_from {
-            q.push(("from", y.to_string()));
-        }
-        if let Some(y) = self.year_to {
-            q.push(("to", y.to_string()));
-        }
-    }
-}
 
 /// A genre, theme, format, or content descriptor from Comick's genre list.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -270,18 +59,6 @@ pub enum Chart {
     Trending,
 }
 
-impl Chart {
-    pub const ALL: [Chart; 3] = [Chart::MostFollowedNew, Chart::RecentPopular, Chart::Trending];
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Chart::MostFollowedNew => "Most Followed New Comics",
-            Chart::RecentPopular => "Most Recent Popular",
-            Chart::Trending => "Trending",
-        }
-    }
-}
-
 /// The medium-size cover (about 190 KB instead of the 1–2 MB original).
 fn cover_of(v: &Value) -> Option<String> {
     let key = v["md_covers"].as_array()?.first()?["b2key"].as_str()?;
@@ -291,26 +68,45 @@ fn cover_of(v: &Value) -> Option<String> {
     })
 }
 
-pub fn parse_comic(v: &Value) -> BakaSeries {
+/// Comick's short title ID, from a title the Comick source produced.
+pub fn hid_of(m: &Manga) -> Option<&str> {
+    m.id.strip_prefix("comick:")
+}
+
+/// A Comick title as a [`Manga`], with the IDs MangaDex also lists (MangaUpdates, AniList,
+/// MyAnimeList) under MangaDex's link keys so the title can be found there.
+pub fn parse_comic(v: &Value) -> Manga {
     let ext = &v["external_ids"];
     let id_of = |k: &str| match &ext[k] {
         Value::String(s) if !s.is_empty() => Some(s.clone()),
         Value::Number(n) => Some(n.to_string()),
         _ => None,
     };
+    let mut links = std::collections::BTreeMap::new();
+    for (ours, theirs) in [("mu", "mangaupdates"), ("al", "anilist"), ("mal", "myanimelist")] {
+        if let Some(id) = id_of(theirs) {
+            links.insert(ours.to_owned(), id);
+        }
+    }
     let kind = match v["country"].as_str() {
-        Some("jp") => Some("manga".to_owned()),
-        Some("kr") => Some("manhwa".to_owned()),
-        Some("cn" | "hk" | "tw") => Some("manhua".to_owned()),
-        Some(_) => Some("other".to_owned()),
-        None => None,
+        Some("jp") => Some("Manga"),
+        Some("kr") => Some("Manhwa"),
+        Some("cn" | "hk" | "tw") => Some("Manhua"),
+        _ => None,
     };
     let rating = v["bayesian_rating"]
         .as_str()
         .or_else(|| v["rating"].as_str())
         .and_then(|r| r.parse::<f64>().ok())
-        .or_else(|| v["rating"].as_f64())
-        .map(|r| r * 10.0);
+        .or_else(|| v["rating"].as_f64());
+    let year = v["year"].as_u64().map(|y| y as u32);
+    let mut caption = Vec::new();
+    if let Some(r) = rating {
+        caption.push(format!("★ {r:.1}"));
+    }
+    caption.extend(kind.map(str::to_owned));
+    caption.extend(year.map(|y| y.to_string()));
+
     // An English title from the alternate titles when the main one is romanized.
     let english = v["md_titles"].as_array().and_then(|titles| {
         titles
@@ -320,27 +116,31 @@ pub fn parse_comic(v: &Value) -> BakaSeries {
             .map(str::to_owned)
     });
     let title = v["title"].as_str().unwrap_or_default().to_owned();
-    let (title, alt) = match (v["is_english_title"].as_bool(), english) {
+    let (title, alt_title) = match (v["is_english_title"].as_bool(), english) {
         (Some(true), _) | (_, None) => (title, None),
         (_, Some(en)) if en != title => (en, Some(title)),
         (_, Some(_)) => (title, None),
     };
-    BakaSeries {
-        id: v["id"].as_u64().unwrap_or(0),
-        origin: Origin::Comick,
-        hid: v["hid"].as_str().map(str::to_owned),
+    let status = match v["status"].as_u64() {
+        Some(1) => Some("ongoing"),
+        Some(2) => Some("completed"),
+        Some(3) => Some("cancelled"),
+        Some(4) => Some("hiatus"),
+        _ => None,
+    };
+    Manga {
+        id: format!("comick:{}", v["hid"].as_str().unwrap_or_default()),
+        source: "comick".into(),
         title,
-        native_title: None,
-        romanized_title: alt,
-        cover: cover_of(v),
-        authors: Vec::new(),
-        year: v["year"].as_u64().map(|y| y as u32),
-        kind,
-        rating,
-        anilist: id_of("anilist"),
-        mal: id_of("myanimelist"),
-        mangaupdates: id_of("mangaupdates"),
-        kitsu: None,
+        alt_title,
+        description: v["desc"].as_str().unwrap_or_default().to_owned(),
+        status: status.map(str::to_owned),
+        year,
+        content_rating: v["content_rating"].as_str().map(str::to_owned),
+        links,
+        cover_override: cover_of(v),
+        caption: (!caption.is_empty()).then(|| caption.join(" · ")),
+        ..Default::default()
     }
 }
 
@@ -372,33 +172,14 @@ impl Client {
         serde_json::from_str(&text).context("Comick sent a response Neko couldn't read")
     }
 
-    pub fn comick_search(
-        &self,
-        query: &str,
-        page: u32,
-        search: &ComickSearch,
-        filters: &Filters,
-    ) -> Result<Page<BakaSeries>> {
-        const LIMIT: u32 = 30;
-        let mut q: Vec<(&str, String)> = vec![("limit", LIMIT.to_string()), ("page", page.to_string())];
-        let query = query.trim();
-        if !query.is_empty() {
-            q.push(("q", query.chars().take(100).collect()));
-        }
-        let mut s = search.clone();
-        if !query.is_empty() && s.sort == ComickSearch::default().sort {
-            s.sort.clear(); // Best match when typing.
-        }
-        s.query(&mut q, filters);
-        let body = self.comick_get("v1.0/search", &q)?;
-        let items: Vec<BakaSeries> = body.as_array().into_iter().flatten().map(parse_comic).collect();
-        // Comick doesn't report a total; keep paging while pages are full.
-        let total = (page - 1) * LIMIT + items.len() as u32 + if items.len() as u32 == LIMIT { 1 } else { 0 };
-        Ok(Page { items, total })
+    /// Comick's catalog search with already-built query parameters.
+    pub fn comick_search(&self, query: &[(&str, String)]) -> Result<Vec<Manga>> {
+        let body = self.comick_get("v1.0/search", query)?;
+        Ok(body.as_array().into_iter().flatten().map(parse_comic).collect())
     }
 
     /// A chart for the last `days` (7, 30, or 90).
-    pub fn comick_chart(&self, chart: Chart, days: u32, filters: &Filters) -> Result<Vec<BakaSeries>> {
+    pub fn comick_chart(&self, chart: Chart, days: u32, filters: &Filters) -> Result<Vec<Manga>> {
         let mut ratings: Vec<(&str, String)> = vec![("content_rating", "safe".into())];
         if filters.show_suggestive {
             ratings.push(("content_rating", "suggestive".into()));
@@ -408,14 +189,15 @@ impl Client {
         }
         match chart {
             Chart::MostFollowedNew => {
+                // Comick's own "top follows" list has no covers; the same ranking comes from
+                // search, sorted by follows among titles added in the period.
                 let mut q = vec![
                     ("limit", "20".to_owned()),
                     ("sort", "user_follow_count".to_owned()),
                     ("time", days.to_string()),
                 ];
                 q.extend(ratings);
-                let body = self.comick_get("v1.0/search", &q)?;
-                Ok(body.as_array().into_iter().flatten().map(parse_comic).collect())
+                self.comick_search(&q)
             }
             Chart::RecentPopular | Chart::Trending => {
                 let mut q = vec![("day", days.to_string())];
@@ -480,7 +262,7 @@ impl Client {
     }
 
     /// Finds the Comick title for a MangaDex title, by shared IDs or exact title.
-    pub fn comick_find(&self, manga: &crate::api::Manga) -> Result<BakaSeries> {
+    pub fn comick_find(&self, manga: &Manga) -> Result<Manga> {
         let mut titles = vec![manga.title.clone()];
         titles.extend(manga.alt_title.clone());
         for title in titles {
@@ -488,26 +270,12 @@ impl Client {
                 ("q", title.chars().take(100).collect::<String>()),
                 ("limit", "15".into()),
             ];
-            let body = self.comick_get("v1.0/search", &q)?;
-            let found: Vec<BakaSeries> = body.as_array().into_iter().flatten().map(parse_comic).collect();
-            let link = |key: &str, id: &Option<String>| match (manga.links.get(key), id) {
-                (Some(a), Some(b)) => a.trim() == b.trim(),
-                _ => false,
-            };
-            if let Some(s) = found
-                .iter()
-                .find(|s| link("mu", &s.mangaupdates) || link("al", &s.anilist) || link("mal", &s.mal))
-            {
-                return Ok(s.clone());
+            let found = self.comick_search(&q)?;
+            if let Some(m) = found.iter().find(|c| crate::sources::links_match(manga, c)) {
+                return Ok(m.clone());
             }
-            let norm = crate::search::normalize(&title);
-            if let Some(s) = found.iter().find(|s| {
-                crate::search::normalize(&s.title) == norm
-                    || s.romanized_title
-                        .as_deref()
-                        .is_some_and(|r| crate::search::normalize(r) == norm)
-            }) {
-                return Ok(s.clone());
+            if let Some(m) = found.iter().find(|c| crate::sources::titles_match(&title, c)) {
+                return Ok(m.clone());
             }
         }
         bail!("Couldn’t find “{}” on Comick", manga.title)
@@ -929,63 +697,6 @@ mod tests {
     }
 
     #[test]
-    fn parses_comic_with_cover_and_ids() {
-        let v = json!({
-            "id": 29330, "hid": "yDm32aOJ", "title": "TBATE", "bayesian_rating": "9.29", "year": 2018,
-            "country": "kr", "is_english_title": null,
-            "md_titles": [{ "title": "The Beginning After the End", "lang": "en" }],
-            "md_covers": [{ "b2key": "pR5o5N.jpg" }],
-            "external_ids": { "anilist": null, "mangaupdates": "rwg23en", "myanimelist": 12345 }
-        });
-        let s = parse_comic(&v);
-        assert_eq!(s.title, "The Beginning After the End");
-        assert_eq!(s.romanized_title.as_deref(), Some("TBATE"));
-        assert_eq!(
-            s.cover.as_deref(),
-            Some("https://meo.comick.pictures/pR5o5N-m.jpg")
-        );
-        assert_eq!(s.mangaupdates.as_deref(), Some("rwg23en"));
-        assert_eq!(s.mal.as_deref(), Some("12345"));
-        assert_eq!(s.kind.as_deref(), Some("manhwa"));
-        assert_eq!(s.as_manga().id, "comick:29330");
-        assert!(s.caption().starts_with("★ 9.3"));
-    }
-
-    #[test]
-    fn builds_search_query() {
-        let mut s = ComickSearch::default();
-        s.set_genre("action", crate::search::TagState::Include);
-        s.set_genre("comedy", crate::search::TagState::Exclude);
-        s.set_tag(
-            "strong-male-lead",
-            "Strong Male Lead",
-            crate::search::TagState::Include,
-        );
-        s.demographics.insert(1);
-        s.min_score = 8;
-        s.max_chapters = 50;
-        let mut q = Vec::new();
-        s.query(&mut q, &Filters::default());
-        for pair in [
-            ("genres", "action"),
-            ("excludes", "comedy"),
-            ("tags", "strong-male-lead"),
-            ("demographic", "1"),
-            ("minimum_rating", "8"),
-            ("maximum", "50"),
-            ("content_rating", "safe"),
-            ("sort", "user_follow_count"),
-        ] {
-            assert!(q.contains(&(pair.0, pair.1.to_owned())), "missing {pair:?}");
-        }
-        assert!(
-            !q.iter().any(|(_, v)| v == "erotica"),
-            "erotica is off by default"
-        );
-        assert_eq!(s.active_count(), 6);
-    }
-
-    #[test]
     fn callback_listener_returns_code_and_checks_state() {
         for (state, expect_ok) in [("good", true), ("forged", false)] {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1028,5 +739,30 @@ mod tests {
                 progress: Some("12.5".into())
             }
         );
+    }
+
+    #[test]
+    fn parses_comic_into_a_title() {
+        let v = json!({
+            "id": 29330, "hid": "yDm32aOJ", "title": "TBATE", "bayesian_rating": "9.29", "year": 2018,
+            "country": "kr", "is_english_title": null, "status": 4, "desc": "A king reborn.",
+            "md_titles": [{ "title": "The Beginning After the End", "lang": "en" }],
+            "md_covers": [{ "b2key": "pR5o5N.jpg" }],
+            "external_ids": { "anilist": null, "mangaupdates": "rwg23en", "myanimelist": 12345 }
+        });
+        let m = parse_comic(&v);
+        assert_eq!(m.id, "comick:yDm32aOJ");
+        assert_eq!(m.source, "comick");
+        assert_eq!(m.title, "The Beginning After the End");
+        assert_eq!(m.alt_title.as_deref(), Some("TBATE"));
+        assert_eq!(
+            m.cover_override.as_deref(),
+            Some("https://meo.comick.pictures/pR5o5N-m.jpg")
+        );
+        assert_eq!(m.links.get("mu").map(String::as_str), Some("rwg23en"));
+        assert_eq!(m.links.get("mal").map(String::as_str), Some("12345"));
+        assert_eq!(m.caption.as_deref(), Some("★ 9.3 · Manhwa · 2018"));
+        assert_eq!(m.status.as_deref(), Some("hiatus"));
+        assert_eq!(hid_of(&m), Some("yDm32aOJ"));
     }
 }

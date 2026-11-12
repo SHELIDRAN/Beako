@@ -8,7 +8,7 @@ use eframe::egui::{
     Shape, Stroke, StrokeKind, Ui, Vec2, WidgetInfo, pos2, vec2,
 };
 
-use crate::search::TagState;
+use crate::filters::TagState;
 use crate::theme::{Palette, Weight, font, radius, space, text};
 
 /// Vector symbols in a single line weight, sized to sit beside 14 pt text.

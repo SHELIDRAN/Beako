@@ -3,19 +3,19 @@
 A rebuild of Neko's reading experience as a native Windows desktop app, written in Rust with
 [egui](https://github.com/emilk/egui) and designed in Apple's design language.
 
-![Browse with filters](docs/browse-filters.jpg)
+![Sources](docs/sources.jpg)
+
+| A source with its filters | Search across all sources |
+| --- | --- |
+| ![MangaDex with filters](docs/browse-filters.jpg) | ![Global search](docs/global-search.jpg) |
 
 | Title page | Reader with frosted controls |
 | --- | --- |
 | ![Details](docs/details-dark.jpg) | ![Reader](docs/reader.jpg) |
 
-| MangaBaka catalog | Reader settings |
+| Reader settings | Two-page spread |
 | --- | --- |
-| ![MangaBaka](docs/mangabaka-dark.jpg) | ![Reader settings](docs/reader-settings.jpg) |
-
-| Library | Two-page spread |
-| --- | --- |
-| ![Library](docs/library.jpg) | ![Spread](docs/reader-spread.jpg) |
+| ![Reader settings](docs/reader-settings.jpg) | ![Spread](docs/reader-spread.jpg) |
 
 | Comick charts | Comick tag search |
 | --- | --- |
@@ -23,16 +23,18 @@ A rebuild of Neko's reading experience as a native Windows desktop app, written 
 
 ## What it does
 
-- **Browse three catalogs.**
-  - MangaDex lists Popular, Latest, New, and Top Rated titles.
-  - Comick shows its charts: Most Followed New Comics, Most Recent Popular, and Trending, each
-    for the past 7 days, month, or 3 months.
-  - MangaBaka is a metadata database with ratings and richer filters.
+- **Sources, the way Mangayomi organizes them.** Browse lists sources grouped as Last Used,
+  Pinned, and the rest. Each source opens with Popular and Latest, a search field, and its own
+  Filters. A search field on the Sources screen searches every source at once.
+  - **MangaDex:** scanlations in dozens of languages.
+  - **Comick:** its charts (Most Followed New Comics, Most Recent Popular, Trending, each for
+    the past 7 days, month, or 3 months), community tags, and detailed filters.
 
-  You can search any of them. Comick and MangaBaka results open on MangaDex: the app
-  matches them by shared AniList, MyAnimeList, MangaUpdates, or Kitsu IDs, or else by
-  exact title.
-- **Filters.**
+  Comick serves chapters only behind a browser check, so a Comick title opens on MangaDex: the
+  app matches it by shared AniList, MyAnimeList, or MangaUpdates IDs, or else by exact title.
+- **Filters.** Each source declares its filters from a shared set of building blocks
+  (selects, sorts, check boxes, include/exclude tags, searchable tag groups, sliders), and the
+  app draws them the same way for every source. Your choices are saved per source.
   - MangaDex uses Comix's tag set: genres, formats, types (Manga, Manhwa, Manhua),
     statuses, demographics, and its sort orders. These are mapped onto MangaDex's tags, and
     MangaDex's own themes are listed too. Tags are tri-state: click once to include a tag,
@@ -45,8 +47,6 @@ A rebuild of Neko's reading experience as a native Windows desktop app, written 
       to exclude it directly.
     - Demographic, status, content rating, type, when the title was added to Comick,
       minimum and maximum chapters, minimum score, publication years, and sort order.
-  - MangaBaka adds minimum rating, minimum chapters, a publication year range, anime
-    adaptation, licensing, and sorts such as Trending This Week and Surprise Me.
 - **MangaDex account (optional).** Sign in with a
   [personal API client](https://api.mangadex.org/docs/02-authentication/personal-clients/).
   Neko then syncs your follows into the Library, shows and sets reading statuses, and mirrors
@@ -166,7 +166,8 @@ For development on Linux or macOS, `cargo run` works too. Set `NEKO_APPEARANCE=l
 | --- | --- |
 | `src/api.rs` | MangaDex API client: titles, chapters, pages, tags, follows, statuses, read markers |
 | `src/auth.rs` | Personal-client sign-in, token refresh, and Credential Manager storage |
-| `src/search.rs` | MangaDex filters (Comix vocabulary), the MangaBaka client and filters, and matching to MangaDex |
+| `src/sources/` | The `Source` interface and registry (`mod.rs`), and the MangaDex and Comick sources |
+| `src/filters.rs` | Generic filters that sources declare, the renderer, and saving choices per source |
 | `src/comick.rs` | Comick catalog (search, genres, tags, charts) and tracker (OAuth with PKCE, library entries) |
 | `src/jobs.rs` | Background thread pools, image decoding, blurring, and border cropping |
 | `src/images.rs` | Texture cache with least-recently-used eviction and fade-in |
@@ -175,8 +176,9 @@ For development on Linux or macOS, `cargo run` works too. Set `NEKO_APPEARANCE=l
 | `src/theme.rs` | Design tokens: colors, type scale, spacing, fonts |
 | `src/widgets.rs` | Buttons, chips, segmented control, switch, slider, search field, symbols |
 | `src/app.rs` | App state, navigation, sync, and the sidebar shell |
-| `src/browse.rs`, `filters_view.rs`, `library_view.rs`, `details.rs`, `settings_view.rs`, `reader.rs` | Screens |
+| `src/sources_view.rs`, `library_view.rs`, `details.rs`, `settings_view.rs`, `reader.rs` | Screens |
 
-Neko is unofficial and isn't affiliated with MangaDex, Comick, MangaBaka, or Comix. MangaBaka data is
-free for personal, non-commercial use with credit to MangaBaka and its sources. Inter is
-licensed under the SIL Open Font License; see `assets/fonts/OFL.txt`.
+The source architecture follows [Mangayomi](https://github.com/kodjodevf/mangayomi)'s design;
+no Mangayomi code is included.
+
+Neko is unofficial and isn't affiliated with MangaDex, Comick, or Comix. Inter is licensed under the SIL Open Font License; see `assets/fonts/OFL.txt`.

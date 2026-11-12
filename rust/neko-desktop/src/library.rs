@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Chapter, Filters, Manga};
-use crate::search::{BakaSearch, Search};
+use crate::filters::FilterList;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Progress {
@@ -164,29 +164,21 @@ impl Default for ReaderSettings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Catalog {
-    #[default]
-    MangaDex,
-    MangaBaka,
-    Comick,
-}
-
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub filters: Filters,
     pub reading_mode: ReadingMode,
     pub reader: ReaderSettings,
-    pub catalog: Catalog,
-    pub search: Search,
-    pub baka: BakaSearch,
+    /// Chosen filters for each source, by source ID.
+    pub source_filters: HashMap<String, FilterList>,
+    pub pinned_sources: Vec<String>,
+    pub last_source: Option<String>,
     /// Kept so people don't retype them; the secret lives in the credential store.
     pub mangadex_username: String,
     pub mangadex_client_id: String,
     /// Stop mirroring read chapters and library changes to MangaDex while signed in.
     pub pause_sync: bool,
-    pub comick: crate::comick::ComickSearch,
     /// The public client ID of the person's Comick developer app.
     pub comick_client_id: String,
     /// Update Comick progress automatically as chapters are read.

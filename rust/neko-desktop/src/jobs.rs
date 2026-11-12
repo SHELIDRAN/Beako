@@ -9,10 +9,11 @@ use std::sync::Arc;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use eframe::egui::{self, ColorImage};
 
-use crate::api::{Chapter, Client, Feed, Filters, Manga, Page, Tag};
+use crate::api::{Chapter, Client, Filters, Manga};
 use crate::auth::Credentials;
-use crate::comick::{Chart, ComickSearch, ComickTag, Genre, LibraryEntry};
-use crate::search::{BakaSearch, BakaSeries, Search};
+use crate::comick::LibraryEntry;
+use crate::filters::FilterList;
+use crate::sources::{self, Listing};
 
 /// A decoded image plus, for pages, a tiny blurred copy used as the frosted-glass backdrop
 /// behind the reader's controls.
@@ -28,16 +29,30 @@ pub struct SyncResult {
 
 #[allow(clippy::large_enum_variant)] // Events are short-lived; boxing would only add allocations.
 pub enum Event {
-    MangaList {
+    /// A page of a source's Popular, Latest, or Search listing.
+    SourceList {
         request: u64,
-        result: Result<Page<Manga>, String>,
+        result: Result<(Vec<Manga>, bool), String>,
     },
-    BakaList {
+    /// One source's results for a search across all sources.
+    GlobalResults {
         request: u64,
-        result: Result<Page<BakaSeries>, String>,
+        source: &'static str,
+        result: Result<Vec<Manga>, String>,
     },
-    Resolved {
-        baka_id: u64,
+    SourceFilters {
+        source: &'static str,
+        result: Result<FilterList, String>,
+    },
+    Shelf {
+        source: &'static str,
+        shelf: &'static str,
+        period: u32,
+        result: Result<Vec<Manga>, String>,
+    },
+    /// A source's title turned into a readable one.
+    Opened {
+        manga_id: String,
         result: Result<Manga, String>,
     },
     MangaDetails {
@@ -57,7 +72,6 @@ pub enum Event {
         key: String,
         result: Result<Decoded, String>,
     },
-    Tags(Result<Vec<Tag>, String>),
     /// The signed-in username, `None` after signing out, or why signing in failed.
     Account(Result<Option<String>, String>),
     Synced(Result<SyncResult, String>),
@@ -67,17 +81,6 @@ pub enum Event {
     },
     /// A background write to MangaDex failed.
     Notice(String),
-    ComickList {
-        request: u64,
-        result: Result<Page<BakaSeries>, String>,
-    },
-    ComickChart {
-        chart: Chart,
-        days: u32,
-        result: Result<Vec<BakaSeries>, String>,
-    },
-    ComickGenres(Result<Vec<Genre>, String>),
-    ComickTags(Result<Vec<ComickTag>, String>),
     /// The connected Comick username, `None` after disconnecting, or why connecting failed.
     ComickAccount(Result<Option<String>, String>),
     /// A title's Comick library entry: `Ok(None)` when it's linked but not in the library.
@@ -145,33 +148,6 @@ impl Jobs {
         self.client.comick.username()
     }
 
-    pub fn comick_search(
-        &self,
-        request: u64,
-        query: String,
-        page: u32,
-        search: ComickSearch,
-        filters: Filters,
-    ) {
-        self.send(&self.api, move |c| Event::ComickList {
-            request,
-            result: c.comick_search(&query, page, &search, &filters).map_err(err),
-        });
-    }
-
-    pub fn comick_chart(&self, chart: Chart, days: u32, filters: Filters) {
-        self.send(&self.api, move |c| Event::ComickChart {
-            chart,
-            days,
-            result: c.comick_chart(chart, days, &filters).map_err(err),
-        });
-    }
-
-    pub fn comick_catalog(&self) {
-        self.send(&self.api, |c| Event::ComickGenres(c.comick_genres().map_err(err)));
-        self.send(&self.api, |c| Event::ComickTags(c.comick_tags().map_err(err)));
-    }
-
     pub fn comick_connect(&self, client_id: String) {
         // Waiting on the browser can take minutes, so this runs on its own thread.
         let tx = self.events_tx.clone();
@@ -197,7 +173,7 @@ impl Jobs {
     pub fn comick_link(&self, manga: Manga) {
         self.send(&self.api, move |c| {
             let result = c.comick_find(&manga).and_then(|series| {
-                let hid = series.hid.clone().unwrap_or_default();
+                let hid = crate::comick::hid_of(&series).unwrap_or_default().to_owned();
                 let found = c.comick.entry(&c.http, &hid)?;
                 Ok(Some(found.unwrap_or(LibraryEntry {
                     hid,
@@ -260,37 +236,85 @@ impl Jobs {
         }));
     }
 
-    pub fn list_manga(
+    pub fn source_list(
         &self,
         request: u64,
-        feed: Feed,
-        query: String,
-        offset: u32,
-        filters: Filters,
-        search: Search,
+        source: &'static str,
+        listing: Listing,
+        page: u32,
+        filters: FilterList,
+        prefs: Filters,
     ) {
-        self.send(&self.api, move |c| Event::MangaList {
-            request,
-            result: c.list_manga(feed, &query, offset, &filters, &search).map_err(err),
+        self.send(&self.api, move |c| {
+            let result = match sources::get(source) {
+                Some(s) => s
+                    .list(c, &listing, page, &filters, &prefs)
+                    .map(|r| (r.items, r.has_next))
+                    .map_err(err),
+                None => Err(format!("Unknown source {source}")),
+            };
+            Event::SourceList { request, result }
         });
     }
 
-    pub fn baka_search(&self, request: u64, query: String, page: u32, search: BakaSearch, filters: Filters) {
-        self.send(&self.api, move |c| Event::BakaList {
-            request,
-            result: c.baka_search(&query, page, &search, &filters).map_err(err),
+    /// Searches every source at once, reporting each as it answers.
+    pub fn global_search(&self, request: u64, query: String, prefs: Filters) {
+        for source in sources::all() {
+            let id = source.info().id;
+            let query = query.clone();
+            let prefs = prefs.clone();
+            self.send(&self.api, move |c| {
+                let listing = Listing::Search(query);
+                let result = source
+                    .list(c, &listing, 1, &FilterList::default(), &prefs)
+                    .map(|r| r.items)
+                    .map_err(err);
+                Event::GlobalResults {
+                    request,
+                    source: id,
+                    result,
+                }
+            });
+        }
+    }
+
+    pub fn source_filters(&self, source: &'static str) {
+        self.send(&self.api, move |c| {
+            let result = match sources::get(source) {
+                Some(s) => s.filter_list(c).map_err(err),
+                None => Err(format!("Unknown source {source}")),
+            };
+            Event::SourceFilters { source, result }
         });
     }
 
-    pub fn resolve_baka(&self, series: BakaSeries) {
-        self.send(&self.api, move |c| Event::Resolved {
-            baka_id: series.id,
-            result: c.resolve_baka(&series).map_err(err),
+    pub fn shelf(&self, source: &'static str, shelf: &'static str, period: u32, prefs: Filters) {
+        self.send(&self.api, move |c| {
+            let result = match sources::get(source) {
+                Some(s) => s.shelf(c, shelf, period, &prefs).map_err(err),
+                None => Err(format!("Unknown source {source}")),
+            };
+            Event::Shelf {
+                source,
+                shelf,
+                period,
+                result,
+            }
         });
     }
 
-    pub fn tags(&self) {
-        self.send(&self.api, |c| Event::Tags(c.tags().map_err(err)));
+    /// Asks the title's source for the readable version of it.
+    pub fn open(&self, manga: Manga) {
+        self.send(&self.api, move |c| {
+            let result = match sources::get(&manga.source) {
+                Some(s) => s.open(c, &manga).map_err(err),
+                None => Err(format!("Unknown source {}", manga.source)),
+            };
+            Event::Opened {
+                manga_id: manga.id,
+                result,
+            }
+        });
     }
 
     pub fn manga_details(&self, id: String) {
