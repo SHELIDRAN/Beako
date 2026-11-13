@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
-const val APP_NAME = "Neko"
+const val APP_NAME = "Beako"
 
 /** Root of the desktop UI. Phase 0 placeholder: an empty themed window. */
 @Composable

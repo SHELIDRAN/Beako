@@ -1,7 +1,7 @@
-# Neko for Windows
+# Beako
 
 ## Goal
-Port the Neko manga reader (Kotlin / Jetpack Compose, Android) to a native Windows desktop app using Compose Multiplatform for Desktop.
+Beako is a native Windows manga reader, built by porting the Neko manga reader (Kotlin / Jetpack Compose, Android) to Compose Multiplatform for Desktop. The app's name is **Beako** everywhere users see it (window title, installer, API registrations, User-Agent); credit Neko as the upstream project. Kotlin packages keep their `org.nekomanga` names.
 
 ## The plan
 Read `docs/PLAN.md` before starting any task. It holds the feature list, the fork-only features (unified manga page across sources, tag browse + popular page, AniList two-way sync, liquid glass design) and the phased roadmap.
