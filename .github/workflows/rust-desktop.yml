@@ -1,0 +1,108 @@
+name: Neko Desktop (Rust)
+
+on:
+  push:
+    # Pushing a tag like desktop-v0.1.0 publishes a GitHub release with the Windows build.
+    tags:
+      - "desktop-v*"
+    branches:
+      - "**"
+    paths:
+      - "rust/neko-desktop/**"
+      - ".github/workflows/rust-desktop.yml"
+  pull_request:
+    paths:
+      - "rust/neko-desktop/**"
+      - ".github/workflows/rust-desktop.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub release (tag desktop-v<version from Cargo.toml>)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: rust/neko-desktop
+
+jobs:
+  windows:
+    name: Build and test on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/neko-desktop/target
+          key: windows-cargo-${{ hashFiles('rust/neko-desktop/Cargo.lock') }}
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build release
+        run: cargo build --release --locked
+
+      - name: Upload Neko.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Neko-windows-x64
+          path: rust/neko-desktop/target/release/neko-desktop.exe
+
+  release:
+    name: Publish release
+    needs: windows
+    if: startsWith(github.ref, 'refs/tags/desktop-v') || inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches Cargo.toml
+        run: |
+          version=$(grep -m1 '^version' rust/neko-desktop/Cargo.toml | cut -d'"' -f2)
+          tag="${GITHUB_REF_NAME#desktop-v}"
+          # A manual run creates the tag itself, from the version in Cargo.toml.
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$tag" != "$version" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match Cargo.toml version $version" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Neko-windows-x64
+          path: dist
+
+      - name: Name the executable
+        run: |
+          mv dist/neko-desktop.exe "dist/Neko-${VERSION}-windows-x64.exe"
+          (cd dist && sha256sum "Neko-${VERSION}-windows-x64.exe" > "Neko-${VERSION}-windows-x64.exe.sha256")
+
+      - name: Publish
+        uses: ncipollo/release-action@v1
+        with:
+          name: Neko for Windows ${{ env.VERSION }}
+          bodyFile: rust/neko-desktop/RELEASE_NOTES.md
+          artifacts: dist/*
+          tag: desktop-v${{ env.VERSION }}
+          commit: ${{ github.sha }}
+          makeLatest: true
