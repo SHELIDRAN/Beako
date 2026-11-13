@@ -25,6 +25,16 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 - After every change, run the desktop Gradle build and tests; commit once per feature with a clear message. These commit rules override older guidance in `.agents/AGENTS.md`.
 - When a feature lands, tick its box in `docs/PLAN.md`.
 
+## Skills and plugins (use automatically, no need to ask)
+- `apollo-skills:apollo-kotlin` + `apollo-skills:graphql-operations`: any AniList GraphQL work (tag browse, popular/trending, sync).
+- `design-skills:design-systems`, `design-skills:interaction-design`: liquid glass design tokens, reader controls, source dropdown.
+- `design-skills:accessibility-audit`: check text contrast on glass panels before a UI feature lands.
+- `/simplify`: after porting a chunk of Android code into `shared` or `desktop`.
+- `/code-review` (default level): before committing each roadmap item.
+- `/security-review`: before committing any login, OAuth or token-storage code.
+- `/run`: to launch the desktop app and screenshot a UI change.
+- Skip: `liquid-glass:*` (SwiftUI only, reference at most), `vercel:*` (no web app here), Android emulator tools.
+
 ## Rules
 - Keep the Apache-2.0 LICENSE and upstream copyright notices.
 - Do not use Comick or its lookalike domains; get tags, genres and popularity from the AniList GraphQL API and MangaDex.
