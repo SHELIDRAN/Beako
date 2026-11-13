@@ -58,6 +58,20 @@ If a title is N/A on one source, the same page still opens: the reader picks the
   2. **Dart sources** through a small bundled helper process built from Mangayomi's own extension runtime (Apache-2.0, which allows reuse with attribution). The app talks to it over a local connection. There's no Dart interpreter for the JVM, so this is the realistic route.
   3. A test harness that runs each installed source's popular, search, detail and page-list calls and reports which ones work.
 - Settings → Browse: add or remove repositories, install, update and remove sources, check for updates, show NSFW sources (off by default).
+- **Finding repositories:** Settings → Browse links to [wotaku.wiki/ext/mangayomi](https://wotaku.wiki/ext/mangayomi), the owner's chosen directory. The Add Repository box accepts a plain index URL or a pasted `mangayomi://add-repo?…&manga_url=…` link (the wiki's Install buttons); only `manga_url` is used, anime and novel indexes are ignored.
+- Repositories on the wiki (checked Nov 13, 2026; manga indexes only):
+
+  | Repository | Manga sources | Code | Notes |
+  | --- | --- | --- | --- |
+  | m2k3a/mangayomi-extensions | 335 | 252 Dart, 83 JS | Broadest; continues the archived kodjodevf set. 69 English. |
+  | tympanicblock61/mangayomi-extensions | 261 | 249 Dart, 12 JS | Overlaps heavily with m2k3a. |
+  | Swakshan/mangayomi-swak-extensions | 7 | all JS | Mangapark, Atsumaru, Weeb Central, Mangapill, ReadComicOnline, Mangafire. |
+  | Mallyd11/mangayomi-anime-extensions | 4 | all JS | Weeb Central, Mangapill, ReadComicOnline. |
+  | 9vsv6/mangayomi-ar-extensions | 6 | all JS | Arabic only. |
+  | gato404/kegareta-sauces | 272 | 225 Dart, 47 JS | 225 marked NSFW; hidden unless the NSFW setting is on. |
+
+- **First milestone for extensions:** the Swakshan, Mallyd11 and 9vsv6 repositories are all JavaScript, so the embedded JS engine alone (stage 1) can read Weeb Central, Mangapill, Mangafire and Mangapark before the Dart helper exists.
+- Sources labelled "(unoriginal)" in the indexes are copies of other sites; sort them below originals in the "Available on" dropdown.
 - Matching: a comick.dev title is looked up on each installed source by normalised title and alt titles (Mangayomi sources expose no AniList/MAL IDs). Matches fill the "Available on" dropdown.
 - Sources are third-party code: show a clear warning before installing, never auto-install, and run them with only the host APIs above (no file system access).
 
