@@ -37,12 +37,12 @@ flowchart LR
 
 If a title is N/A on one source, the same page still opens: the reader picks the next source automatically, or you switch it from the dropdown.
 
-### 2. Discovery: comick.dev first, MangaDex second
+### 2. Discovery: comick.dev first, MangaDex as fallback
 
 - Browse by tags and genres with include / exclude chips, plus demographic, status, year and format filters.
 - Popular, trending and new-releases pages as horizontal shelves on the Browse home.
 - Search runs across all sources at once and de-duplicates into unified titles.
-- **comick.dev is the main search engine.** Comick stopped hosting chapters in September 2025; comick.dev is now a tracker and catalog like AniList. Use its official API for latest, popular and trending lists and for its detailed tags (female lead, male lead, comedic misunderstanding…). MangaDex is the secondary search; AniList adds trending and tags where useful.
+- **comick.dev is the main search engine.** Comick stopped hosting chapters in September 2025; comick.dev is now a tracker and catalog like AniList. Use its official API for latest, popular and trending lists and for its detailed tags (female lead, male lead, comedic misunderstanding…). MangaDex is the **fallback search**: when a Comick search can't answer, Beako searches MangaDex automatically and says so ("Showing MangaDex results — Comick is unavailable" or "…found no matches"), with a "Try Comick again" button. Fallback triggers: Comick unreachable, a Cloudflare HTML response, a 5xx error, a 429 rate limit, or zero results for a keyword search. The user can also switch a search to MangaDex by hand. MangaDex results open the same title page; Beako links them back to Comick through shared AniList/MyAnimeList/MangaUpdates IDs so tracking still works. AniList adds trending and tags where useful.
 - Never use Comick lookalike domains or sites claiming to host Comick chapters; they are reported unsafe.
 - comick.dev is also a tracker (status, progress, score), alongside AniList. Beako's Comick developer app is registered (public PKCE client; details in `CLAUDE.md`), so users connect with one click instead of registering their own app as the Rust prototype required.
 - comick.dev features worth using through its API, as they become available: advanced search, rankings, recommendations, custom lists, reading history, reviews and ratings.
@@ -202,7 +202,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - [ ] Move shared code (models, MangaDex API client, parsers) into a `shared` module.
    - [ ] Set up CI on `windows-latest` that builds the desktop app.
 2. **Phase 1 — Browse and read (MVP)**
-   - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then comick.dev search with tags and popular/trending charts, MangaDex as secondary search, manga details, chapter list with language filter.
+   - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then comick.dev search with tags and popular/trending charts, MangaDex as automatic fallback search, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.
    - Webtoon smoothness (lessons from the Rust prototype on `claude/zen-albattani-lihx3c`): keep the scroll position anchored when a page above the viewport loads and changes height; split very tall pages into tiles and upload at most one texture per frame; no per-page blur work while scrolling; smoothed mouse-wheel scrolling.
    - Reader controls hide when scrolling down and reappear when scrolling up (and on mouse move or click). Fullscreen always has a visible way out: an "Exit Full Screen" button, Esc and F11, with the button label read from the real window state.
@@ -249,7 +249,7 @@ Give Claude Code one phase at a time, with this plan in the repo so every sessio
 - [x] Keep the Android app building in the same repo, or Windows-only? **Windows-only.** Android modules stay as porting source; build with `-PdesktopOnly`.
 - [ ] Compose Multiplatform, or a different stack you already know?
 - [ ] Is backup compatibility with Android Neko required?
-- [x] Which merge sources matter to you, if any? **Installed extensions are the reading sources; comick.dev is the main discovery engine and a tracker, MangaDex secondary.**
+- [x] Which merge sources matter to you, if any? **Installed extensions are the reading sources; comick.dev is the main discovery engine and a tracker, MangaDex the fallback search.**
 - [x] Which extensions? **Mangayomi format, starting with kodjodevf/mangayomi-extensions** (archived Dec 2025; pick a maintained fork when one is needed).
 - [x] Check comick.dev API rate limits: catalog 200/min per IP; library 60/min per app+user, 1,000/min per app, 120/min per IP (see `docs/api/COMICK.md`).
 - [ ] Distribution: GitHub releases only, or Microsoft Store too?
