@@ -99,6 +99,25 @@ Desktop extras seen in the reference: Discord Rich Presence (toggles for title, 
 
 Not taken from the reference: Comick source (project rule), novel reader and Novel tab (Neko is manga-only; revisit if wanted), Mihon extension proxy.
 
+## Rust prototype (porting reference)
+
+`rust/neko-desktop` is a working Windows app (Rust + egui, version 0.4.0) built earlier on `claude/zen-albattani-lihx3c` and merged here as a reference. The Compose port is the main app; port behaviour and decisions from the prototype, not its code. Keep the prototype's release workflow working until the Compose app replaces it.
+
+| Prototype piece | Use in the Compose port | Phase |
+| --- | --- | --- |
+| `api.rs`: MangaDex titles, chapters, pages (at-home), tags, follows, statuses, read markers | Cross-check against Neko's Kotlin MangaDex client when moving it to `shared` | 0–1 |
+| `auth.rs`: MangaDex personal-client sign-in, token refresh, Windows Credential Manager storage | Same flow and storage on the JVM | 3 |
+| `sources/` + `filters.rs`: source interface, generic filter building blocks (select, sort, tri-state tags, searchable tag groups, sliders), choices saved per source | Model for the source adapters and the filter side panel | 1, 5 |
+| Title matching by shared AniList / MAL / MangaUpdates IDs, then exact title | Core of the unified manga page | 5 |
+| `reader.rs` features: modes, page size, spreads with cover alone, zoom/pan, crop borders, dim, background, strip width, page gap, click zones, read-ahead, keep awake | Reader feature list; fix its webtoon stutter, scroll-direction hiding and fullscreen state (see Phase 1) | 1, 4 |
+| Keyboard map (Ctrl+F, Ctrl+1/2, Ctrl+comma, `[` `]`, F/F11, S, + - 0) | Default shortcuts; make them rebindable | 1, 4 |
+| `glass.rs`: Mica on Windows 11, Acrylic on Windows 10, frosted reader controls | Same split: ComposeWindowStyler + Haze | 1 |
+| `theme.rs`: light/dark tokens meeting WCAG AA, Inter type scale, CJK font fallbacks | Starting tokens for the design system | 1 |
+| `library.rs`: library, progress and settings in `%APPDATA%\Neko\Neko Desktop\data\library.json` | Import it on first run so prototype users keep their library | 2 |
+| `.github/workflows/rust-desktop.yml`: Windows build, release on `desktop-v*` tags | Template for the Compose Windows CI and releases | 0, 5 |
+| `assets/icon.ico` / `icon.png` | Already used for the Compose window and installer | 0 |
+| Comick catalog, tracker and Comick→MangaDex hand-off | **Do not port** (project rule); replace with AniList for tags and popularity | — |
+
 ## Feature inventory
 
 Neko's features fall into 10 areas; fill the Fork column with keep, change or drop. Rows marked (J2K) are inherited from TachiyomiJ2K — verify each against the current app before you build it, since the README lists only the headline features.
