@@ -21,7 +21,7 @@ fun main() = application {
         icon = icon,
         state = rememberWindowState(width = 1280.dp, height = 800.dp),
     ) {
-        NekoApp()
+        BeakoApp()
     }
 }
 

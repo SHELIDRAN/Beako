@@ -4,10 +4,20 @@
 compose_multiplatform = "1.12.2"
 # Last stable JetBrains Material 3; runs on the 1.12 Compose runtime.
 material3 = "1.9.0"
+# In-app glass blur. 1.x line; 2.x changed the API.
+haze = "1.7.3"
+coil = "3.6.3"
+icons = "1.7.3"
+coroutines = "1.11.0"
 
 [libraries]
 material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
 ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "compose_multiplatform" }
+icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "icons" }
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 
 [plugins]
 compose = { id = "org.jetbrains.compose", version.ref = "compose_multiplatform" }
