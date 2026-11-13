@@ -33,7 +33,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Beako"
-            packageVersion = "1.0.0"
+            packageVersion = providers.gradleProperty("beakoVersion").get()
             description = "Manga reader for Windows, based on Neko"
             vendor = "NekoMangaOrg"
             licenseFile.set(rootProject.file("LICENSE"))

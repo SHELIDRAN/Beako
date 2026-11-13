@@ -1,0 +1,111 @@
+name: Beako (Windows)
+
+on:
+  push:
+    # Pushing a tag like beako-v0.1.0 publishes a GitHub release with the Windows installer.
+    tags:
+      - "beako-v*"
+    branches:
+      - "**"
+    paths:
+      - "desktop/**"
+      - "shared/**"
+      - "gradle/**"
+      - "buildSrc/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/beako-desktop.yml"
+  pull_request:
+    paths:
+      - "desktop/**"
+      - "shared/**"
+      - "gradle/**"
+      - "buildSrc/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
+      - ".github/workflows/beako-desktop.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub release (tag beako-v<beakoVersion from gradle.properties>)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Build, test and package on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: ./gradlew -PdesktopOnly build --console=plain
+
+      - name: Package the installer
+        run: ./gradlew -PdesktopOnly :desktop:packageMsi --console=plain
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Beako-windows-x64
+          path: desktop/build/compose/binaries/main/msi/*.msi
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: "**/build/reports/tests"
+
+  release:
+    name: Publish release
+    needs: windows
+    if: startsWith(github.ref, 'refs/tags/beako-v') || inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches gradle.properties
+        run: |
+          version=$(grep -m1 '^beakoVersion=' gradle.properties | cut -d= -f2)
+          tag="${GITHUB_REF_NAME#beako-v}"
+          # A manual run creates the tag itself, from beakoVersion.
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$tag" != "$version" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match beakoVersion $version" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Beako-windows-x64
+          path: dist
+
+      - name: Name the installer
+        run: |
+          mv dist/*.msi "dist/Beako-${VERSION}-windows-x64.msi"
+          (cd dist && sha256sum "Beako-${VERSION}-windows-x64.msi" > "Beako-${VERSION}-windows-x64.msi.sha256")
+
+      - name: Publish
+        uses: ncipollo/release-action@v1
+        with:
+          name: Beako ${{ env.VERSION }}
+          bodyFile: desktop/RELEASE_NOTES.md
+          artifacts: dist/*
+          tag: beako-v${{ env.VERSION }}
+          commit: ${{ github.sha }}
+          makeLatest: true
