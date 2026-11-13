@@ -27,6 +27,8 @@ rootProject.name = "Neko"
 
 include(":desktop")
 
+include(":shared")
+
 // Windows-only port: `-PdesktopOnly` skips the Android modules, so no Android SDK is needed.
 // They stay in the repo as the source to port from.
 val desktopOnly =
