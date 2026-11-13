@@ -224,6 +224,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - Reader controls hide when scrolling down and reappear when scrolling up (and on mouse move or click). Fullscreen always has a visible way out: an "Exit Full Screen" button, Esc and F11, with the button label read from the real window state.
    - Covers: placeholder while loading, retry on failure, and fall back to the MangaDex cover when another source's image fails.
    - Window basics: remember window size, position and fullscreen state between launches.
+   - Screens follow `docs/UI_BLUEPRINT.md` (owner's UI plan). Phase 1 builds its sidebar shell, Browse default view and Search; Phase 2 its Library, Latest updates and Reading history.
    - App shell: navigation rail, motion spec (fade-through tabs and sub-pages, hover states, skeleton loading), settings home with search, Appearance settings (theme, palettes, interface scale, customize navigation, glass and motion toggles).
    - Test pass at 125% and 150% Windows display scaling (Compose Desktop has known blurry-text reports at 125%).
 3. **Phase 2 — Library and offline**
