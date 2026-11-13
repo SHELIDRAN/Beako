@@ -15,6 +15,13 @@ Three separate jobs, three separate services:
 
 Flow: Browse (comick.dev search, tags, popular) → title page → an **"Available on"** dropdown lists the installed extensions that carry this title → pick one to read. The reader falls back to the next source when one is missing a chapter (see the unified manga page in `docs/PLAN.md`).
 
+### Comick developer app (registered Nov 13, 2026)
+- App name: Beako. Client type: public ("Browser or mobile app without a private backend"), so OAuth 2.0 with S256 PKCE and **no client secret**.
+- Client ID: `hySzjzgfgtlSwqnDsdXspsPdWTqnjVzW` (public; safe to keep in source).
+- Callback URL: `http://127.0.0.1:47823/comick/callback` (the app listens on that local port only while signing in).
+- Scopes: library read and write (`library:write`), plus `offline_access` for refresh tokens. Store tokens in Windows Credential Manager, never in plain files.
+- Catalog requests (search, tags, charts) need no login. Send a `User-Agent` naming Beako, cache responses, and keep request rates low until Comick confirms its limits.
+
 ## Build
 The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the Android modules (`:app`, `:core`, `:constants`, `:baselineprofile`) and the Android Gradle Plugin, so no Android SDK is needed. The Android code stays in the repo as the source to port from.
 
