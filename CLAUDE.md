@@ -6,6 +6,15 @@ Port the Neko manga reader (Kotlin / Jetpack Compose, Android) to a native Windo
 ## The plan
 Read `docs/PLAN.md` before starting any task. It holds the feature list, the fork-only features (unified manga page across sources, tag browse + popular page, AniList two-way sync, liquid glass design) and the phased roadmap.
 
+## Sources and discovery (owner's plan, Nov 13 2026)
+Three separate jobs, three separate services:
+
+1. **Find titles: comick.dev first, MangaDex second.** comick.dev is now a tracker and catalog like AniList: it hosts no chapters. Use it as the main search engine for what's latest, popular and trending, and for its detailed tags (female lead, male lead, comedic misunderstanding and so on). MangaDex is the secondary search.
+2. **Track reading: comick.dev and AniList**, both as trackers.
+3. **Read chapters: installed extensions.** Chapters come from source extensions the user installs (Mihon/Tachiyomi-style, from repositories the user adds; the app ships with none). MangaDex is also a built-in reading source.
+
+Flow: Browse (comick.dev search, tags, popular) → title page → an **"Available on"** dropdown lists the installed extensions that carry this title → pick one to read. The reader falls back to the next source when one is missing a chapter (see the unified manga page in `docs/PLAN.md`).
+
 ## Build
 The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the Android modules (`:app`, `:core`, `:constants`, `:baselineprofile`) and the Android Gradle Plugin, so no Android SDK is needed. The Android code stays in the repo as the source to port from.
 
@@ -16,7 +25,7 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 ## Modules
 - `desktop`: Compose Multiplatform for Desktop app (entry point `org.nekomanga.desktop.MainKt`). Versions in `gradle/cmp.versions.toml` (catalog `cmp`).
 - `shared`: not created yet (Phase 0).
-- `rust/neko-desktop`: the earlier Rust/egui Windows prototype (0.4.0), a second read-only porting source with its own CI (`.github/workflows/rust-desktop.yml`). See "Rust prototype" in `docs/PLAN.md`. Don't port its Comick code.
+- `rust/neko-desktop`: the earlier Rust/egui Windows prototype (0.4.0), a second read-only porting source with its own CI (`.github/workflows/rust-desktop.yml`). See "Rust prototype" in `docs/PLAN.md`. Its comick.dev catalog, tag search, charts and tracker are worth porting.
 - `app`, `core`, `constants`, `baselineprofile`: upstream Android code, read-only porting source. The Android Compose catalog is `androidxCompose`, because the name `compose` clashes with the Compose Multiplatform plugin's extension.
 
 ## How to work
@@ -39,5 +48,6 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 
 ## Rules
 - Keep the Apache-2.0 LICENSE and upstream copyright notices.
-- Do not use Comick or its lookalike domains; get tags, genres and popularity from the AniList GraphQL API and MangaDex.
+- comick.dev is allowed only as a catalog and tracker (search, tags, popular/trending, library sync through its official developer API and OAuth). Never use Comick lookalike domains or any site claiming to host Comick chapters; they're reported unsafe. AniList and MangaDex stay as secondary sources of tags and popularity.
+- Ship no extensions or extension repositories; users add their own. Load extensions with the least access possible and say clearly that they are third-party code.
 - Respect MangaDex and AniList API rate limits.

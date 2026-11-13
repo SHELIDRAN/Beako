@@ -21,7 +21,7 @@ The fork's headline feature is **one manga page per title that merges every sour
 - Every title gets one canonical page, keyed by its AniList ID (with MangaDex ID as backup), not one page per source.
 - On opening, the app searches all enabled sources for that title in parallel and matches results by AniList / MAL IDs, then by normalised title + alt titles.
 - Chapter list is merged: one row per chapter number, with the best available source picked automatically (your priority order).
-- **Source dropdown on the manga page** lets the reader switch the whole title, or a single chapter, to another source without leaving the page.
+- **"Available on" source dropdown on the manga page** lists the installed extensions (plus MangaDex) that carry the title, and lets the reader switch the whole title, or a single chapter, to another source without leaving the page.
 - If a source is down or lacks a chapter, the reader falls back to the next source and shows a small badge saying which one it used.
 - Builds on Neko's existing merge feature, which already fills MangaDex gaps from other sources.
 
@@ -37,12 +37,24 @@ flowchart LR
 
 If a title is N/A on one source, the same page still opens: the reader picks the next source automatically, or you switch it from the dropdown.
 
-### 2. Tag browsing + popular page (Comick-style)
+### 2. Discovery: comick.dev first, MangaDex second
 
 - Browse by tags and genres with include / exclude chips, plus demographic, status, year and format filters.
 - Popular, trending and new-releases pages as horizontal shelves on the Browse home.
 - Search runs across all sources at once and de-duplicates into unified titles.
-- Note: Comick shut down in September 2025 under anti-piracy pressure, and lookalike domains since then are reported as unsafe — so do not build on its API. Get tags, genres and popularity from **AniList's GraphQL API** (and MangaDex tags), which provides tag search plus trending and popular lists.
+- **comick.dev is the main search engine.** Comick stopped hosting chapters in September 2025; comick.dev is now a tracker and catalog like AniList. Use its official API for latest, popular and trending lists and for its detailed tags (female lead, male lead, comedic misunderstanding…). MangaDex is the secondary search; AniList adds trending and tags where useful.
+- Never use Comick lookalike domains or sites claiming to host Comick chapters; they are reported unsafe.
+- comick.dev is also a tracker (status, progress, score), alongside AniList.
+
+### 2b. Reading from installed extensions
+
+- Chapters are read from **source extensions the user installs** (Mihon/Tachiyomi-style), from extension repositories the user adds. The app ships with no extensions and no repositories.
+- Settings → Browse: add or remove repositories, install, update and remove extensions, check for extension updates.
+- Matching: a comick.dev title is looked up on each installed extension by shared IDs (AniList, MyAnimeList, MangaUpdates) where available, else by normalised title and alt titles. Matches fill the "Available on" dropdown.
+- How to run Android extensions on the JVM, in stages:
+  1. Connect to a **Suwayomi-Server** the user runs (Neko already has a Suwayomi merge source), which installs and runs extensions itself.
+  2. Later, load extensions inside the app the way Suwayomi does (APK → JAR, with stubs for the Android APIs they use), sandboxed as far as the JVM allows.
+- Extensions are third-party code: show a clear warning before installing, and never auto-install.
 
 ### 3. AniList synchronisation
 
@@ -97,7 +109,7 @@ Settings home with search, grouped like this:
 
 Desktop extras seen in the reference: Discord Rich Presence (toggles for title, chapter and cover, hidden in incognito); optional live memory-usage readout; re-run the welcome screen.
 
-Not taken from the reference: Comick source (project rule), novel reader and Novel tab (Neko is manga-only; revisit if wanted), Mihon extension proxy.
+Not taken from the reference: Comick as a chapter source (comick.dev hosts none), novel reader and Novel tab (Neko is manga-only; revisit if wanted). Extensions are taken, as the main way to read (see 2b).
 
 ## Rust prototype (porting reference)
 
@@ -116,7 +128,8 @@ Not taken from the reference: Comick source (project rule), novel reader and Nov
 | `library.rs`: library, progress and settings in `%APPDATA%\Neko\Neko Desktop\data\library.json` | Import it on first run so prototype users keep their library | 2 |
 | `.github/workflows/rust-desktop.yml`: Windows build, release on `desktop-v*` tags | Template for the Compose Windows CI and releases | 0, 5 |
 | `assets/icon.ico` / `icon.png` | Already used for the Compose window and installer | 0 |
-| Comick catalog, tracker and Comick→MangaDex hand-off | **Do not port** (project rule); replace with AniList for tags and popularity | — |
+| `comick.rs`: comick.dev catalog (search, genres, community tag search with counts, charts for 7 days / 1 month / 3 months), tracker (OAuth with PKCE, library entries) | **Port**: main discovery engine and a tracker | 1, 3 |
+| Comick→MangaDex hand-off by shared IDs | Generalise: match a comick.dev title to every installed extension, not only MangaDex | 5 |
 
 ## Feature inventory
 
@@ -170,7 +183,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - [ ] Move shared code (models, MangaDex API client, parsers) into a `shared` module.
    - [ ] Set up CI on `windows-latest` that builds the desktop app.
 2. **Phase 1 — Browse and read (MVP)**
-   - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then MangaDex search, AniList-powered tag browse and popular page, manga details, chapter list with language filter.
+   - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then comick.dev search with tags and popular/trending charts, MangaDex as secondary search, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.
    - Webtoon smoothness (lessons from the Rust prototype on `claude/zen-albattani-lihx3c`): keep the scroll position anchored when a page above the viewport loads and changes height; split very tall pages into tiles and upload at most one texture per frame; no per-page blur work while scrolling; smoothed mouse-wheel scrolling.
    - Reader controls hide when scrolling down and reappear when scrolling up (and on mouse move or click). Fullscreen always has a visible way out: an "Exit Full Screen" button, Esc and F11, with the button label read from the real window state.
@@ -192,6 +205,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - Rebindable keyboard shortcuts, app lock with Windows Hello, Discord Rich Presence, recommendation weight sliders, network settings (DoH, custom DNS, user agent).
 6. **Phase 5 — Merge sources + release**
    - Unified manga page: source adapters, title matching by AniList ID, merged chapter list, source dropdown and automatic fallback; add sources one by one (Komga and Suwayomi first, since they are self-hosted APIs).
+   - Extensions: Suwayomi-Server connection first, then in-app extension loading; repository management; "Available on" dropdown filled from installed extensions.
    - Installer (`.msi`), auto-update, code signing.
 
 Windows-only extras to consider:
@@ -216,6 +230,8 @@ Give Claude Code one phase at a time, with this plan in the repo so every sessio
 - [x] Keep the Android app building in the same repo, or Windows-only? **Windows-only.** Android modules stay as porting source; build with `-PdesktopOnly`.
 - [ ] Compose Multiplatform, or a different stack you already know?
 - [ ] Is backup compatibility with Android Neko required?
-- [ ] Which merge sources matter to you, if any?
+- [x] Which merge sources matter to you, if any? **Installed extensions are the reading sources; comick.dev is the main discovery engine and a tracker, MangaDex secondary.**
+- [ ] Extensions: is running a Suwayomi-Server alongside the app acceptable as the first step, before in-app extension loading?
+- [ ] Check comick.dev API terms and rate limits before release.
 - [ ] Distribution: GitHub releases only, or Microsoft Store too?
 - [ ] Check MangaDex API terms (rate limits, image-server reporting, attribution) before release.
