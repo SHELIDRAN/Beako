@@ -23,3 +23,8 @@
 *.pyc binary
 *.swp binary
 *.db binary
+*.pdf binary
+*.otf binary
+*.woff2 binary
+*.docx binary
+*.mp4 binary
