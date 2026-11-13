@@ -21,6 +21,13 @@ ktfmt {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(cmp.material3)
+    implementation(cmp.icons.extended)
+    implementation(cmp.haze)
+    implementation(cmp.coil.compose)
+    implementation(cmp.coil.okhttp)
+    implementation(cmp.coroutines.swing)
+    implementation(libs.okhttp)
+    implementation(projects.shared)
 
     testImplementation(kotlinx.test.junit5)
     testImplementation(cmp.ui.test)
