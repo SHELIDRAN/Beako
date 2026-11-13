@@ -1,0 +1,4590 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Comick API",
+    "version": "1.1",
+    "description": "## Quick start\n\nRead public catalog metadata, discover manga and anime, and look up chapters or episodes. Catalog operations support anonymous reads; account-specific options can require a signed-in session. No API key is required for the catalog examples.\n\nThe production base URL is **https://api.comick.dev**. This explorer uses the API serving this page, including its path prefix in development. Prefer a versioned endpoint such as **/v1.0/comic/{slug}** when one is listed. A version prefix is part of the path; do not add it to endpoints that do not list one.\n\n1. Search with **GET /v1.0/search/?q=Solo%20Leveling&page=1&limit=15**.\n2. Take a result's **slug** for **GET /v1.0/comic/{slug}/**. A slug is a readable catalog name, such as **00-solo-leveling**. Use the exact returned slug, including any numeric prefix.\n3. Take that comic's **hid** for **GET /v1.0/comic/{hid}/chapters?lang=en&page=1&limit=12**. A HID is an opaque public identifier; it is not the numeric database ID.\n4. Take a chapter's own **hid** for **GET /chapter/{hid}/** and **GET /chapter/{hid}/get_images**. Comic and chapter HIDs are different.\n\nOpen an operation and select **Test Request** to edit the example inputs and send a request. Examples are editable catalog samples, not promises that an item will remain available. Defaults describe existing server behavior; optional filters can be omitted.\n\n## Authentication\n\n**Library and integration operations require authentication.** Obtain an OAuth access token using the [OAuth guide](https://comick.dev/docs/oauth), then enter the token in **Authentication → OAuthBearer**. The explorer sends **Authorization: Bearer YOUR_ACCESS_TOKEN**. A client secret or website session is not an access token.\n\nReads require **library:read**; PUT, PATCH, and DELETE require **library:write**, approved app write permission, and explicit user consent. Each protected operation declares bearer authentication and its required scope. **401** means a missing, expired, or revoked token; **403** means insufficient scope or app/account eligibility. [Library guide and examples](https://comick.dev/docs/library).\n\n## Sign in with Comick\n\n[OpenID Connect login](https://comick.dev/docs/oidc) uses the dedicated issuer **https://comick.dev/api/auth/oidc**. Enable **Sign in with Comick** in your app settings. Request **openid**, optionally **profile** and **offline_access**, with S256 PKCE and a fresh nonce; omit **resource** and **claims**. Email is unavailable. The OpenID Connect operations below target website authentication URLs, independently of this API's proxy prefix. OIDC access tokens cannot access the library. ID tokens use RS256 and expire after five minutes; applications control their own login sessions. RP-initiated and back-channel logout are outside this release.\n\n## Parameters and responses\n\n- Pagination is normally one-based. Each operation describes its own limits and response shape; there is no universal response envelope or total count.\n- Repeat array query parameters, for example **genres=action&genres=romance** or **lang=en&lang=fr** on the latest-chapters endpoint. Comic chapter lists instead accept comma-separated languages, for example **lang=en,fr**.\n- Use language codes returned in **langList** or chapter **lang** fields, including **en**, **fr**, **pt-br**, and **es-419**. Do not substitute a country code such as **gb** for English.\n- For anime, use **media_type=anime** on supported catalog endpoints and **entry_type=episode** on the v1 chapter-list endpoint. Episodes share chapter IDs but have no reader images.\n- **tachiyomi=true** is a response compatibility option, not authentication or a rate-limit bypass. Its exact effect differs by endpoint; chapter detail omits image metadata in this mode.\n\n## Limits and errors\n\n- The origin is configured for **200 requests per minute per client IP** for non-exempt clients. Shared IPs share that budget, and infrastructure can impose additional limits. Read **x-ratelimit-limit**, **x-ratelimit-remaining**, **x-ratelimit-reset**, and **Retry-After** when present. On **429**, wait before retrying, reduce concurrency, and use exponential backoff; repeated excess requests can be temporarily blocked.\n- Search declares two pagination combinations: **page ≤ 50 with limit ≤ 50**, or **page ≤ 5 with limit ≤ 300**. Its defaults are **page=1, limit=15**. Keyword and account-specific searches have different result/validation behavior; these limits do not provide an exhaustive catalog-export contract.\n- Latest chapters accepts page values up to 200, but pages above **100 return an empty list**. Comic chapter lists default to 12 items; use modest page sizes even where no maximum is declared.\n- Honor **Cache-Control**. Catalog, search, ranking, and activity responses have different freshness windows and may lag recent changes. Empty results do not necessarily indicate an error.\n- **400** indicates invalid inputs; **404** indicates an unavailable identifier or route; **429** indicates throttling; **5xx** indicates a server failure. Cloudflare may return an HTML challenge or access-denied response before the API is reached. Check the status and Content-Type before parsing JSON.\n- A chapter may link to an external provider, have no uploaded images, or be scheduled for future publication. Image metadata is not guaranteed to contain a ready-to-use URL. The image endpoint returns metadata for available reader images, not streaming video or a download archive.\n"
+  },
+  "components": {
+    "securitySchemes": {
+      "OAuthBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Opaque OAuth access token",
+        "description": "Paste an OAuth access token only; the explorer adds the Bearer prefix. Reads require library:read; writes require library:write and explicit user consent. A client secret or website session is not an access token. Obtain a token using the [OAuth guide](https://comick.dev/docs/oauth)."
+      },
+      "OIDCBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque OIDC access token with openid; never an ID token or library token"
+      },
+      "OIDCClientBasic": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Confidential client ID and server-only secret. Public/native clients omit this header."
+      }
+    },
+    "schemas": {
+      "OAuthConnectedUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "avatar_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Public account UUID of the token owner."
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Current public Comick username, preserving case; null when unavailable."
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Public profile's 200-pixel Gravatar URL; null when unavailable."
+          }
+        }
+      },
+      "OAuthProgress": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "required": [
+          "unit",
+          "hid",
+          "number",
+          "volume"
+        ],
+        "description": "Saved last chapter read or episode watched. Null when unknown, cleared, or invalid.",
+        "properties": {
+          "unit": {
+            "type": "string",
+            "enum": [
+              "chapter",
+              "episode"
+            ]
+          },
+          "hid": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque public HID of the saved chapter or episode, distinct from the title HID. Null for number-only progress from an external tracker or import."
+          },
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Saved chapter or episode number. Preserve decimal and nonnumeric numbering. Unknown is null.",
+            "examples": [
+              "51"
+            ]
+          },
+          "volume": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Saved volume number as a string, or null."
+          }
+        }
+      },
+      "OAuthLibraryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hid",
+          "title",
+          "slug",
+          "media_type",
+          "status",
+          "status_name",
+          "rating",
+          "progress",
+          "continue_entry",
+          "followed_at",
+          "updated_at",
+          "progressed_at",
+          "publication_status",
+          "bayesian_rating",
+          "cover_url",
+          "country",
+          "translation_status",
+          "translation_completed",
+          "last_released_at",
+          "last_released_number",
+          "total_units",
+          "titles",
+          "url"
+        ],
+        "properties": {
+          "bayesian_rating": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Site-wide Bayesian score; independent of your series rating."
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "Selected public cover thumbnail URL; null when unavailable."
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Original country code, such as jp, kr, or cn; null when unknown."
+          },
+          "translation_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ongoing",
+              "completed",
+              "dropped",
+              "inactive",
+              null
+            ],
+            "description": "English translation status; applies to manga."
+          },
+          "translation_completed": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Compatibility flag used by the website's manga status column."
+          },
+          "last_released_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Latest title release time, used by the website's Updated column."
+          },
+          "last_released_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Latest known released number, not the final series total."
+          },
+          "total_units": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Known anime episode total; null for unknown or manga."
+          },
+          "titles": {
+            "type": "array",
+            "description": "Localized/alternative titles for language-aware display; no internal IDs or contributor identities.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "title",
+                "lang",
+                "is_default"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_default": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Canonical Comick title URL."
+          },
+          "publication_status": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              null
+            ],
+            "description": "Publishing status: 1 ongoing/airing, 2 completed/finished, 3 cancelled, 4 hiatus; null when unknown. Independent of your library status."
+          },
+          "continue_entry": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "unit",
+              "hid",
+              "number",
+              "volume"
+            ],
+            "description": "Recorded Continue entry, separate from saved progress; null when absent or invalid. This pointer is not recalculated when new releases arrive. Manga rows can display this number and link to /comic/{slug}/{hid}; anime rows display saved progress instead.",
+            "properties": {
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "chapter",
+                  "episode"
+                ]
+              },
+              "hid": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Opaque public HID of the saved chapter or episode, distinct from the title HID. Null for number-only progress from an external tracker or import."
+              },
+              "number": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Saved chapter or episode number. Preserve decimal and nonnumeric numbering. Unknown is null.",
+                "examples": [
+                  "51"
+                ]
+              },
+              "volume": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Saved volume number as a string, or null."
+              }
+            }
+          },
+          "hid": {
+            "type": "string",
+            "description": "Stable opaque public HID of the manga or anime. Use this string for synchronization and catalog lookups. Internal numeric IDs are not exposed."
+          },
+          "title": {
+            "type": "string",
+            "description": "Current title."
+          },
+          "slug": {
+            "type": "string",
+            "description": "Current title slug; may change."
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "manga",
+              "anime"
+            ]
+          },
+          "status": {
+            "type": "integer",
+            "description": "1 reading/watching; 2 completed; 3 on hold; 4 dropped; 5 plan to read/watch."
+          },
+          "rating": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Your series rating on the 1–10 scale, or null when unrated. Reads may retain decimal imported scores; writes accept integers only."
+          },
+          "status_name": {
+            "type": "string",
+            "enum": [
+              "reading",
+              "watching",
+              "completed",
+              "on_hold",
+              "dropped",
+              "plan_to_read",
+              "plan_to_watch",
+              "unknown"
+            ]
+          },
+          "progress": {
+            "$ref": "#/components/schemas/OAuthProgress"
+          },
+          "followed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "progressed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "OAuthLibraryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OAuthLibraryEntry"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque encrypted cursor for the next page; null when finished. Pass unchanged with the same filters and authorized user."
+          }
+        }
+      },
+      "OAuthError": {
+        "type": "object",
+        "description": "Error fields vary between OAuth policy and framework errors; branch on HTTP status, not message text.",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "error_description": {
+            "type": "string"
+          },
+          "statusCode": {
+            "type": "integer"
+          }
+        }
+      },
+      "OAuthLibraryEntryResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OAuthLibraryEntry"
+          }
+        }
+      },
+      "OAuthLibraryWrite": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "status": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "rating": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 10,
+            "description": "Set your series rating; null clears it. Omission preserves it. Written review content is preserved."
+          },
+          "progress": {
+            "description": "Save the last chapter read or episode watched. Use `{\"number\":\"51\"}` with an optional string or null `volume`, or `{\"hid\":\"CHAPTER_HID\"}` for a Comick entry. Send `null` to clear saved progress or omit the field to preserve it.",
+            "oneOf": [
+              {
+                "title": "By chapter or episode number",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "number"
+                ],
+                "properties": {
+                  "number": {
+                    "type": "string",
+                    "description": "Last chapter read or episode watched, as a string.",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "examples": [
+                      "51"
+                    ]
+                  },
+                  "volume": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "Optional volume as a string, or null.",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "examples": [
+                      "6"
+                    ]
+                  }
+                }
+              },
+              {
+                "title": "By Comick chapter or episode HID",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "hid"
+                ],
+                "properties": {
+                  "hid": {
+                    "type": "string",
+                    "description": "Public HID of a chapter or episode that belongs to the title in the URL.",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "examples": [
+                      "CHAPTER_HID"
+                    ]
+                  }
+                }
+              },
+              {
+                "title": "Clear saved progress",
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "enum": [
+                  null
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "OAuthTitle": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hid",
+          "title",
+          "slug",
+          "media_type",
+          "year",
+          "description",
+          "status",
+          "external_ids",
+          "bayesian_rating",
+          "cover_url",
+          "country",
+          "translation_status",
+          "translation_completed",
+          "last_released_at",
+          "last_released_number",
+          "total_units",
+          "titles",
+          "url"
+        ],
+        "properties": {
+          "bayesian_rating": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Site-wide Bayesian score; independent of your series rating."
+          },
+          "cover_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "Selected public cover thumbnail URL; null when unavailable."
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Original country code, such as jp, kr, or cn; null when unknown."
+          },
+          "translation_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "ongoing",
+              "completed",
+              "dropped",
+              "inactive",
+              null
+            ],
+            "description": "English translation status; applies to manga."
+          },
+          "translation_completed": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Compatibility flag used by the website's manga status column."
+          },
+          "last_released_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Latest title release time, used by the website's Updated column."
+          },
+          "last_released_number": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Latest known released number, not the final series total."
+          },
+          "total_units": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Known anime episode total; null for unknown or manga."
+          },
+          "titles": {
+            "type": "array",
+            "description": "Localized/alternative titles for language-aware display; no internal IDs or contributor identities.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "title",
+                "lang",
+                "is_default"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "lang": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_default": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Canonical Comick title URL."
+          },
+          "external_ids": {
+            "$ref": "#/components/schemas/OAuthExternalIds"
+          },
+          "status": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              null
+            ],
+            "description": "Publishing status: 1 ongoing/airing, 2 completed/finished, 3 cancelled, 4 hiatus; null when unknown. Independent of your library status."
+          },
+          "hid": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string",
+            "enum": [
+              "manga",
+              "anime"
+            ]
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OAuthExternalIds": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "anilist",
+          "myanimelist",
+          "mangabaka",
+          "mangaupdates"
+        ],
+        "description": "External tracker IDs as strings, or null when unavailable. Internal AniList/MyAnimeList sync mappings remain available if their public links were removed. MangaUpdates may use a legacy numeric ID or an alphanumeric series ID.",
+        "properties": {
+          "anilist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "myanimelist": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mangabaka": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mangaupdates": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OAuthTitleResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/OAuthTitle"
+          }
+        }
+      },
+      "OAuthTitleSearch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OAuthTitle"
+            },
+            "maxItems": 20
+          }
+        }
+      },
+      "def-0": {
+        "type": "object",
+        "properties": {
+          "fieldname": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mimetype": {
+            "type": "string"
+          }
+        },
+        "title": "#mySharedSchema"
+      }
+    }
+  },
+  "paths": {
+    "/anime/": {
+      "get": {
+        "summary": "Browse anime catalog entries",
+        "tags": [
+          "Anime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "description": "Optional JSON filter supporting q and numeric id arrays, for example {\"id\":[123]}. A separate q parameter takes precedence; malformed JSON is ignored."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Title keyword to search. Omit to browse without a keyword.",
+            "examples": {
+              "default": {
+                "value": "Solo Leveling"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "year",
+            "required": false,
+            "description": "Season year."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "winter",
+                "spring",
+                "summer",
+                "fall"
+              ]
+            },
+            "in": "query",
+            "name": "season",
+            "required": false,
+            "description": "Season: winter, spring, summer, or fall."
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 40
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Maximum results, from 1 to 100; defaults to 40.",
+            "examples": {
+              "default": {
+                "value": 40
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns an array of anime with titles, covers, and anime_profiles, ordered by follow rank then title. Defaults to 40 entries; limit is 1–100. There is no page parameter or full-catalog total. Pornographic and deleted entries are excluded. Content-Range describes only this returned batch."
+      }
+    },
+    "/anime/episode-activity": {
+      "get": {
+        "summary": "Read recent anime episode activity",
+        "tags": [
+          "Anime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "safe",
+                  "suggestive",
+                  "erotica",
+                  "pornographic"
+                ]
+              },
+              "default": [
+                "safe"
+              ]
+            },
+            "in": "query",
+            "name": "content_ratings",
+            "required": false,
+            "description": "Repeat to include up to four distinct ratings. Defaults to safe.",
+            "style": "form",
+            "explode": true,
+            "examples": {
+              "default": {
+                "value": [
+                  "safe"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns recentlyRated and recentlyAdded arrays, capped at 40 candidates each. Includes published, active episodes on non-deleted anime, with public ratings and user attribution. Defaults to safe content. Browser/shared-cache lifetimes are 30/60 seconds; no pagination is available."
+      }
+    },
+    "/anime/schedule": {
+      "get": {
+        "summary": "Get the current weekly anime schedule",
+        "tags": [
+          "Anime"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns a schedule object for the current season, including continuing TV anime and nearby episode releases with public ratings. Uses catalog broadcast metadata; missing broadcast data means a title may be absent. Takes no query parameters and does not offer historical-season pagination."
+      }
+    },
+    "/anime/seasonal": {
+      "get": {
+        "summary": "Browse a season of anime",
+        "tags": [
+          "Anime"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1900
+            },
+            "in": "query",
+            "name": "year",
+            "required": true,
+            "description": "Required season year, 1900 or later.",
+            "examples": {
+              "default": {
+                "value": 2026
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "winter",
+                "spring",
+                "summer",
+                "fall"
+              ]
+            },
+            "in": "query",
+            "name": "season",
+            "required": true,
+            "description": "Required season: winter, spring, summer, or fall.",
+            "examples": {
+              "default": {
+                "value": "fall"
+              }
+            }
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "in": "query",
+            "name": "grouped",
+            "required": false,
+            "description": "true or 1 returns grouped sections; omit for a flat array."
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "popularity",
+                "score"
+              ],
+              "default": "popularity"
+            },
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "description": "popularity (default) orders by catalog popularity; score orders by anime score."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "additionalProperties": true
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "description": "Requires year (1900 or later) and season. Returns an array by default. grouped=true returns an object with sections for new/continuing TV, ONA, OVA, movies, and other formats. Excludes deleted and pornographic entries. There is no pagination; availability depends on imported season metadata."
+      }
+    },
+    "/api/auth/oidc/.well-known/openid-configuration": {
+      "get": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcDiscovery",
+        "summary": "Discover Sign in with Comick",
+        "description": "Issuer: https://comick.dev/api/auth/oidc. Code with S256 PKCE, RS256 ID tokens, public subjects, and openid/profile/offline_access only. claims requests, email, dynamic registration and logout are unsupported. Use the published endpoint URLs.",
+        "responses": {
+          "200": {
+            "description": "OIDC provider metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oidc/jwks": {
+      "get": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcJwks",
+        "summary": "Read ID-token verification keys",
+        "description": "Public RS256 keys. Validate signature, exact issuer, audience, expiry and nonce with a maintained OIDC client. ID tokens expire after five minutes. Keys rotate every 30 days with one day of verification grace. Cache keys and refetch once for an unknown kid.",
+        "responses": {
+          "200": {
+            "description": "JSON Web Key Set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "keys"
+                  ],
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oidc/oauth2/authorize": {
+      "get": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcAuthorize",
+        "summary": "Start Sign in with Comick",
+        "description": "Navigate the system browser here. Enable Sign in with Comick in app settings first. Use an exact registered callback and fresh state/nonce/verifier for each attempt. openid identifies the account; profile and offline_access are optional consent choices. Omit resource and claims. Library access requires separate authorization and credentials.",
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "description": "Registered client ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "description": "Exact registered callback",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_type",
+            "in": "query",
+            "required": true,
+            "description": "Only code",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "description": "openid, optionally profile and offline_access",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "description": "Fresh random state bound to the initiating app session",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nonce",
+            "in": "query",
+            "required": true,
+            "description": "Fresh random nonce to validate in the ID token",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "required": true,
+            "description": "Base64url SHA-256 of a random 43–128 character verifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code_challenge_method",
+            "in": "query",
+            "required": true,
+            "description": "Only S256",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Comick login/consent or registered callback; validate returned state and issuer"
+          },
+          "400": {
+            "description": "Invalid request, scope, or grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "App or account unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oidc/oauth2/revoke": {
+      "post": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcRevoke",
+        "summary": "Revoke an OIDC credential",
+        "description": "Authenticate the app as at the token endpoint. Public clients send client_id. Revoke an OIDC access or refresh token; disconnect in Connected apps to revoke the saved grant. Issued ID tokens remain valid until expiry, and applications control their own login sessions. RP-initiated and back-channel logout are outside this release.",
+        "security": [
+          {
+            "OIDCClientBasic": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Opaque OIDC access or refresh token"
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "description": "Required for public clients"
+                  },
+                  "token_type_hint": {
+                    "type": "string",
+                    "description": "Optional hint",
+                    "enum": [
+                      "access_token",
+                      "refresh_token"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Revocation processed; unknown tokens do not disclose ownership"
+          },
+          "400": {
+            "description": "Invalid request, scope, or grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "App or account unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oidc/oauth2/token": {
+      "post": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcToken",
+        "summary": "Exchange a code or rotate a refresh token",
+        "description": "Use authorization_code with code, redirect_uri and code_verifier; or refresh_token with the current refresh_token. PKCE is required for every client. Public/native clients send client_id without a secret. Confidential clients use HTTP Basic. Omit resource and claims. Opaque access/refresh tokens are restricted to this issuer. Refresh rotates on every use and requires offline_access. Inspect granted scopes: users can decline optional permissions.",
+        "security": [
+          {
+            "OIDCClientBasic": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "grant_type"
+                ],
+                "properties": {
+                  "grant_type": {
+                    "type": "string",
+                    "description": "Supported grant",
+                    "enum": [
+                      "authorization_code",
+                      "refresh_token"
+                    ]
+                  },
+                  "client_id": {
+                    "type": "string",
+                    "description": "Required for public/native clients"
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": "Single-use authorization code"
+                  },
+                  "redirect_uri": {
+                    "type": "string",
+                    "description": "Original exact callback"
+                  },
+                  "code_verifier": {
+                    "type": "string",
+                    "description": "Original PKCE verifier"
+                  },
+                  "refresh_token": {
+                    "type": "string",
+                    "description": "Current opaque OIDC refresh token"
+                  },
+                  "scope": {
+                    "type": "string",
+                    "description": "Optional reduced refresh scopes; retain openid"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OIDC credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "access_token",
+                    "token_type",
+                    "expires_in",
+                    "scope"
+                  ],
+                  "properties": {
+                    "access_token": {
+                      "type": "string",
+                      "description": "Opaque OIDC access token"
+                    },
+                    "token_type": {
+                      "type": "string",
+                      "description": "Bearer",
+                      "enum": [
+                        "Bearer"
+                      ]
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "examples": [
+                        900
+                      ]
+                    },
+                    "scope": {
+                      "type": "string",
+                      "description": "Actually granted permissions"
+                    },
+                    "id_token": {
+                      "type": "string",
+                      "description": "RS256 ID token; five-minute lifetime"
+                    },
+                    "refresh_token": {
+                      "type": "string",
+                      "description": "Optional rotating token; requires offline_access"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, scope, or grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "App or account unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/oidc/oauth2/userinfo": {
+      "get": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcUserInfo",
+        "summary": "Read the signed-in public profile",
+        "description": "Authentication required: an opaque OIDC access token with openid. Returns sub, plus available name, preferred_username and picture only with profile consent. Email and library data are unavailable. Cookie, query and body credentials are rejected. Disconnect, session expiry and app/account restrictions revoke access.",
+        "security": [
+          {
+            "OIDCBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sub"
+                  ],
+                  "properties": {
+                    "sub": {
+                      "type": "string",
+                      "description": "Stable public UUID",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Public name"
+                    },
+                    "preferred_username": {
+                      "type": "string",
+                      "description": "Public username"
+                    },
+                    "picture": {
+                      "type": "string",
+                      "description": "Public avatar URL",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, scope, or grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "App or account unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OpenID Connect"
+        ],
+        "servers": [
+          {
+            "url": "https://comick.dev",
+            "description": "Comick website authentication"
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/oidc"
+        },
+        "operationId": "oidcUserInfoPost",
+        "summary": "Read the signed-in public profile",
+        "description": "Authentication required: an opaque OIDC access token with openid. Returns sub, plus available name, preferred_username and picture only with profile consent. Email and library data are unavailable. Cookie, query and body credentials are rejected. Disconnect, session expiry and app/account restrictions revoke access. Send an empty POST body.",
+        "security": [
+          {
+            "OIDCBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sub"
+                  ],
+                  "properties": {
+                    "sub": {
+                      "type": "string",
+                      "description": "Stable public UUID",
+                      "format": "uuid"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Public name"
+                    },
+                    "preferred_username": {
+                      "type": "string",
+                      "description": "Public username"
+                    },
+                    "picture": {
+                      "type": "string",
+                      "description": "Public avatar URL",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, scope, or grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client or access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "App or account unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/category/": {
+      "get": {
+        "summary": "List public category tags",
+        "tags": [
+          "Category"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "description": "Returns tag objects with id, title, slug, and comic_count. Includes active imported tags and user-created tags used by comics. Use slugs in search tags/excluded-tags. No pagination. Shared caches may retain results for a day."
+      }
+    },
+    "/category/popular": {
+      "get": {
+        "summary": "List the most-used category tags",
+        "tags": [
+          "Category"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 300,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "title",
+                      "slug",
+                      "comic_count"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "slug": {
+                        "type": "string"
+                      },
+                      "comic_count": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns at most 300 active tags with nonzero comic_count and a slug, ordered by count descending, title, then ID. Objects contain id, title, slug, and comic_count. No pagination; shared-cache freshness and stale-while-revalidate windows are each one day."
+      }
+    },
+    "/chapter/": {
+      "get": {
+        "summary": "List the latest chapter updates",
+        "tags": [
+          "Chapter"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "description": "Repeat language values, for example lang=en&lang=fr. Omit for all languages.",
+            "style": "form",
+            "explode": true,
+            "examples": {
+              "default": {
+                "value": [
+                  "en"
+                ]
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "default": 1,
+              "maximum": 200
+            },
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "description": "One-based page number. Omit for the first page.",
+            "examples": {
+              "default": {
+                "value": 1
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "enum": [
+                1,
+                2
+              ],
+              "maximum": 40
+            },
+            "in": "query",
+            "name": "gender",
+            "required": false,
+            "description": "Demographic grouping: 1 selects shounen/seinen; 2 selects shoujo/josei. Omit for all groups."
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "hot",
+                "new"
+              ],
+              "default": "hot"
+            },
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "description": "hot (default) orders by latest activity; new orders by creation time."
+          },
+          {
+            "schema": {
+              "nullable": true,
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "enum": [
+                    null
+                  ]
+                }
+              ]
+            },
+            "in": "query",
+            "name": "device-memory",
+            "required": false,
+            "description": "Legacy batch-size hint: 1 → 45, 2 → 60, 4 → 90, 8 → 120; otherwise 90. Not a page-size guarantee across all feeds."
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "tachiyomi",
+            "required": false,
+            "description": "Optional compatibility response: adds cover_url on catalog/search results. Not required for access and does not change rate limits."
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "has_images",
+            "required": false,
+            "description": "true keeps only chapters with uploaded reader images. External-only chapters may be excluded."
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "manga",
+                  "manhwa",
+                  "manhua",
+                  "others"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "description": "Repeat origin filters: manga (Japan), manhwa (Korea), manhua (China), or others.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "safe",
+                  "suggestive",
+                  "erotica",
+                  "pornographic"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "content_rating",
+            "required": false,
+            "description": "Include these content ratings. Repeat the parameter for multiple values. Omit to leave this filter unset.",
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array"
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns an array of chapter updates with comic metadata. Defaults to hot ordering and page 1. The normal batch size is 90; device-memory can select 45, 60, 90, or 120. Schema validation allows page ≤ 200, but pages above 100 return []. Empty pages end traversal. Responses can be cached for five minutes."
+      }
+    },
+    "/chapter/{hid}/": {
+      "get": {
+        "summary": "Get chapter or episode details",
+        "tags": [
+          "Chapter"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "tachiyomi",
+            "required": false,
+            "description": "true adds a cover_url to the comic and removes md_covers and md_images from the chapter response. Omit when inspecting reader image metadata."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "hid",
+            "required": true,
+            "description": "Chapter or episode HID; not the parent comic's HID.",
+            "examples": {
+              "default": {
+                "value": "nzwLSXvW"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns a detail object with chapter metadata and reader/navigation context. Uses the chapter/episode HID from a list response. Neighbor navigation stays within the same entry type. Episodes have no reader images; external or future chapters may also lack available reader content. Unavailable entries return 404."
+      }
+    },
+    "/chapter/{hid}/get_images": {
+      "get": {
+        "summary": "Get chapter reader-image metadata",
+        "tags": [
+          "Chapter"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "hid",
+            "required": true,
+            "description": "Chapter HID from a chapter list.",
+            "examples": {
+              "default": {
+                "value": "nzwLSXvW"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns an ordered array of image metadata (including h, w, name, s, b2key, and optimized). Future publication dates return []; episodes and chapters without uploaded reader images can also return []. Uploaded images are ordered numerically by storage key; otherwise stored image order is used. Unknown/unavailable chapters return 404. These are metadata records, not image bytes or guaranteed complete URLs. Shared caches may retain results for 1,000 seconds."
+      }
+    },
+    "/comic/{hid}/chapters": {
+      "get": {
+        "operationId": "getLegacyComicChapters",
+        "summary": "List comic chapters (legacy)",
+        "tags": [
+          "Comic"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "default": 12
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Page size; defaults to 12. No maximum is declared by this route. Prefer small pages.",
+            "examples": {
+              "default": {
+                "value": 12
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "description": "One-based page. Omitting it or passing 0 selects the first page.",
+            "examples": {
+              "default": {
+                "value": 1
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "chap-order",
+            "required": false,
+            "description": "1 sorts chapters ascending; omitted or 0 sorts descending. Volume-reset titles also consider volume order."
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "date-order",
+            "required": false,
+            "description": "Optional creation-date ordering: 0 descending, 1 ascending. Overrides chapter ordering."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "description": "Chapter languages, comma-separated: en or en,fr. Omit for all non-null languages.",
+            "examples": {
+              "default": {
+                "value": "en"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "chap",
+            "required": false,
+            "description": "Exact chapter or volume label, as a string; for example 1 or 10.5. Omit for all entries."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "verifiedbot123",
+            "required": false,
+            "description": "Legacy compatibility parameter; the current handler does not use it. Omit it."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "hid",
+            "required": true,
+            "description": "Comic HID from a search result or comic.hid; not a chapter HID.",
+            "examples": {
+              "default": {
+                "value": "71gMd0vF"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns chapters with total and language/volume metadata. Prefer the v1 endpoint for new integrations. Defaults to 12 entries in descending chapter order. Omitting page or passing 0 selects the first page. Date ordering overrides chapter ordering. Responses can be cached for an hour."
+      }
+    },
+    "/comic/{slug}/": {
+      "get": {
+        "summary": "Get comic details (legacy)",
+        "tags": [
+          "Comic"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "t",
+            "required": false,
+            "description": "Set to 1 for a small identification response instead of full comic details. Omit for the normal detail response."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "description": "Optional language used for volume/chapter-reset detection. Does not translate comic metadata."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "title_locale",
+            "required": false,
+            "description": "Requested display-title locale, for example en. Adds display_titles when supplied; does not translate catalog text."
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "tachiyomi",
+            "required": false,
+            "description": "Optional compatibility response: adds cover_url on catalog/search results. Not required for access and does not change rate limits."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "description": "Comic slug returned by search, or its public HID.",
+            "examples": {
+              "default": {
+                "value": "00-solo-leveling"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "comic": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "properties": {
+                        "reviews": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "properties": {
+                              "identities": {
+                                "type": "object",
+                                "additionalProperties": true,
+                                "properties": {
+                                  "traits": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "username": {
+                                        "type": "string"
+                                      },
+                                      "gravatar": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns comic, creators, langList, firstChap, and related detail fields. Prefer /v1.0/comic/{slug}/ for new integrations. t=1 returns a reduced identification response. Unavailable items return 404; shared caches may retain details for an hour."
+      }
+    },
+    "/genre/": {
+      "get": {
+        "summary": "List genres",
+        "tags": [
+          "Genre"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "description": "Returns genre objects containing id, name, slug, comic_count, and group, ordered by name. Use genre slugs in search genres/excludes. Takes no parameters and has no pagination. Shared caches may retain results for a day."
+      }
+    },
+    "/integrations/v1/me": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "description": "**Authentication required:** OAuth access token with **library:read**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nReturns the token owner's public account UUID, current case-preserving Comick username, and 200-pixel Gravatar URL. Username and avatar_url can be null. No query parameters are accepted, including user_id. Existing read grants work without reauthorization. Email, roles, identity traits, and session/token details are excluded. This resource endpoint does not provide OpenID Connect userinfo or an ID token. Limits: 60 requests/minute per app/user, 1,000 per app, and 120 per network address.",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The connected user's public profile, without a data wrapper.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthConnectedUser"
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "id": "12345678-1234-4123-8123-123456789abc",
+                      "username": "ExampleReader",
+                      "avatar_url": "https://secure.gravatar.com/avatar/00000000000000000000000000000000?size=200&default=mp&rating=g"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Integrations are unavailable on this deployment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getConnectedUser",
+        "summary": "Read the connected user's public profile",
+        "parameters": [],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library#read-the-connected-user",
+          "description": "Connected user and OAuth integration guide"
+        }
+      }
+    },
+    "/integrations/v1/me/library": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of followed manga/anime belonging to the authorizing user.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthLibraryPage"
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "data": [
+                        {
+                          "hid": "aB7kP2xQ",
+                          "title": "Example Anime",
+                          "slug": "example-anime",
+                          "media_type": "anime",
+                          "publication_status": 1,
+                          "bayesian_rating": 8.25,
+                          "cover_url": "https://meo.comick.pictures/example-cover-s.jpg",
+                          "country": "jp",
+                          "translation_status": null,
+                          "translation_completed": null,
+                          "last_released_at": "2026-10-01T00:00:00.000Z",
+                          "last_released_number": "3",
+                          "total_units": 12,
+                          "titles": [
+                            {
+                              "title": "Example Anime",
+                              "lang": "en",
+                              "is_default": true
+                            }
+                          ],
+                          "url": "https://comick.dev/anime/example-anime",
+                          "continue_entry": null,
+                          "status": 1,
+                          "status_name": "watching",
+                          "rating": 8,
+                          "progress": {
+                            "unit": "episode",
+                            "hid": "rT4mN8vW",
+                            "number": "3",
+                            "volume": null
+                          },
+                          "followed_at": "2026-10-01T00:00:00.000Z",
+                          "updated_at": "2026-10-01T00:00:00.000Z",
+                          "progressed_at": "2026-10-01T00:00:00.000Z"
+                        }
+                      ],
+                      "next_cursor": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Integrations are unavailable on this deployment.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getMyLibrary",
+        "summary": "Read my library",
+        "description": "**Authentication required:** OAuth access token with **library:read**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nRequires library:read. The token determines the user; no user_id or other extra query parameters are accepted. Omit media_type for both manga and anime. Keep filters unchanged while following next_cursor; this is a live collection. Limits: 60 requests/minute per app/user, 1,000 per app, and 120 per network address.",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "media_type",
+            "in": "query",
+            "description": "Omit for both media types.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manga",
+                "anime"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Follow status: 1 reading/watching, 2 completed, 3 on hold, 4 dropped, 5 plan to read/watch.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of titles in a page.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Opaque encrypted cursor bound to the authorized user and filters. Pass the previous next_cursor unchanged; omit for the first page. Numeric, modified, or mismatched cursors return 400.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      }
+    },
+    "/integrations/v1/me/library/{hid}": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "hid",
+            "in": "path",
+            "required": true,
+            "description": "Opaque public title HID. Never a database ID or chapter number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "examples": {
+              "default": {
+                "value": "aB7kP2xQ"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current library entry.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthLibraryEntryResponse"
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "data": {
+                        "hid": "aB7kP2xQ",
+                        "title": "Example Anime",
+                        "slug": "example-anime",
+                        "media_type": "anime",
+                        "publication_status": 1,
+                        "bayesian_rating": 8.25,
+                        "cover_url": "https://meo.comick.pictures/example-cover-s.jpg",
+                        "country": "jp",
+                        "translation_status": null,
+                        "translation_completed": null,
+                        "last_released_at": "2026-10-01T00:00:00.000Z",
+                        "last_released_number": "3",
+                        "total_units": 12,
+                        "titles": [
+                          {
+                            "title": "Example Anime",
+                            "lang": "en",
+                            "is_default": true
+                          }
+                        ],
+                        "url": "https://comick.dev/anime/example-anime",
+                        "continue_entry": null,
+                        "status": 1,
+                        "status_name": "watching",
+                        "rating": 8,
+                        "progress": {
+                          "unit": "episode",
+                          "hid": "rT4mN8vW",
+                          "number": "3",
+                          "volume": null
+                        },
+                        "followed_at": "2026-10-01T00:00:00.000Z",
+                        "updated_at": "2026-10-01T00:00:00.000Z",
+                        "progressed_at": "2026-10-01T00:00:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Title not found, or no library entry for GET/PATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getMyLibraryEntry",
+        "summary": "Read one library entry",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "description": "**Authentication required:** OAuth access token with **library:read**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nRead the token owner's entry. Unknown/unfollowed HID returns 404. No query parameters.",
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      },
+      "put": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "hid",
+            "in": "path",
+            "required": true,
+            "description": "Opaque public title HID. Never a database ID or chapter number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "examples": {
+              "default": {
+                "value": "aB7kP2xQ"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current library entry.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthLibraryEntryResponse"
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "data": {
+                        "hid": "aB7kP2xQ",
+                        "title": "Example Anime",
+                        "slug": "example-anime",
+                        "media_type": "anime",
+                        "publication_status": 1,
+                        "bayesian_rating": 8.25,
+                        "cover_url": "https://meo.comick.pictures/example-cover-s.jpg",
+                        "country": "jp",
+                        "translation_status": null,
+                        "translation_completed": null,
+                        "last_released_at": "2026-10-01T00:00:00.000Z",
+                        "last_released_number": "3",
+                        "total_units": 12,
+                        "titles": [
+                          {
+                            "title": "Example Anime",
+                            "lang": "en",
+                            "is_default": true
+                          }
+                        ],
+                        "url": "https://comick.dev/anime/example-anime",
+                        "continue_entry": null,
+                        "status": 1,
+                        "status_name": "watching",
+                        "rating": 8,
+                        "progress": {
+                          "unit": "episode",
+                          "hid": "rT4mN8vW",
+                          "number": "3",
+                          "volume": null
+                        },
+                        "followed_at": "2026-10-01T00:00:00.000Z",
+                        "updated_at": "2026-10-01T00:00:00.000Z",
+                        "progressed_at": "2026-10-01T00:00:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Title not found, or no library entry for GET/PATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "putMyLibraryEntry",
+        "summary": "Add or update a library entry",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "description": "**Authentication required:** OAuth access token with **library:write**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nAdd if absent, requiring status (1–5), or update if present. Send `{\"status\":1,\"progress\":{\"number\":\"51\"}}` to add a manga as Reading at chapter 51. Omitted fields are preserved. Rating accepts an integer 1–10 or null to clear. Written review content is preserved. JSON only, max 4 KiB; rejects extra fields/user IDs. A maximum of 30,000 follows per account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthLibraryWrite"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "status": 1,
+                    "progress": {
+                      "number": "51"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      },
+      "patch": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "hid",
+            "in": "path",
+            "required": true,
+            "description": "Opaque public title HID. Never a database ID or chapter number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "examples": {
+              "default": {
+                "value": "aB7kP2xQ"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current library entry.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "private, no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthLibraryEntryResponse"
+                },
+                "examples": {
+                  "default": {
+                    "value": {
+                      "data": {
+                        "hid": "aB7kP2xQ",
+                        "title": "Example Anime",
+                        "slug": "example-anime",
+                        "media_type": "anime",
+                        "publication_status": 1,
+                        "bayesian_rating": 8.25,
+                        "cover_url": "https://meo.comick.pictures/example-cover-s.jpg",
+                        "country": "jp",
+                        "translation_status": null,
+                        "translation_completed": null,
+                        "last_released_at": "2026-10-01T00:00:00.000Z",
+                        "last_released_number": "3",
+                        "total_units": 12,
+                        "titles": [
+                          {
+                            "title": "Example Anime",
+                            "lang": "en",
+                            "is_default": true
+                          }
+                        ],
+                        "url": "https://comick.dev/anime/example-anime",
+                        "continue_entry": null,
+                        "status": 1,
+                        "status_name": "watching",
+                        "rating": 8,
+                        "progress": {
+                          "unit": "episode",
+                          "hid": "rT4mN8vW",
+                          "number": "3",
+                          "volume": null
+                        },
+                        "followed_at": "2026-10-01T00:00:00.000Z",
+                        "updated_at": "2026-10-01T00:00:00.000Z",
+                        "progressed_at": "2026-10-01T00:00:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Title not found, or no library entry for GET/PATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "updateMyLibraryEntry",
+        "summary": "Update a library entry",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "description": "**Authentication required:** OAuth access token with **library:write**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nUpdate supplied status/progress/rating only; 404 if absent. Send `{\"progress\":{\"number\":\"51\"}}` to save chapter 51 as the last chapter read. Number-only progress returns a null progress.hid. Rating accepts an integer 1–10 or null to clear. Written review content is preserved. JSON only, max 4 KiB. Last accepted update wins.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthLibraryWrite"
+              },
+              "examples": {
+                "default": {
+                  "value": {
+                    "progress": {
+                      "number": "51"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      },
+      "delete": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "hid",
+            "in": "path",
+            "required": true,
+            "description": "Opaque public title HID. Never a database ID or chapter number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "examples": {
+              "default": {
+                "value": "aB7kP2xQ"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed, or already absent; no body."
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Title not found, or no library entry for GET/PATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "deleteMyLibraryEntry",
+        "summary": "Remove a library entry",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "description": "**Authentication required:** OAuth access token with **library:write**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nIdempotent unfollow; no body or query. Deletes saved progress, notes, rating and custom-list memberships along with the follow. Written reviews are preserved. No catalog title is deleted.",
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      }
+    },
+    "/integrations/v1/titles": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Public title metadata for tracking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTitleSearch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Title not found, or no library entry for GET/PATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "searchTitles",
+        "summary": "Find a title for tracking",
+        "description": "**Authentication required:** OAuth access token with **library:read**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nBounded tracker title lookup. HIDs are the only lookup identifiers; no internal numeric IDs are serialized. Search matches title and alternative-title text; refine the query for more results.",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100
+            },
+            "examples": {
+              "default": {
+                "value": "Example"
+              }
+            }
+          },
+          {
+            "name": "media_type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manga",
+                "anime"
+              ],
+              "default": "manga"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 10
+            }
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      }
+    },
+    "/integrations/v1/titles/{hid}": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "hid",
+            "in": "path",
+            "required": true,
+            "description": "Opaque public title HID. Never a database ID or chapter number.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "examples": {
+              "default": {
+                "value": "aB7kP2xQ"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public title metadata for tracking.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthTitleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters, cursor, JSON body, or extra fields.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, expired, or revoked access token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient scope, ineligible app/account, or unregistered browser origin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Title not found, or no library entry for GET/PATCH.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Honor Retry-After when accessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Temporarily unavailable, including authentication maintenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Delay in seconds before retrying, when supplied.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getTitle",
+        "summary": "Read HID-only title details",
+        "description": "**Authentication required:** OAuth access token with **library:read**. Send `Authorization: Bearer YOUR_ACCESS_TOKEN`.\n\nBounded tracker title lookup. HIDs are the only lookup identifiers; no internal numeric IDs are serialized. Search matches title and alternative-title text; refine the query for more results.",
+        "security": [
+          {
+            "OAuthBearer": []
+          }
+        ],
+        "externalDocs": {
+          "url": "https://comick.dev/docs/library",
+          "description": "Library API and OAuth integration guide"
+        }
+      }
+    },
+    "/people/{slug}/": {
+      "get": {
+        "summary": "Get an author or artist and their works",
+        "tags": [
+          "People"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "description": "Creator slug from comic authors/artists or creator search results.",
+            "examples": {
+              "default": {
+                "value": "chugong"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns people plus authors, artists, and artistAuthors work arrays. Canonical aliases are resolved and duplicate works are combined across creator roles. Results are not paginated. Unknown or unavailable people return 404."
+      }
+    },
+    "/top": {
+      "get": {
+        "summary": "Get ranked and recent catalog feeds",
+        "tags": [
+          "Top"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "enum": [
+                1,
+                2
+              ],
+              "maximum": 40
+            },
+            "in": "query",
+            "name": "gender",
+            "required": false,
+            "description": "Demographic grouping: 1 selects shounen/seinen; 2 selects shoujo/josei. Omit for all groups."
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "enum": [
+                7,
+                30,
+                90,
+                180,
+                270,
+                360,
+                720
+              ]
+            },
+            "in": "query",
+            "name": "day",
+            "required": false,
+            "description": "Ranking window in days: 7, 30, 90, 180, 270, 360, or 720. Combine with type for one ranked feed.",
+            "examples": {
+              "default": {
+                "value": 7
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "trending",
+                "newfollow",
+                "follow"
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "description": "Select trending, newfollow, or follow. Combine with day for one ranked feed.",
+            "examples": {
+              "default": {
+                "value": "trending"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manga",
+                "anime"
+              ],
+              "default": "manga"
+            },
+            "in": "query",
+            "name": "media_type",
+            "required": false,
+            "description": "Catalog media type. Defaults to manga where supported.",
+            "examples": {
+              "default": {
+                "value": "manga"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "manga",
+                  "manhwa",
+                  "manhua",
+                  "others"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "comic_types",
+            "required": false,
+            "description": "Repeat manga, manhwa, manhua, or others to filter origin. Applied only to manga media.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "in": "query",
+            "name": "accept_mature_content",
+            "required": false,
+            "description": "Include mature content in supported feeds. Defaults to false."
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "in": "query",
+            "name": "safe_only",
+            "required": false,
+            "description": "Restrict to exactly safe content; takes precedence over adult_only. Defaults to false."
+          },
+          {
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "in": "query",
+            "name": "adult_only",
+            "required": false,
+            "description": "Restrict to erotica/pornographic titles, unless safe_only is true. Defaults to false."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "With both day and type, returns the selected ranked array. Without that combination, returns an object containing ranking, trending, recent, completed, and other homepage feeds. No pagination. safe_only takes precedence over adult_only. Responses can be cached for an hour."
+      }
+    },
+    "/v1.0/comic/{hid}/chapters": {
+      "get": {
+        "operationId": "getV1ComicChapters",
+        "summary": "List comic chapters or anime episodes",
+        "tags": [
+          "Comic"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "chapter",
+                "episode"
+              ],
+              "default": "chapter"
+            },
+            "in": "query",
+            "name": "entry_type",
+            "required": false,
+            "description": "chapter (default) for manga, episode for anime. Episode entries have no reader images."
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "default": 12
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Page size; defaults to 12. No maximum is declared by this route. Prefer small pages.",
+            "examples": {
+              "default": {
+                "value": 12
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "description": "One-based page. Omitting it or passing 0 selects the first page.",
+            "examples": {
+              "default": {
+                "value": 1
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "chap-order",
+            "required": false,
+            "description": "1 sorts chapters ascending; omitted or 0 sorts descending. Volume-reset titles also consider volume order."
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "date-order",
+            "required": false,
+            "description": "Optional creation-date ordering: 0 descending, 1 ascending. Overrides chapter ordering."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "description": "Chapter languages, comma-separated: en or en,fr. Omit for all non-null languages.",
+            "examples": {
+              "default": {
+                "value": "en"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "description": "Chapter group title or slug. Official matches official-source group names. Omit or use 0 for all groups."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "groups",
+            "required": false,
+            "description": "Set to 1 to request counted group options instead of a chapter page. Language filters apply; selected group and pagination do not."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "chap",
+            "required": false,
+            "description": "Exact chapter or volume label, as a string; for example 1 or 10.5. Omit for all entries."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "verifiedbot123",
+            "required": false,
+            "description": "Legacy compatibility parameter; the current handler does not use it. Omit it."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "hid",
+            "required": true,
+            "description": "Comic HID from a search result or comic.hid; not a chapter HID.",
+            "examples": {
+              "default": {
+                "value": "71gMd0vF"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns { chapters, total, limit, checkVol2Chap1 }. Defaults to entry_type=chapter and 12 entries. For anime, entry_type=episode returns episodes in the chapters array, including profiles, previews, and ratings; language/group/chapter filters and date-order apply only to the chapter branch. groups=1 on the chapter branch instead returns { groups }, independent of pagination and the selected group. Responses can be cached for an hour."
+      }
+    },
+    "/v1.0/comic/{slug}/": {
+      "get": {
+        "summary": "Get manga, anime, or novel details",
+        "tags": [
+          "Comic"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manga",
+                "anime",
+                "novel"
+              ],
+              "default": "manga"
+            },
+            "in": "query",
+            "name": "media_type",
+            "required": false,
+            "description": "Catalog media type. Defaults to manga where supported.",
+            "examples": {
+              "default": {
+                "value": "manga"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer"
+            },
+            "in": "query",
+            "name": "t",
+            "required": false,
+            "description": "Set to 1 for a small identification response instead of full comic details. Omit for the normal detail response."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "title_locale",
+            "required": false,
+            "description": "Requested display-title locale, for example en. Adds display_titles when supplied; does not translate catalog text."
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "in": "query",
+            "name": "tachiyomi",
+            "required": false,
+            "description": "Optional compatibility response: adds cover_url on catalog/search results. Not required for access and does not change rate limits."
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "description": "Comic slug returned by search, or its public HID.",
+            "examples": {
+              "default": {
+                "value": "00-solo-leveling"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns comic, authors, artists, langList, firstChapters, and related detail fields. media_type defaults to manga; select anime or novel as appropriate. Anime firstChapters is empty: use the episode-list endpoint. t=1 returns a reduced identification response. Unavailable items return 404; shared caches may retain details for an hour."
+      }
+    },
+    "/v1.0/search/": {
+      "get": {
+        "summary": "Search or browse the catalog",
+        "tags": [
+          "Search"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10
+            },
+            "in": "query",
+            "name": "genres",
+            "required": false,
+            "description": "Include genre slugs from /genre/. Repeat values; at most 10. Example: genres=action&genres=romance.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 40
+            },
+            "in": "query",
+            "name": "excludes",
+            "required": false,
+            "description": "Exclude genre slugs; repeat values, at most 40.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10
+            },
+            "in": "query",
+            "name": "tags",
+            "required": false,
+            "description": "Include category slugs from /category/; repeat values, at most 10.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "integer"
+              }
+            },
+            "in": "query",
+            "name": "demographic",
+            "required": false,
+            "description": "Repeat numeric values: 1 shounen, 2 shoujo, 3 seinen, 4 josei, 5 unset/none. Do not send an empty string.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "safe",
+                  "suggestive",
+                  "erotica",
+                  "pornographic"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "content_rating",
+            "required": false,
+            "description": "Include these content ratings. Repeat the parameter for multiple values. Omit to leave this filter unset.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "safe",
+                  "suggestive",
+                  "erotica",
+                  "pornographic"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "excluded_content_rating",
+            "required": false,
+            "description": "Repeat content ratings to exclude after the include filter.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "graphic"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "violence_rating",
+            "required": false,
+            "description": "Repeat none or graphic to include violence ratings. Independent of content_rating; unset includes all.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "graphic"
+                ]
+              }
+            },
+            "in": "query",
+            "name": "excluded_violence_rating",
+            "required": false,
+            "description": "Repeat none or graphic to exclude violence ratings after the include filter.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10
+            },
+            "in": "query",
+            "name": "country",
+            "required": false,
+            "description": "Repeat lowercase origin codes such as jp, kr, cn; at most 10.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "minimum",
+            "required": false,
+            "description": "Minimum chapter number for manga, or episode count for anime."
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "maximum",
+            "required": false,
+            "description": "Maximum chapter number for manga, or episode count for anime."
+          },
+          {
+            "schema": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "minimum_rating",
+            "required": false,
+            "description": "Minimum catalog rating; fractional values such as 5.7 are accepted."
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "time",
+            "required": false,
+            "description": "Restrict catalog creation to the last N days, for example time=120."
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "description": "Earliest publication year, inclusive."
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "description": "Latest publication year, inclusive."
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "completed",
+            "required": false,
+            "description": "true filters for completed translations, not simply a completed original series."
+          },
+          {
+            "schema": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 30
+            },
+            "in": "query",
+            "name": "excluded-tags",
+            "required": false,
+            "description": "Exclude category slugs; repeat values, at most 30. Comics without tags remain eligible.",
+            "style": "form",
+            "explode": true
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "default": false
+            },
+            "in": "query",
+            "name": "showall",
+            "required": false,
+            "description": "Include entries with unknown chapter/episode counts. Defaults to false."
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "description": "Series status: 1 ongoing, 2 completed, 3 cancelled, 4 hiatus. Separate from translation completion."
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "user",
+                "author",
+                "group",
+                "comic"
+              ]
+            },
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "description": "comic (implicit catalog mode), author, group, or user. Non-comic searches require q and return different record shapes.",
+            "examples": {
+              "default": {
+                "value": "comic"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "maximum": 50
+            },
+            "in": "query",
+            "name": "page",
+            "required": true,
+            "description": "One-based page number. Omit for the first page.",
+            "examples": {
+              "default": {
+                "value": 1
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "default": 15,
+              "maximum": 300
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "description": "Defaults to 15. Up to 50 through page 50; up to 300 only on pages 1–5. Keyword/type-specific modes may return fewer candidates.",
+            "examples": {
+              "default": {
+                "value": 15
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "tachiyomi",
+            "required": false,
+            "description": "Optional compatibility response: adds cover_url on catalog/search results. Not required for access and does not change rate limits."
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "view",
+                "created_at",
+                "uploaded",
+                "rating",
+                "average_rating",
+                "follow",
+                "user_follow_count",
+                ""
+              ]
+            },
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "description": "Browse ordering, descending: created_at (default), view, uploaded, rating (weighted), average_rating, follow, or user_follow_count. Keyword ranking can take precedence.",
+            "examples": {
+              "default": {
+                "value": "created_at"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "exclude-mylist",
+            "required": false,
+            "description": "Legacy account-list option, documented for signed-in clients. Currently disables caching; it does not populate an exclusion list in this handler."
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "transform": [
+                "trim"
+              ]
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Title keyword to search. Omit to browse without a keyword.",
+            "examples": {
+              "default": {
+                "value": "Solo Leveling"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "description": "Restrict comic results to this user's followed comic IDs. Omit for general search. Ignored for non-comic types."
+          },
+          {
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "manga",
+                "anime"
+              ],
+              "default": "manga"
+            },
+            "in": "query",
+            "name": "media_type",
+            "required": false,
+            "description": "Catalog media type. Defaults to manga where supported.",
+            "examples": {
+              "default": {
+                "value": "manga"
+              }
+            }
+          },
+          {
+            "schema": {
+              "type": [
+                "boolean",
+                "null"
+              ],
+              "default": false
+            },
+            "in": "query",
+            "name": "t",
+            "required": false,
+            "description": "Compact/autocomplete mode. Alters keyword candidate limits and response fields, and bypasses ordinary browse filtering. Defaults to false."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "description": "Returns an array, without a total-count envelope. Media results include external_ids with nullable string IDs for anilist, myanimelist, mangabaka, and mangaupdates; no per-title detail request is needed for tracker matching. Stored AniList/MyAnimeList sync mappings remain available if their public links were removed. With q, ranks keyword matches; without q, browses filters in the selected sort order (creation time descending by default). Defaults to manga, page 1, limit 15. Declared pagination combinations are page ≤ 50 / limit ≤ 50, or page ≤ 5 / limit ≤ 300. Keyword matching uses bounded candidate sets and does not behave like exhaustive paginated browsing; author/group/user modes have their own result shapes and caps. Include and exclude rating filters combine, with exclusions winning. General results can be cached for 15 minutes; account-list requests prevent caching."
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "../",
+      "description": "API serving this documentation"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Anime",
+      "x-scalar-order": [
+        "comick-api/tag/anime/GET/anime/",
+        "comick-api/tag/anime/GET/anime/episode-activity",
+        "comick-api/tag/anime/GET/anime/schedule",
+        "comick-api/tag/anime/GET/anime/seasonal"
+      ]
+    },
+    {
+      "name": "Category",
+      "x-scalar-order": [
+        "comick-api/tag/category/GET/category/",
+        "comick-api/tag/category/GET/category/popular"
+      ]
+    },
+    {
+      "name": "Chapter",
+      "x-scalar-order": [
+        "comick-api/tag/chapter/GET/chapter/",
+        "comick-api/tag/chapter/GET/chapter/{hid}/",
+        "comick-api/tag/chapter/GET/chapter/{hid}/get_images"
+      ]
+    },
+    {
+      "name": "Comic",
+      "x-scalar-order": [
+        "comick-api/tag/comic/GET/comic/{hid}/chapters",
+        "comick-api/tag/comic/GET/comic/{slug}/",
+        "comick-api/tag/comic/GET/v1.0/comic/{hid}/chapters",
+        "comick-api/tag/comic/GET/v1.0/comic/{slug}/"
+      ]
+    },
+    {
+      "name": "Genre",
+      "x-scalar-order": [
+        "comick-api/tag/genre/GET/genre/"
+      ]
+    },
+    {
+      "name": "Integrations",
+      "x-scalar-order": [
+        "comick-api/tag/integrations/GET/integrations/v1/me",
+        "comick-api/tag/integrations/GET/integrations/v1/me/library",
+        "comick-api/tag/integrations/GET/integrations/v1/me/library/{hid}",
+        "comick-api/tag/integrations/PUT/integrations/v1/me/library/{hid}",
+        "comick-api/tag/integrations/PATCH/integrations/v1/me/library/{hid}",
+        "comick-api/tag/integrations/DELETE/integrations/v1/me/library/{hid}",
+        "comick-api/tag/integrations/GET/integrations/v1/titles",
+        "comick-api/tag/integrations/GET/integrations/v1/titles/{hid}"
+      ]
+    },
+    {
+      "name": "OpenID Connect",
+      "x-scalar-order": [
+        "comick-api/tag/openid-connect/GET/api/auth/oidc/.well-known/openid-configuration",
+        "comick-api/tag/openid-connect/GET/api/auth/oidc/jwks",
+        "comick-api/tag/openid-connect/GET/api/auth/oidc/oauth2/authorize",
+        "comick-api/tag/openid-connect/POST/api/auth/oidc/oauth2/revoke",
+        "comick-api/tag/openid-connect/POST/api/auth/oidc/oauth2/token",
+        "comick-api/tag/openid-connect/GET/api/auth/oidc/oauth2/userinfo",
+        "comick-api/tag/openid-connect/POST/api/auth/oidc/oauth2/userinfo"
+      ]
+    },
+    {
+      "name": "People",
+      "x-scalar-order": [
+        "comick-api/tag/people/GET/people/{slug}/"
+      ]
+    },
+    {
+      "name": "Search",
+      "x-scalar-order": [
+        "comick-api/tag/search/GET/v1.0/search/"
+      ]
+    },
+    {
+      "name": "Top",
+      "x-scalar-order": [
+        "comick-api/tag/top/GET/top"
+      ]
+    }
+  ],
+  "x-scalar-watch-mode": false,
+  "x-scalar-order": [
+    "comick-api/description/quick-start",
+    "comick-api/description/authentication",
+    "comick-api/description/sign-in-with-comick",
+    "comick-api/description/parameters-and-responses",
+    "comick-api/description/limits-and-errors",
+    "comick-api/tag/anime",
+    "comick-api/tag/category",
+    "comick-api/tag/chapter",
+    "comick-api/tag/comic",
+    "comick-api/tag/genre",
+    "comick-api/tag/integrations",
+    "comick-api/tag/openid-connect",
+    "comick-api/tag/people",
+    "comick-api/tag/search",
+    "comick-api/tag/top",
+    "comick-api/models"
+  ]
+}
