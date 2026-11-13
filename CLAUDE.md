@@ -16,6 +16,7 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 ## Modules
 - `desktop`: Compose Multiplatform for Desktop app (entry point `org.nekomanga.desktop.MainKt`). Versions in `gradle/cmp.versions.toml` (catalog `cmp`).
 - `shared`: not created yet (Phase 0).
+- `rust/neko-desktop`: the earlier Rust/egui Windows prototype (0.4.0), a second read-only porting source with its own CI (`.github/workflows/rust-desktop.yml`). See "Rust prototype" in `docs/PLAN.md`. Don't port its Comick code.
 - `app`, `core`, `constants`, `baselineprofile`: upstream Android code, read-only porting source. The Android Compose catalog is `androidxCompose`, because the name `compose` clashes with the Compose Multiplatform plugin's extension.
 
 ## How to work
@@ -28,6 +29,7 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 ## Skills and plugins (use automatically, no need to ask)
 - `apollo-skills:apollo-kotlin` + `apollo-skills:graphql-operations`: any AniList GraphQL work (tag browse, popular/trending, sync).
 - `design-skills:design-systems`, `design-skills:interaction-design`: liquid glass design tokens, reader controls, source dropdown.
+- `apple-design` (in `.claude/skills`): Apple HIG reference for the liquid glass look (materials, motion, liquid-glass pages); adapt to Compose.
 - `design-skills:accessibility-audit`: check text contrast on glass panels before a UI feature lands.
 - `/simplify`: after porting a chunk of Android code into `shared` or `desktop`.
 - `/code-review` (default level): before committing each roadmap item.

@@ -39,6 +39,7 @@ compose.desktop {
             licenseFile.set(rootProject.file("LICENSE"))
 
             windows {
+                iconFile.set(project.file("packaging/neko.ico"))
                 menu = true
                 shortcut = true
                 dirChooser = true
