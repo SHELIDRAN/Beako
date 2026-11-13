@@ -56,6 +56,14 @@ If a title is N/A on one source, the same page still opens: the reader picks the
 - Liquid Glass is Apple's design language, so Windows has no built-in version. Recreate the look in Compose: translucent panels with background blur, rounded corners, soft highlights and depth.
 - Use Windows 11 **Mica / Acrylic** for the window backdrop and a blur library such as Haze for in-app glass panels (nav bar, toolbars, source dropdown, reader controls).
 - Keep text contrast readable on busy cover art; add a "reduce transparency" setting and a solid fallback for Windows 10.
+- Libraries: [ComposeWindowStyler](https://github.com/MayakaApps/ComposeWindowStyler) for the window backdrop (Mica needs Windows 11 21H2+; it falls back Tabbed → Mica → Acrylic → Transparent), and [Haze](https://chrisbanes.github.io/haze/latest/) for in-app panels. Haze only blurs the app's own content, not what is behind the window, so the two are needed together.
+- Switch to solid mode automatically when Compose falls back to software rendering (machines without a usable GPU); blur is slow on the software renderer.
+- Add a "reduce motion" setting next to "reduce transparency": it shortens or removes transitions, page-turn animations and glass morphing.
+
+#### Motion
+
+- Shared element transition from a cover to its manga page (supported since Compose Multiplatform 1.7); keep shared elements to a few per transition to protect frame rate.
+- Keep the first screen light so the window shows quickly (an empty Compose Desktop window already takes about 1.5 s to start on Windows); no animated splash screen covering slow loading.
 
 ## Feature inventory
 
@@ -111,6 +119,8 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
 2. **Phase 1 — Browse and read (MVP)**
    - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then MangaDex search, AniList-powered tag browse and popular page, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.
+   - Window basics: remember window size, position and fullscreen state between launches.
+   - Test pass at 125% and 150% Windows display scaling (Compose Desktop has known blurry-text reports at 125%).
 3. **Phase 2 — Library and offline**
    - Local database, library with categories, read progress, history.
    - Download queue and offline reading; library update check with Windows notifications.
@@ -119,6 +129,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - AniList two-way sync first (fork priority), then MyAnimeList, Kitsu, MangaUpdates, MangaBaka.
 5. **Phase 4 — Feature parity**
    - All reader modes and settings, scanlator filters, similar-manga recommendations.
+   - Automatic webtoon detection (switch to webtoon mode for long-strip series); "split wide pages" with tests, since it has caused crashes in Mihon.
    - Backup / restore compatible with Android Neko; themes.
 6. **Phase 5 — Merge sources + release**
    - Unified manga page: source adapters, title matching by AniList ID, merged chapter list, source dropdown and automatic fallback; add sources one by one (Komga and Suwayomi first, since they are self-hosted APIs).
@@ -127,7 +138,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
 Windows-only extras to consider:
 
 - [ ] Multi-window: details in one window, reader in another
-- [ ] Two-page spread tuned for wide monitors
+- [ ] Two-page spread tuned for wide monitors (a gap in Mihon, whose FAQ says it doesn't support two pages at once; handle scanlator page-order inconsistencies)
 - [ ] Gamepad / pen navigation in the reader
 - [ ] System tray with background update checks
 
