@@ -45,6 +45,7 @@ If a title is N/A on one source, the same page still opens: the reader picks the
 - **comick.dev is the main search engine.** Comick stopped hosting chapters in September 2025; comick.dev is now a tracker and catalog like AniList. Use its official API for latest, popular and trending lists and for its detailed tags (female lead, male lead, comedic misunderstanding…). MangaDex is the secondary search; AniList adds trending and tags where useful.
 - Never use Comick lookalike domains or sites claiming to host Comick chapters; they are reported unsafe.
 - comick.dev is also a tracker (status, progress, score), alongside AniList.
+- comick.dev features worth using through its API, as they become available: advanced search, rankings, recommendations, custom lists, reading history, reviews and ratings.
 
 ### 2b. Reading from installed extensions
 

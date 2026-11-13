@@ -9,7 +9,7 @@ Read `docs/PLAN.md` before starting any task. It holds the feature list, the for
 ## Sources and discovery (owner's plan, Nov 13 2026)
 Three separate jobs, three separate services:
 
-1. **Find titles: comick.dev first, MangaDex second.** comick.dev is now a tracker and catalog like AniList: it hosts no chapters. Use it as the main search engine for what's latest, popular and trending, and for its detailed tags (female lead, male lead, comedic misunderstanding and so on). MangaDex is the secondary search.
+1. **Find titles: comick.dev first, MangaDex second.** comick.dev is Comick's official site, now branded "ComicK – The Tracker" (confirmed by the owner from the site, Nov 13 2026): a tracker and catalog like AniList that hosts no chapters. Use it as the main search engine for what's latest, popular and trending, and for its detailed tags (female lead, male lead, comedic misunderstanding and so on). MangaDex is the secondary search.
 2. **Track reading: comick.dev and AniList**, both as trackers.
 3. **Read chapters: installed extensions.** Chapters come from source extensions the user installs (Mihon/Tachiyomi-style, from repositories the user adds; the app ships with none). MangaDex is also a built-in reading source.
 
