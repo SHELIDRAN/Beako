@@ -19,11 +19,10 @@ Flow: Browse (comick.dev search, tags, popular) → title page → an **"Availab
 - App name: Beako. Client type: public ("Browser or mobile app without a private backend"), so OAuth 2.0 with S256 PKCE and **no client secret**.
 - Client ID: `hySzjzgfgtlSwqnDsdXspsPdWTqnjVzW` (public; safe to keep in source).
 - Callback URL: `http://127.0.0.1:47823/comick/callback` (the app listens on that local port only while signing in).
-- OAuth endpoints (from the Rust prototype's working sign-in): authorize `https://comick.dev/api/auth/oauth2/authorize`, token `https://comick.dev/api/auth/oauth2/token`. Send `code_challenge_method=S256` and the resource indicator `resource=https://api.comick.dev/integrations/v1` (RFC 8707) on both the authorize and token requests. Comick matches the callback URL exactly, so the port is fixed.
-- APIs: catalog at `https://api.comick.dev` (`v1.0/search`, `top`, `genre`, `category`); library at `https://api.comick.dev/integrations/v1` (`me`, `me/library/{hid}`); covers from `https://meo.comick.pictures`.
+- Scopes: `library:read library:write offline_access`, sent with `resource=https://api.comick.dev/integrations/v1`. Refresh token in Windows Credential Manager, access token in memory only.
+- Catalog requests (search, tags, charts) need no login. Send a `User-Agent` naming Beako and honor `Cache-Control`.
+- Full API notes: `docs/api/COMICK.md` (OAuth, catalog and library endpoints, tracker mapping, limits); spec: `docs/api/comick-openapi.json`. Follow them for all Comick code. Key rules: refresh tokens rotate with no grace period (serialize refreshes, never retry an ambiguous one); catalog limit 200 requests/min per IP, library 60/min per app+user; check `Content-Type` before parsing because Cloudflare can answer with HTML.
 - comick.dev and api.comick.dev sit behind a Cloudflare browser check that blocks cloud machines (this container, CI). Test Comick code against saved sample responses; live calls work from a normal Windows PC.
-- Scopes: `library:read library:write offline_access` (offline_access gives refresh tokens). Store tokens in Windows Credential Manager, never in plain files.
-- Catalog requests (search, tags, charts) need no login. Send a `User-Agent` naming Beako, cache responses, and keep request rates low until Comick confirms its limits.
 
 ## Build
 The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the Android modules (`:app`, `:core`, `:constants`, `:baselineprofile`) and the Android Gradle Plugin, so no Android SDK is needed. The Android code stays in the repo as the source to port from.

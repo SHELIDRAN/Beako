@@ -72,7 +72,7 @@ If a title is N/A on one source, the same page still opens: the reader picks the
 
 - **First milestone for extensions:** the Swakshan, Mallyd11 and 9vsv6 repositories are all JavaScript, so the embedded JS engine alone (stage 1) can read Weeb Central, Mangapill, Mangafire and Mangapark before the Dart helper exists.
 - Sources labelled "(unoriginal)" in the indexes are copies of other sites; sort them below originals in the "Available on" dropdown.
-- Matching: a comick.dev title is looked up on each installed source by normalised title and alt titles (Mangayomi sources expose no AniList/MAL IDs). Matches fill the "Available on" dropdown.
+- Matching: Comick search results carry `external_ids` (AniList, MyAnimeList, MangaUpdates, MangaBaka), so MangaDex matches by shared IDs. Mangayomi sources expose no such IDs, so they match by normalised title and alt titles (Comick's `titles` list gives the alt titles). Matches fill the "Available on" dropdown.
 - Sources are third-party code: show a clear warning before installing, never auto-install, and run them with only the host APIs above (no file system access).
 
 ### 3. AniList synchronisation
@@ -251,6 +251,6 @@ Give Claude Code one phase at a time, with this plan in the repo so every sessio
 - [ ] Is backup compatibility with Android Neko required?
 - [x] Which merge sources matter to you, if any? **Installed extensions are the reading sources; comick.dev is the main discovery engine and a tracker, MangaDex secondary.**
 - [x] Which extensions? **Mangayomi format, starting with kodjodevf/mangayomi-extensions** (archived Dec 2025; pick a maintained fork when one is needed).
-- [ ] Check comick.dev API terms and rate limits before release.
+- [x] Check comick.dev API rate limits: catalog 200/min per IP; library 60/min per app+user, 1,000/min per app, 120/min per IP (see `docs/api/COMICK.md`).
 - [ ] Distribution: GitHub releases only, or Microsoft Store too?
 - [ ] Check MangaDex API terms (rate limits, image-server reporting, attribution) before release.
