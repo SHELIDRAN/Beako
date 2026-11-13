@@ -153,6 +153,9 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
 2. **Phase 1 — Browse and read (MVP)**
    - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then MangaDex search, AniList-powered tag browse and popular page, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.
+   - Webtoon smoothness (lessons from the Rust prototype on `claude/zen-albattani-lihx3c`): keep the scroll position anchored when a page above the viewport loads and changes height; split very tall pages into tiles and upload at most one texture per frame; no per-page blur work while scrolling; smoothed mouse-wheel scrolling.
+   - Reader controls hide when scrolling down and reappear when scrolling up (and on mouse move or click). Fullscreen always has a visible way out: an "Exit Full Screen" button, Esc and F11, with the button label read from the real window state.
+   - Covers: placeholder while loading, retry on failure, and fall back to the MangaDex cover when another source's image fails.
    - Window basics: remember window size, position and fullscreen state between launches.
    - App shell: navigation rail, motion spec (fade-through tabs and sub-pages, hover states, skeleton loading), settings home with search, Appearance settings (theme, palettes, interface scale, customize navigation, glass and motion toggles).
    - Test pass at 125% and 150% Windows display scaling (Compose Desktop has known blurry-text reports at 125%).
