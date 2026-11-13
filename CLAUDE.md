@@ -31,12 +31,14 @@ Flow: Browse (comick.dev search, tags, popular) → title page → an **"Availab
 The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the Android modules (`:app`, `:core`, `:constants`, `:baselineprofile`) and the Android Gradle Plugin, so no Android SDK is needed. The Android code stays in the repo as the source to port from.
 
 - Run the app: `./gradlew -PdesktopOnly :desktop:run`
-- Build and test: `./gradlew -PdesktopOnly :desktop:build`
+- Build and test everything: `./gradlew -PdesktopOnly build` (if ktfmt's check fails, run `./gradlew -PdesktopOnly ktfmtFormat` first)
 - Windows installer (on Windows): `./gradlew -PdesktopOnly :desktop:packageMsi`
+
+- CI: `.github/workflows/beako-desktop.yml` builds, tests and packages the MSI on `windows-latest`; a `beako-v<version>` tag publishes a release. The version is `beakoVersion` in `gradle.properties`.
 
 ## Modules
 - `desktop`: Compose Multiplatform for Desktop app (entry point `org.nekomanga.desktop.MainKt`). Versions in `gradle/cmp.versions.toml` (catalog `cmp`).
-- `shared`: not created yet (Phase 0).
+- `shared`: Android-free Kotlin/JVM logic (`org.nekomanga.shared`): HTTP with rate limits and typed errors (`net`), models, `MangaDexApi`, `ComickApi` (catalog only), and `Discovery` (Comick-first search with MangaDex fallback, title matching). MangaDex DTOs are copied from Neko under their original package. Tests use fixtures in `shared/src/test/resources/fixtures` (MangaDex ones captured live, Comick ones constructed); `BEAKO_LIVE=1 ./gradlew -PdesktopOnly :shared:test` also runs live MangaDex tests.
 - `rust/neko-desktop`: the earlier Rust/egui Windows prototype (0.4.0), a second read-only porting source with its own CI (`.github/workflows/rust-desktop.yml`). See "Rust prototype" in `docs/PLAN.md`. Its comick.dev catalog, tag search, charts and tracker are worth porting.
 - `app`, `core`, `constants`, `baselineprofile`: upstream Android code, read-only porting source. The Android Compose catalog is `androidxCompose`, because the name `compose` clashes with the Compose Multiplatform plugin's extension.
 

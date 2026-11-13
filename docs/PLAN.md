@@ -215,8 +215,8 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
 1. **Phase 0 — Groundwork**
    - [x] Fork the repo. (Android baseline build skipped: the port is Windows-only; see `-PdesktopOnly`.)
    - [x] Add a `desktop` Compose Multiplatform module that opens an empty window.
-   - [ ] Move shared code (models, MangaDex API client, parsers) into a `shared` module.
-   - [ ] Set up CI on `windows-latest` that builds the desktop app.
+   - [x] Shared code in a `shared` module: Neko's MangaDex DTOs, MangaDex and Comick catalog clients, Comick-first search with MangaDex fallback. (Neko's Android-bound handlers are ported piece by piece as features need them.)
+   - [x] CI on `windows-latest` builds, tests and packages the desktop app (`beako-desktop.yml`).
 2. **Phase 1 — Browse and read (MVP)**
    - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then comick.dev discovery — the tri-state tag picker with compulsory include tags first, then trending/new-follow/most-followed shelves — with MangaDex as automatic fallback for keyword search, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.

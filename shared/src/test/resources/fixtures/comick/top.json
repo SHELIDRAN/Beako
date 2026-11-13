@@ -1,0 +1,11 @@
+{
+  "rank": [{"hid": "rank1", "title": "Rank One", "md_covers": [{"b2key": "r1.jpg"}]}],
+  "recentRank": [
+    {"hid": "recent1", "title": "Recent One", "md_covers": [{"b2key": "x1.jpg"}]},
+    {"hid": "nocover", "title": "No Cover"}
+  ],
+  "trending": {
+    "7": [{"hid": "trend7", "title": "Trend Seven", "md_covers": [{"b2key": "t7.jpg"}]}],
+    "30": []
+  }
+}

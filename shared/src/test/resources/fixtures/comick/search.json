@@ -1,0 +1,48 @@
+[
+  {
+    "hid": "aB3xYz",
+    "slug": "00-sample-villainess",
+    "title": "Akuyaku Reijou no Sample",
+    "is_english_title": false,
+    "md_titles": [
+      {"title": "The Sample Villainess", "lang": "en"},
+      {"title": "悪役令嬢のサンプル", "lang": "ja"}
+    ],
+    "desc": "A sample description.",
+    "country": "jp",
+    "year": 2024,
+    "status": 1,
+    "content_rating": "safe",
+    "demographic": 2,
+    "bayesian_rating": "8.52",
+    "rating": "8.7",
+    "user_follow_count": 15234,
+    "last_chapter": 42,
+    "uploaded_at": "2026-11-13T10:00:00Z",
+    "md_covers": [{"b2key": "abc123.jpg", "w": 800, "h": 1200}],
+    "external_ids": {"anilist": "106929", "myanimelist": 147171, "mangaupdates": "4mnd0g3", "mangabaka": null}
+  },
+  {
+    "hid": "kR9qLm",
+    "slug": "sample-hunter",
+    "title": "Sample Hunter",
+    "is_english_title": true,
+    "md_titles": [],
+    "desc": "",
+    "country": "kr",
+    "year": 2021,
+    "status": 2,
+    "content_rating": "suggestive",
+    "rating": 7.9,
+    "cover_url": "https://meo.comick.pictures/direct-m.jpg",
+    "external_ids": {"anilist": null, "myanimelist": null, "mangaupdates": null, "mangabaka": null}
+  },
+  {
+    "hid": "fR1nCh",
+    "slug": "sample-bd",
+    "title": "Sample BD",
+    "is_english_title": true,
+    "country": "fr",
+    "md_covers": [{"b2key": "nodot"}]
+  }
+]
