@@ -51,7 +51,14 @@ If a title is N/A on one source, the same page still opens: the reader picks the
   - The same tri-state picker for genres (`GET /genre/`; 10 included, 40 excluded), plus demographic, country/type (manga, manhwa, manhua), status, translation completed, year range, chapter count range, minimum rating, "added in the last N days", content rating and sort.
   - Saved filter presets (e.g. "Female lead + comedic misunderstanding, no NTR") one click away on Browse, and remembered between launches.
   - Tag filters work only on Comick; MangaDex fallback doesn't apply to tag browsing (see the fallback rule in `CLAUDE.md`).
-- **Daily discovery shelves** on the Browse home from `GET /top`: Trending, New Follows and Most Followed, each with a 7 / 30 / 90-day switch (7 days is the shortest window the API offers; responses refresh about hourly), plus Recent and Completed feeds and a "New releases" shelf from `GET /chapter/`. Each shelf can be narrowed by type (manga, manhwa, manhua). Refresh on launch and every few hours, honouring `Cache-Control`.
+- **Daily discovery shelves** on the Browse home, named and ordered like comick.dev's home page (owner's reference screenshot, Nov 13 2026), all from `GET /top`:
+  1. **Most Followed New Comics** (`type=newfollow`)
+  2. **Most Recent Popular** (the ranking feed)
+  3. **Trending** (`type=trending`)
+  4. Most Followed, Recent and Completed, then a **New releases** shelf from `GET /chapter/`.
+  - Each shelf: a horizontal row of portrait cover cards with a **large rank badge (1, 2, 3…) in the top-left corner** (top three in accent colours), the comment count as a small pill, and the title over a dark gradient at the bottom, clamped to two lines. A "›" next to the shelf title opens the full ranked list.
+  - Window switch 7 / 30 / 90 days where the feed supports `day` (7 is the API's shortest window; responses refresh about hourly), and a type filter (manga, manhwa, manhua).
+  - Refresh on launch and every few hours, honouring `Cache-Control`. Hover lifts the card slightly; reduce motion turns that off.
 - **Recommendations:** Comick's published API has no recommendations endpoint. Check whether the title-detail response (`GET /v1.0/comic/{slug}/`) carries recommendations when testing on a real PC; until then, "More like this" on the title page uses **the title's own Comick tags** (search with its top tags included), plus AniList recommendations and Neko's similar-manga data through the shared tracker IDs.
 - comick.dev is also a tracker (status, progress, score), alongside AniList. Beako's Comick developer app is registered (public PKCE client; details in `CLAUDE.md`), so users connect with one click instead of registering their own app as the Rust prototype required.
 - comick.dev features worth using through its API, as they become available: advanced search, rankings, recommendations, custom lists, reading history, reviews and ratings.
