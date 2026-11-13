@@ -22,9 +22,9 @@ Condensed from Comick's developer docs and OpenAPI spec (`comick-openapi.json`, 
 - `GET /v1.0/comic/{slug}/` — details (`comic`, authors, artists, `langList`, `firstChapters`). `title_locale=en` adds display titles.
 - `GET /chapter/` — latest chapter updates (`lang` repeated, `type`, `order=hot|new`, `page` ≤ 100 useful).
 - `GET /people/{slug}/` — an author or artist and their works.
-- Flow: search → `slug` → details → comic `hid` → `GET /v1.0/comic/{hid}/chapters`. Comic and chapter HIDs are different; never parse a HID as a number.
+- Flow: search → `slug` → details → comic `hid` (for tracking and matching). Never parse a HID as a number.
 
-Comick still exposes chapter lists and `GET /chapter/{hid}/get_images` metadata, but many chapters link to external providers or have no images. Per the owner's plan, Beako reads chapters from installed extensions and MangaDex, not Comick.
+**Not used: chapters.** Comick still exposes chapter lists and `GET /chapter/{hid}/get_images`, but the owner decided Beako never reads chapters or page images from Comick. Don't call `/v1.0/comic/{hid}/chapters`, `/chapter/{hid}/` or `/chapter/{hid}/get_images` for reading. Chapters come from installed extensions and MangaDex only. (`GET /chapter/` latest-updates may still feed a "new releases" shelf, linking to the title page, not a reader.)
 
 ## Library (tracker) endpoints
 

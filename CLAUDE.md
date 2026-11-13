@@ -9,7 +9,7 @@ Read `docs/PLAN.md` before starting any task. It holds the feature list, the for
 ## Sources and discovery (owner's plan, Nov 13 2026)
 Three separate jobs, three separate services:
 
-1. **Find titles: comick.dev first, MangaDex second.** comick.dev is Comick's official site, now branded "ComicK – The Tracker" (confirmed by the owner from the site, Nov 13 2026): a tracker and catalog like AniList that hosts no chapters. Use it as the main search engine for what's latest, popular and trending, and for its detailed tags (female lead, male lead, comedic misunderstanding and so on). MangaDex is the secondary search.
+1. **Find titles: comick.dev first, MangaDex second.** comick.dev is Comick's official site, now branded "ComicK – The Tracker" (confirmed by the owner from the site, Nov 13 2026): a tracker and catalog like AniList. Its API still lists some chapters and images, but Beako never reads chapters from it. Use it as the main search engine for what's latest, popular and trending, and for its detailed tags (female lead, male lead, comedic misunderstanding and so on). MangaDex is the secondary search.
 2. **Track reading: comick.dev and AniList**, both as trackers.
 3. **Read chapters: installed Mangayomi-format extensions.** Chapters come from sources the user installs from a Mangayomi extension repository they add, found through [wotaku.wiki/ext/mangayomi](https://wotaku.wiki/ext/mangayomi) (Dart and JavaScript sources; repository list and plan in "2b" in `docs/PLAN.md`). The app ships with none. MangaDex is also a built-in reading source.
 
@@ -57,6 +57,6 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 
 ## Rules
 - Keep the Apache-2.0 LICENSE and upstream copyright notices.
-- comick.dev is allowed only as a catalog and tracker (search, tags, popular/trending, library sync through its official developer API and OAuth). Never use Comick lookalike domains or any site claiming to host Comick chapters; they're reported unsafe. AniList and MangaDex stay as secondary sources of tags and popularity.
+- comick.dev is allowed only as a catalog and tracker (search, tags, popular/trending, library sync through its official developer API and OAuth). **Never read chapters or page images from Comick** (owner's decision, Nov 13 2026): don't call its chapter-list, chapter-detail or `get_images` endpoints for reading, and never offer Comick in the "Available on" dropdown. Never use Comick lookalike domains or any site claiming to host Comick chapters; they're reported unsafe. AniList and MangaDex stay as secondary sources of tags and popularity.
 - Ship no extensions or extension repositories; users add their own. Load extensions with the least access possible and say clearly that they are third-party code.
 - Respect MangaDex and AniList API rate limits.
