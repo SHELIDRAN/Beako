@@ -65,6 +65,40 @@ If a title is N/A on one source, the same page still opens: the reader picks the
 - Shared element transition from a cover to its manga page (supported since Compose Multiplatform 1.7); keep shared elements to a few per transition to protect frame rate.
 - Keep the first screen light so the window shows quickly (an empty Compose Desktop window already takes about 1.5 s to start on Windows); no animated splash screen covering slow loading.
 
+### 5. Smoothness, settings and customization
+
+Reference: Mangayomi on Windows (screen recording, Nov 13 2026). Match its feel and its depth of settings, on top of the liquid glass look.
+
+#### Motion spec
+
+- Top-level tab switch (Manga, Updates, History, Browse, More): **fade-through, ~150 ms**, no slide. The nav-rail selection pill animates in at the same time.
+- Opening a sub-page (e.g. Settings → Appearance) and going back: **fade-through, ~200 ms**; back plays it in reverse.
+- Hover feedback on every clickable row and card; tooltips on every icon-only button.
+- Loading: skeleton placeholder cards (with a light shimmer) in grids and lists, never a bare spinner. Errors show inline with Retry and Open in browser.
+- Target a steady 60 fps (and the monitor's refresh rate where higher). "Reduce motion" makes all of these instant.
+- Use `io.github.fornewid:material-motion-compose-core` (Neko already uses it on Android; it publishes a desktop build) for fade-through and shared-axis transitions.
+
+#### Settings layout
+
+Settings home with search, grouped like this:
+
+- **App**
+  - General: automatic library update schedule and "skip when updating" rules; network (DNS-over-HTTPS, custom DNS, user agent); recommendation weight sliders for similar manga (genre, setting, story, theme).
+  - Appearance: follow system theme, dark mode, palette swatches (several preset colour schemes), "tint surfaces with the palette" toggle, interface scale slider, app language, badge on the Updates icon, customize navigation (reorder and hide nav items); plus the fork's glass strength, reduce transparency and reduce motion.
+  - Security: app lock (Windows Hello).
+- **Reading**
+  - Reader: reading mode, display, navigation.
+  - Keyboard shortcuts: rebind every reader and app key.
+  - Downloads: location, simultaneous downloads.
+- **Sources and services**: Browse (sources), Tracking, Sync.
+- **About**: version, updates, error reports.
+
+**More** screen: stat tiles (series, chapters read, reading time); Downloaded only and Incognito mode toggles; Download queue, Categories, Statistics, Calendar (upcoming chapters), Data and storage, Settings, About.
+
+Desktop extras seen in the reference: Discord Rich Presence (toggles for title, chapter and cover, hidden in incognito); optional live memory-usage readout; re-run the welcome screen.
+
+Not taken from the reference: Comick source (project rule), novel reader and Novel tab (Neko is manga-only; revisit if wanted), Mihon extension proxy.
+
 ## Feature inventory
 
 Neko's features fall into 10 areas; fill the Fork column with keep, change or drop. Rows marked (J2K) are inherited from TachiyomiJ2K — verify each against the current app before you build it, since the README lists only the headline features.
@@ -120,10 +154,12 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - Liquid glass design system first (Mica backdrop, blurred panels, reduce-transparency fallback), then MangaDex search, AniList-powered tag browse and popular page, manga details, chapter list with language filter.
    - Reader: paged right-to-left and webtoon modes, keyboard + mouse navigation, fullscreen.
    - Window basics: remember window size, position and fullscreen state between launches.
+   - App shell: navigation rail, motion spec (fade-through tabs and sub-pages, hover states, skeleton loading), settings home with search, Appearance settings (theme, palettes, interface scale, customize navigation, glass and motion toggles).
    - Test pass at 125% and 150% Windows display scaling (Compose Desktop has known blurry-text reports at 125%).
 3. **Phase 2 — Library and offline**
    - Local database, library with categories, read progress, history.
    - Download queue and offline reading; library update check with Windows notifications.
+   - More screen: stat tiles, Downloaded only, Incognito mode, Statistics, Calendar of upcoming chapters.
 4. **Phase 3 — Accounts and sync**
    - MangaDex login, follows / MDList sync, two-way read status.
    - AniList two-way sync first (fork priority), then MyAnimeList, Kitsu, MangaUpdates, MangaBaka.
@@ -131,6 +167,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - All reader modes and settings, scanlator filters, similar-manga recommendations.
    - Automatic webtoon detection (switch to webtoon mode for long-strip series); "split wide pages" with tests, since it has caused crashes in Mihon.
    - Backup / restore compatible with Android Neko; themes.
+   - Rebindable keyboard shortcuts, app lock with Windows Hello, Discord Rich Presence, recommendation weight sliders, network settings (DoH, custom DNS, user agent).
 6. **Phase 5 — Merge sources + release**
    - Unified manga page: source adapters, title matching by AniList ID, merged chapter list, source dropdown and automatic fallback; add sources one by one (Komga and Suwayomi first, since they are self-hosted APIs).
    - Installer (`.msi`), auto-update, code signing.
