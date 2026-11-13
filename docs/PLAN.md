@@ -21,7 +21,7 @@ The fork's headline feature is **one manga page per title that merges every sour
 - Every title gets one canonical page, keyed by its AniList ID (with MangaDex ID as backup), not one page per source.
 - On opening, the app searches all enabled sources for that title in parallel and matches results by AniList / MAL IDs, then by normalised title + alt titles.
 - Chapter list is merged: one row per chapter number, with the best available source picked automatically (your priority order).
-- **"Available on" source dropdown on the manga page** lists the installed extensions (plus MangaDex) that carry the title, and lets the reader switch the whole title, or a single chapter, to another source without leaving the page.
+- **"Available on" source dropdown on the manga page** lists the installed Mangayomi-format sources (plus MangaDex) that carry the title, and lets the reader switch the whole title, or a single chapter, to another source without leaving the page.
 - If a source is down or lacks a chapter, the reader falls back to the next source and shows a small badge saying which one it used.
 - Builds on Neko's existing merge feature, which already fills MangaDex gaps from other sources.
 
@@ -47,15 +47,19 @@ If a title is N/A on one source, the same page still opens: the reader picks the
 - comick.dev is also a tracker (status, progress, score), alongside AniList.
 - comick.dev features worth using through its API, as they become available: advanced search, rankings, recommendations, custom lists, reading history, reviews and ratings.
 
-### 2b. Reading from installed extensions
+### 2b. Reading from installed extensions (Mangayomi format)
 
-- Chapters are read from **source extensions the user installs** (Mihon/Tachiyomi-style), from extension repositories the user adds. The app ships with no extensions and no repositories.
-- Settings → Browse: add or remove repositories, install, update and remove extensions, check for extension updates.
-- Matching: a comick.dev title is looked up on each installed extension by shared IDs (AniList, MyAnimeList, MangaUpdates) where available, else by normalised title and alt titles. Matches fill the "Available on" dropdown.
-- How to run Android extensions on the JVM, in stages:
-  1. Connect to a **Suwayomi-Server** the user runs (Neko already has a Suwayomi merge source), which installs and runs extensions itself.
-  2. Later, load extensions inside the app the way Suwayomi does (APK → JAR, with stubs for the Android APIs they use), sandboxed as far as the JVM allows.
-- Extensions are third-party code: show a clear warning before installing, and never auto-install.
+- Chapters are read from **Mangayomi-format source extensions** the user installs, starting with [kodjodevf/mangayomi-extensions](https://github.com/kodjodevf/mangayomi-extensions) (Apache-2.0). The user adds the repository's index URL (`https://kodjodevf.github.io/mangayomi-extensions/index.json`) in Settings → Browse; the app ships with no extensions and no repositories.
+- That repository was **archived on Dec 3, 2025** (read-only), so its sources won't get fixes. Support any repository in the same `index.json` format, so the user can switch to a maintained fork.
+- Format: `index.json` lists each source (`name`, `id`, `baseUrl`, `lang`, `iconUrl`, `isNsfw`, `hasCloudflare`, `version`, `itemType`, `sourceCodeUrl`, `sourceCodeLanguage`, `appMinVerReq`, …). The source code is downloaded from `sourceCodeUrl` and run by the app. Most manga sources are **Dart** (shared `madara.dart` / `mangareader.dart` templates); some are **JavaScript**.
+- Every source implements `getPopular`, latest, `search` with `getFilterList`, `getDetail` (title, description, author, genres, status, chapters with `name`, `url`, `scanlator`, `dateUpload`) and `getPageList` (page URLs, optionally with headers). The host provides an HTTP `Client`, an HTML `Document` parser with `selectFirst`/`attr`/`text`, XPath, string helpers (`substringAfter`…), and crypto helpers (`unpackJs`, `evalJs`, `decryptAESCryptoJS`, `cryptoHandler`…).
+- Running them from the Kotlin app, in stages:
+  1. **JavaScript sources** in an embedded JS engine on the JVM (e.g. GraalJS or a QuickJS binding), with the host APIs above written in Kotlin.
+  2. **Dart sources** through a small bundled helper process built from Mangayomi's own extension runtime (Apache-2.0, which allows reuse with attribution). The app talks to it over a local connection. There's no Dart interpreter for the JVM, so this is the realistic route.
+  3. A test harness that runs each installed source's popular, search, detail and page-list calls and reports which ones work.
+- Settings → Browse: add or remove repositories, install, update and remove sources, check for updates, show NSFW sources (off by default).
+- Matching: a comick.dev title is looked up on each installed source by normalised title and alt titles (Mangayomi sources expose no AniList/MAL IDs). Matches fill the "Available on" dropdown.
+- Sources are third-party code: show a clear warning before installing, never auto-install, and run them with only the host APIs above (no file system access).
 
 ### 3. AniList synchronisation
 
@@ -110,7 +114,7 @@ Settings home with search, grouped like this:
 
 Desktop extras seen in the reference: Discord Rich Presence (toggles for title, chapter and cover, hidden in incognito); optional live memory-usage readout; re-run the welcome screen.
 
-Not taken from the reference: Comick as a chapter source (comick.dev hosts none), novel reader and Novel tab (Neko is manga-only; revisit if wanted). Extensions are taken, as the main way to read (see 2b).
+Not taken from the reference: Comick as a chapter source (comick.dev hosts none), novel reader and Novel tab (Neko is manga-only; revisit if wanted). Mangayomi-format extensions are taken, as the main way to read (see 2b).
 
 ## Rust prototype (porting reference)
 
@@ -206,7 +210,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - Rebindable keyboard shortcuts, app lock with Windows Hello, Discord Rich Presence, recommendation weight sliders, network settings (DoH, custom DNS, user agent).
 6. **Phase 5 — Merge sources + release**
    - Unified manga page: source adapters, title matching by AniList ID, merged chapter list, source dropdown and automatic fallback; add sources one by one (Komga and Suwayomi first, since they are self-hosted APIs).
-   - Extensions: Suwayomi-Server connection first, then in-app extension loading; repository management; "Available on" dropdown filled from installed extensions.
+   - Extensions: Mangayomi-format repositories; JavaScript sources in an embedded JS engine, then Dart sources through a bundled helper process; "Available on" dropdown filled from installed sources.
    - Installer (`.msi`), auto-update, code signing.
 
 Windows-only extras to consider:
@@ -232,7 +236,7 @@ Give Claude Code one phase at a time, with this plan in the repo so every sessio
 - [ ] Compose Multiplatform, or a different stack you already know?
 - [ ] Is backup compatibility with Android Neko required?
 - [x] Which merge sources matter to you, if any? **Installed extensions are the reading sources; comick.dev is the main discovery engine and a tracker, MangaDex secondary.**
-- [ ] Extensions: is running a Suwayomi-Server alongside the app acceptable as the first step, before in-app extension loading?
+- [x] Which extensions? **Mangayomi format, starting with kodjodevf/mangayomi-extensions** (archived Dec 2025; pick a maintained fork when one is needed).
 - [ ] Check comick.dev API terms and rate limits before release.
 - [ ] Distribution: GitHub releases only, or Microsoft Store too?
 - [ ] Check MangaDex API terms (rate limits, image-server reporting, attribution) before release.

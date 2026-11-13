@@ -11,7 +11,7 @@ Three separate jobs, three separate services:
 
 1. **Find titles: comick.dev first, MangaDex second.** comick.dev is Comick's official site, now branded "ComicK – The Tracker" (confirmed by the owner from the site, Nov 13 2026): a tracker and catalog like AniList that hosts no chapters. Use it as the main search engine for what's latest, popular and trending, and for its detailed tags (female lead, male lead, comedic misunderstanding and so on). MangaDex is the secondary search.
 2. **Track reading: comick.dev and AniList**, both as trackers.
-3. **Read chapters: installed extensions.** Chapters come from source extensions the user installs (Mihon/Tachiyomi-style, from repositories the user adds; the app ships with none). MangaDex is also a built-in reading source.
+3. **Read chapters: installed Mangayomi-format extensions.** Chapters come from sources the user installs from a Mangayomi extension repository they add, starting with `kodjodevf/mangayomi-extensions` (Dart and JavaScript sources; see "2b" in `docs/PLAN.md`). The app ships with none. MangaDex is also a built-in reading source.
 
 Flow: Browse (comick.dev search, tags, popular) → title page → an **"Available on"** dropdown lists the installed extensions that carry this title → pick one to read. The reader falls back to the next source when one is missing a chapter (see the unified manga page in `docs/PLAN.md`).
 
