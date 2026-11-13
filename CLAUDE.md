@@ -6,6 +6,9 @@ Beako is a native Windows manga reader, built by porting the Neko manga reader (
 ## The plan
 Read `docs/PLAN.md` before starting any task. It holds the feature list, the fork-only features (unified manga page across sources, tag browse + popular page, AniList two-way sync, liquid glass design) and the phased roadmap.
 
+## The UI
+Build every screen from `docs/UI_BLUEPRINT.md` (the owner's screen plan: sidebar, Library, Latest updates, Browse, Search with filters and results, history, settings; visual rules; the errors and gaps already decided; dependencies). Don't change its decisions without asking the owner. Comick's site is a layout reference only; Beako uses its own neutral liquid-glass style.
+
 ## Sources and discovery (owner's plan, Nov 13 2026)
 Three separate jobs, three separate services:
 
@@ -49,6 +52,7 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 - `design-skills:design-systems`, `design-skills:interaction-design`: liquid glass design tokens, reader controls, source dropdown.
 - `apple-design` (in `.claude/skills`): Apple HIG reference for the liquid glass look (materials, motion, liquid-glass pages); adapt to Compose.
 - `design-skills:accessibility-audit`: check text contrast on glass panels before a UI feature lands.
+- `design-skills:ux-writing`: labels, empty, error and fallback messages on every new screen.
 - `/simplify`: after porting a chunk of Android code into `shared` or `desktop`.
 - `/code-review` (default level): before committing each roadmap item.
 - `/security-review`: before committing any login, OAuth or token-storage code.
