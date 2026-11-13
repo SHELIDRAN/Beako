@@ -32,9 +32,9 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "Neko"
+            packageName = "Beako"
             packageVersion = "1.0.0"
-            description = "Unofficial MangaDex reader"
+            description = "Manga reader for Windows, based on Neko"
             vendor = "NekoMangaOrg"
             licenseFile.set(rootProject.file("LICENSE"))
 

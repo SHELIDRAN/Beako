@@ -1,4 +1,4 @@
-# Neko for Windows – Feature Plan
+# Beako (Neko for Windows) – Feature Plan
 
 Source of truth: https://claude.ai/artifact/QUEq4JWXrDqzBaP2HnLCc5 (exported Nov 12, 2026)
 
