@@ -1,4 +1,3 @@
-These Comick fixtures are **constructed**, not captured: Comick's Cloudflare check blocks cloud
-machines, so they follow the field names the Rust prototype's working parser reads
-(`rust/neko-desktop/src/comick.rs`) and the OpenAPI spec. Replace them with real responses
-captured on a Windows PC when possible.
+These are real Comick API responses, captured on Nov 13, 2026 with `BEAKO_LIVE=1
+BEAKO_CAPTURE=<dir> ./gradlew -PdesktopOnly :shared:test --tests '*LiveComick*'` and trimmed to a
+few entries. Re-capture them the same way if the API changes.

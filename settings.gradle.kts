@@ -31,8 +31,7 @@ include(":shared")
 
 // Windows-only port: `-PdesktopOnly` skips the Android modules, so no Android SDK is needed.
 // They stay in the repo as the source to port from.
-val desktopOnly =
-    providers.gradleProperty("desktopOnly").map { it != "false" }.getOrElse(false)
+val desktopOnly = providers.gradleProperty("desktopOnly").map { it != "false" }.getOrElse(false)
 
 if (!desktopOnly) {
   include(":app")

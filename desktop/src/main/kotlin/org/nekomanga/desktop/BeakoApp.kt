@@ -9,10 +9,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +31,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -35,8 +40,11 @@ import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import org.nekomanga.desktop.components.Destination
+import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.Sidebar
 import org.nekomanga.desktop.components.SidebarRailWidth
+import org.nekomanga.desktop.state.Navigator
+import org.nekomanga.desktop.state.Page
 import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.BeakoTheme
@@ -44,14 +52,19 @@ import org.nekomanga.desktop.theme.LocalHazeState
 
 const val APP_NAME = "Beako"
 
-/** Root of the desktop UI: the glass sidebar over the selected screen. */
+/** Root of the desktop UI: the glass sidebar over the selected screen or the open page. */
 @Composable
 fun BeakoApp(
     appearance: BeakoAppearance = BeakoAppearance(),
     start: Destination = Destination.BROWSE,
+    navigator: Navigator = remember { Navigator() },
+    page: @Composable (Page) -> Unit = {},
     screen: @Composable (Destination) -> Unit = { PlaceholderScreen(it) },
 ) {
     var destination by remember { mutableStateOf(start) }
+    val openPage = navigator.top
+    // The reader takes the whole window; every other page keeps the sidebar.
+    val immersive = openPage is Page.Reader
     val haze = remember { HazeState() }
     BeakoTheme(appearance) {
         Box(
@@ -64,32 +77,46 @@ fun BeakoApp(
                     ),
                 )
                 .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     val target = shortcutDestination(event.key)
-                    if (
-                        event.type == KeyEventType.KeyDown && event.isCtrlPressed && target != null
-                    ) {
-                        destination = target
-                        true
-                    } else false
+                    when {
+                        event.isCtrlPressed && target != null && !immersive -> {
+                            navigator.clear()
+                            destination = target
+                            true
+                        }
+                        // Alt+Left goes back from any page. (Esc is handled by each page.)
+                        event.isAltPressed && event.key == Key.DirectionLeft -> navigator.back()
+                        else -> false
+                    }
                 },
         ) {
-            Box(Modifier.fillMaxSize().hazeSource(haze).padding(start = SidebarRailWidth)) {
+            Box(
+                Modifier.fillMaxSize()
+                    .hazeSource(haze)
+                    .padding(start = if (immersive) 0.dp else SidebarRailWidth),
+            ) {
                 AnimatedContent(
-                    targetState = destination,
+                    targetState = openPage to destination,
                     transitionSpec = { fadeThrough(appearance.reduceMotion) },
-                ) { target ->
-                    screen(target)
+                ) { (targetPage, targetDestination) ->
+                    if (targetPage != null) page(targetPage) else screen(targetDestination)
                 }
             }
-            CompositionLocalProvider(LocalHazeState provides haze) {
-                Sidebar(
-                    selected = destination,
-                    onSelect = { destination = it },
-                    modifier =
-                        Modifier.align(Alignment.CenterStart)
-                            .padding(start = 8.dp)
-                            .fillMaxHeight(0.86f),
-                )
+            if (!immersive) {
+                CompositionLocalProvider(LocalHazeState provides haze) {
+                    Sidebar(
+                        selected = destination,
+                        onSelect = {
+                            navigator.clear()
+                            destination = it
+                        },
+                        modifier =
+                            Modifier.align(Alignment.CenterStart)
+                                .padding(start = 8.dp)
+                                .fillMaxHeight(0.86f),
+                    )
+                }
             }
         }
     }
@@ -115,12 +142,24 @@ private fun fadeThrough(reduceMotion: Boolean) =
             .togetherWith(fadeOut(tween(60)))
 
 @Composable
-private fun PlaceholderScreen(destination: Destination) {
+internal fun PlaceholderScreen(destination: Destination) {
     Box(Modifier.fillMaxSize().padding(32.dp)) {
         Text(
             destination.label,
             style = MaterialTheme.typography.displaySmall,
             color = BeakoColors.Text,
         )
+    }
+}
+
+/** Stand-in for a page that isn't built yet, with a way back. */
+@Composable
+internal fun PlaceholderPage(name: String, onBack: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        GlassIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+        Text(name, style = MaterialTheme.typography.displaySmall, color = BeakoColors.Text)
     }
 }

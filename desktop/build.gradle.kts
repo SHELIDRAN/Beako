@@ -36,6 +36,7 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "org.nekomanga.desktop.MainKt"
+        jvmArgs += "-Dbeako.version=${providers.gradleProperty("beakoVersion").get()}"
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)

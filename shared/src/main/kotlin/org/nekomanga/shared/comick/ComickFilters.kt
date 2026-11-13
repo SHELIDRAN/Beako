@@ -72,6 +72,59 @@ data class ComickFilters(
     val filtersTypesLocally: Boolean
         get() = ComicType.OTHER in types
 
+    /** How a tag or genre is used in the filter. */
+    enum class Use {
+        NONE,
+        INCLUDED,
+        EXCLUDED,
+    }
+
+    fun tagUse(slug: String): Use = useOf(slug, includedTags, excludedTags)
+
+    fun genreUse(slug: String): Use = useOf(slug, includedGenres, excludedGenres)
+
+    /**
+     * The next state of a tag when it is clicked: include, then exclude, then clear. A step that
+     * would pass the API's limit is skipped, so an 11th tag goes straight to excluded.
+     */
+    fun cycleTag(slug: String): ComickFilters {
+        val (included, excluded) =
+            cycle(slug, includedTags, excludedTags, MAX_INCLUDED, MAX_EXCLUDED_TAGS)
+        return copy(includedTags = included, excludedTags = excluded)
+    }
+
+    fun cycleGenre(slug: String): ComickFilters {
+        val (included, excluded) =
+            cycle(slug, includedGenres, excludedGenres, MAX_INCLUDED, MAX_EXCLUDED_GENRES)
+        return copy(includedGenres = included, excludedGenres = excluded)
+    }
+
+    /** How many filters differ from the defaults, for the "Filters · N" label. */
+    val activeCount: Int
+        get() =
+            includedGenres.size +
+                excludedGenres.size +
+                includedTags.size +
+                excludedTags.size +
+                demographics.size +
+                types.size +
+                listOfNotNull(
+                        status,
+                        fromYear,
+                        toYear,
+                        minChapters,
+                        maxChapters,
+                        minRating,
+                        addedWithinDays,
+                    )
+                    .size +
+                (if (translationCompleted) 1 else 0) +
+                (if (includeWithoutChapters) 1 else 0)
+
+    /** The same search with every filter cleared, keeping the keyword and sort. */
+    fun cleared(): ComickFilters =
+        ComickFilters(query = query, sort = sort, contentRatings = contentRatings, limit = limit)
+
     fun matchesTypes(type: ComicType?): Boolean =
         types.isEmpty() || (type ?: ComicType.OTHER) in types
 
@@ -112,6 +165,30 @@ data class ComickFilters(
     }
 
     companion object {
+        private fun useOf(slug: String, included: List<String>, excluded: List<String>): Use =
+            when (slug) {
+                in included -> Use.INCLUDED
+                in excluded -> Use.EXCLUDED
+                else -> Use.NONE
+            }
+
+        private fun cycle(
+            slug: String,
+            included: List<String>,
+            excluded: List<String>,
+            maxIncluded: Int,
+            maxExcluded: Int,
+        ): Pair<List<String>, List<String>> =
+            when {
+                slug in included ->
+                    if (excluded.size < maxExcluded) (included - slug) to (excluded + slug)
+                    else (included - slug) to excluded
+                slug in excluded -> included to (excluded - slug)
+                included.size < maxIncluded -> (included + slug) to excluded
+                excluded.size < maxExcluded -> included to (excluded + slug)
+                else -> included to excluded
+            }
+
         const val MAX_INCLUDED = 10
         const val MAX_EXCLUDED_GENRES = 40
         const val MAX_EXCLUDED_TAGS = 30
