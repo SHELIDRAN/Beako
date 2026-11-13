@@ -114,8 +114,8 @@ Stat tiles, Downloaded only, Incognito, Download queue, Categories, Statistics, 
 | 11 | Results | Country flags: Windows doesn't render flag emoji (shows letters) | Bundle SVG flags (e.g. the MIT-licensed `flag-icons` set) |
 | 12 | Results | ♂/♀ demographic shown by colour and symbol only | Add a text label or tooltip |
 | 13 | Results | Search returns no total count and keyword search isn't exhaustive | No result count; "end of results" message |
-| 14 | Results | Chapter count, upload time, follow count and translation status not confirmed in search responses | Verify with a real response; fall back to `GET /v1.0/comic/{slug}/` per visible row only if needed (watch the 200/min limit) |
-| 15 | Browse | "Most Recent Popular" feed key in `/top` unconfirmed; tag all-of vs any-of unconfirmed | Check on a real response (already noted in the plan) |
+| 14 | Results | Chapter count, upload time, follow count and translation status not confirmed in search responses | **Resolved**: real search responses carry `last_chapter`, `uploaded_at`, `user_follow_count` and `translation_completed` |
+| 15 | Browse | "Most Recent Popular" feed key in `/top` unconfirmed; tag all-of vs any-of unconfirmed | **Resolved**: it is `/top?type=trending&day=N`; tags are all-of |
 | 16 | Live filters | Every filter change is a request; rapid changes can hit the 200/min limit | 400 ms debounce, cancel stale requests, cache by query |
 | 17 | Sidebar | AniList tracker not on the sketch | Settings → Tracking; optional third avatar |
 

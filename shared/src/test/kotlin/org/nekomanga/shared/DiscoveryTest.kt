@@ -25,11 +25,11 @@ class DiscoveryTest {
     fun comickAnswersWhenItCan() = runTest {
         val outcome =
             discovery(FakeHttp { json(fixture("comick/search.json")) })
-                .search(ComickFilters(query = "sample"))
+                .search(ComickFilters(query = "eleceed"))
 
         assertEquals(Sources.COMICK, outcome.servedBy)
         assertNull(outcome.fallback)
-        assertEquals(3, outcome.titles.size)
+        assertEquals("YFGuryrn", outcome.titles.single().id)
     }
 
     @Test

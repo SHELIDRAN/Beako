@@ -27,9 +27,10 @@ data class ComickTag(val slug: String, val name: String, val count: Int)
 enum class ComickChart {
     /** New titles with the most follows in the period. */
     MOST_FOLLOWED_NEW,
-    /** Titles with the most recent attention. */
+    /** Comick's "Most Recent Popular" shelf: its trending ranking for the period. */
     MOST_RECENT_POPULAR,
-    TRENDING,
+    /** The home page's short-term ranking ("recentRank"), which has no period. */
+    RISING,
 }
 
 /**
@@ -68,24 +69,24 @@ class ComickApi(
                         limit = limit,
                     ),
                 )
-            ComickChart.MOST_RECENT_POPULAR,
-            ComickChart.TRENDING -> {
-                val params = buildList {
-                    add("day" to days.toString())
-                    if ("erotica" in contentRatings) add("accept_mature_content" to "true")
-                }
-                val body = get("top", params)
-                val wanted =
-                    if (chart == ComickChart.MOST_RECENT_POPULAR) body["recentRank"]
-                    else body["trending"][days.toString()]
-                wanted
-                    .items()
-                    .ifEmpty { body["rank"].items() }
-                    .map(::parseTitle)
-                    .filter { it.coverUrl != null }
-                    .take(limit)
+            // With type=trending, /top returns one ranked list per window, keyed "7", "30", "90".
+            ComickChart.MOST_RECENT_POPULAR -> {
+                val params = listOf("type" to "trending", "day" to days.toString())
+                val body = get("top", params + mature(contentRatings))
+                ranked(body[days.toString()].items().ifEmpty { body.items() }, limit)
+            }
+            // Without a type, /top returns the home-page feeds.
+            ComickChart.RISING -> {
+                val body = get("top", mature(contentRatings))
+                ranked(body["recentRank"].items().ifEmpty { body["rank"].items() }, limit)
             }
         }
+
+    private fun mature(contentRatings: Set<String>): List<Pair<String, String>> =
+        if ("erotica" in contentRatings) listOf("accept_mature_content" to "true") else emptyList()
+
+    private fun ranked(entries: List<JsonElement>, limit: Int): List<Title> =
+        entries.map(::parseTitle).filter { it.coverUrl != null }.take(limit)
 
     suspend fun genres(): List<ComickGenre> =
         get("genre/", emptyList()).items().mapNotNull { g ->
@@ -124,10 +125,8 @@ class ComickApi(
 
         /** The medium-size cover (about 190 KB instead of the 1–2 MB original). */
         private fun coverOf(v: JsonElement): String? {
-            v.str("cover_url")?.let {
-                return it
-            }
-            val key = v["md_covers"].items().firstOrNull().str("b2key") ?: return null
+            // cover_url (sent with tachiyomi=true) is the small size, so it is only the fallback.
+            val key = v["md_covers"].items().firstOrNull().str("b2key") ?: return v.str("cover_url")
             val dot = key.lastIndexOf('.')
             return if (dot > 0) "$COVERS/${key.substring(0, dot)}-m${key.substring(dot)}"
             else "$COVERS/$key"

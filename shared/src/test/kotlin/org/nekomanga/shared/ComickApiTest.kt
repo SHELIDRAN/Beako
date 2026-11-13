@@ -16,34 +16,52 @@ import org.nekomanga.shared.model.PublicationStatus
 class ComickApiTest {
 
     @Test
-    fun searchParsesTitlesLeniently() = runTest {
+    fun searchParsesARealResponse() = runTest {
         val http = FakeHttp { json(fixture("comick/search.json")) }
-        val titles = ComickApi(http).search(ComickFilters(query = "sample"))
+        val eleceed = ComickApi(http).search(ComickFilters(query = "eleceed")).single()
 
-        val first = titles[0]
-        assertEquals("aB3xYz", first.id)
+        assertEquals("YFGuryrn", eleceed.id)
+        assertEquals("04-eleceed", eleceed.slug)
+        assertEquals("Eleceed", eleceed.title)
+        // The medium cover built from md_covers wins over the small cover_url.
+        assertEquals("https://meo.comick.pictures/8w3j7-m.jpg", eleceed.coverUrl)
+        assertEquals(ComicType.MANHWA, eleceed.type)
+        assertEquals(PublicationStatus.ONGOING, eleceed.status)
+        assertEquals(9.37, eleceed.rating)
+        assertEquals(117332, eleceed.follows)
+        assertEquals(426, eleceed.chapterCount)
+        assertEquals("shounen", eleceed.demographic)
+        assertEquals("2026-11-10T19:00:03.145Z", eleceed.lastUploadedAt)
+        assertEquals("106929", eleceed.externalIds.anilist)
+        assertEquals("147171", eleceed.externalIds.myAnimeList)
+        assertEquals("57", eleceed.externalIds.mangaBaka)
+    }
+
+    @Test
+    fun titlesParseLenientlyWhenFieldsAreMissingOrOddlyTyped() = runTest {
+        val body =
+            """
+            [
+              {"hid": "aB3xYz", "title": "Akuyaku Reijou no Sample", "is_english_title": false,
+               "md_titles": [{"title": "The Sample Villainess", "lang": "en"}],
+               "rating": 8.7, "cover_url": "https://meo.comick.pictures/small-s.jpg",
+               "external_ids": {"myanimelist": 147171, "mangabaka": null}},
+              {"hid": "fR1nCh", "title": "Sample BD", "country": "fr",
+               "md_covers": [{"b2key": "nodot"}]}
+            ]
+            """
+        val titles = ComickApi(FakeHttp { json(body) }).search(ComickFilters())
+
         // The English alternative title wins over a romanized main title.
-        assertEquals("The Sample Villainess", first.title)
-        assertTrue("Akuyaku Reijou no Sample" in first.altTitles)
-        assertEquals("https://meo.comick.pictures/abc123-m.jpg", first.coverUrl)
-        assertEquals(ComicType.MANGA, first.type)
-        assertEquals(PublicationStatus.ONGOING, first.status)
-        assertEquals(8.52, first.rating)
-        assertEquals(15234, first.follows)
-        assertEquals("shoujo", first.demographic)
-        assertEquals("106929", first.externalIds.anilist)
-        // A numeric ID is read as text.
-        assertEquals("147171", first.externalIds.myAnimeList)
-        assertNull(first.externalIds.mangaBaka)
-
-        val second = titles[1]
-        assertEquals("Sample Hunter", second.title)
-        assertEquals("https://meo.comick.pictures/direct-m.jpg", second.coverUrl)
-        assertEquals(7.9, second.rating)
-
-        // Missing fields don't break parsing.
-        assertEquals(ComicType.OTHER, titles[2].type)
-        assertEquals("https://meo.comick.pictures/nodot", titles[2].coverUrl)
+        assertEquals("The Sample Villainess", titles[0].title)
+        assertTrue("Akuyaku Reijou no Sample" in titles[0].altTitles)
+        assertEquals(8.7, titles[0].rating)
+        assertEquals("https://meo.comick.pictures/small-s.jpg", titles[0].coverUrl)
+        // A numeric ID is read as text; null stays null.
+        assertEquals("147171", titles[0].externalIds.myAnimeList)
+        assertNull(titles[0].externalIds.mangaBaka)
+        assertEquals(ComicType.OTHER, titles[1].type)
+        assertEquals("https://meo.comick.pictures/nodot", titles[1].coverUrl)
     }
 
     @Test
@@ -82,28 +100,76 @@ class ComickApiTest {
     }
 
     @Test
+    fun clickingATagCyclesIncludeExcludeClear() {
+        val none = ComickFilters()
+        val included = none.cycleTag("magic")
+        assertEquals(ComickFilters.Use.INCLUDED, included.tagUse("magic"))
+        val excluded = included.cycleTag("magic")
+        assertEquals(ComickFilters.Use.EXCLUDED, excluded.tagUse("magic"))
+        assertEquals(listOf("magic"), excluded.excludedTags)
+        val cleared = excluded.cycleTag("magic")
+        assertEquals(ComickFilters.Use.NONE, cleared.tagUse("magic"))
+        assertEquals(none, cleared)
+    }
+
+    @Test
+    fun anEleventhIncludedTagIsNotAllowed() {
+        val full = (1..10).fold(ComickFilters()) { f, i -> f.cycleTag("t$i") }
+        assertEquals(10, full.includedTags.size)
+        // The include step is skipped because the API takes at most 10.
+        val next = full.cycleTag("t11")
+        assertEquals(10, next.includedTags.size)
+        assertEquals(ComickFilters.Use.EXCLUDED, next.tagUse("t11"))
+    }
+
+    @Test
+    fun activeCountAndClearedIgnoreKeywordAndSort() {
+        val filters =
+            ComickFilters(query = "x", sort = ComickSort.POPULAR)
+                .cycleTag("magic")
+                .cycleGenre("romance")
+                .copy(status = 1, translationCompleted = true)
+        assertEquals(4, filters.activeCount)
+        val cleared = filters.cleared()
+        assertEquals(0, cleared.activeCount)
+        assertEquals("x", cleared.query)
+        assertEquals(ComickSort.POPULAR, cleared.sort)
+    }
+
+    @Test
     fun othersTypeIsFilteredLocallyBecauseComickHasNoCountryCodeForIt() = runTest {
         val filters = ComickFilters(types = setOf(ComicType.OTHER))
         assertTrue(filters.toQuery().none { it.first == "country" })
 
-        val http = FakeHttp { json(fixture("comick/search.json")) }
-        val titles = ComickApi(http).search(filters)
-        assertEquals(listOf("fR1nCh"), titles.map { it.id })
+        val body =
+            """[{"hid": "kr1", "title": "A", "country": "kr"}, {"hid": "fr1", "title": "B", "country": "fr"}]"""
+        val titles = ComickApi(FakeHttp { json(body) }).search(filters)
+        assertEquals(listOf("fr1"), titles.map { it.id })
     }
 
     @Test
-    fun chartsReadTheRightFeedAndSkipEntriesWithoutCovers() = runTest {
-        val http = FakeHttp { json(fixture("comick/top.json")) }
+    fun mostRecentPopularReadsTheTrendingListForItsWindow() = runTest {
+        val http = FakeHttp { json(fixture("comick/top_trending.json")) }
         val api = ComickApi(http)
 
         assertEquals(
-            listOf("recent1"),
+            listOf("uDSpI8XM", "kS_eJ8jw"),
             api.chart(ComickChart.MOST_RECENT_POPULAR, days = 7).map { it.id },
         )
-        assertEquals(listOf("trend7"), api.chart(ComickChart.TRENDING, days = 7).map { it.id })
-        // An empty window falls back to the overall ranking.
-        assertEquals(listOf("rank1"), api.chart(ComickChart.TRENDING, days = 30).map { it.id })
-        assertTrue(http.urls.all { it.startsWith("https://api.comick.dev/top?day=") })
+        assertEquals(
+            listOf("QwogT7H5", "hiFEZykH"),
+            api.chart(ComickChart.MOST_RECENT_POPULAR, days = 30).map { it.id },
+        )
+        assertTrue(http.urls.first().startsWith("https://api.comick.dev/top?type=trending&day=7"))
+    }
+
+    @Test
+    fun risingReadsRecentRankFromTheHomeFeeds() = runTest {
+        val http = FakeHttp { json(fixture("comick/top.json")) }
+        val titles = ComickApi(http).chart(ComickChart.RISING)
+
+        assertEquals(listOf("QwogT7H5", "hiFEZykH", "AmyTA493"), titles.map { it.id })
+        assertTrue(titles.all { it.coverUrl != null })
     }
 
     @Test
@@ -117,12 +183,19 @@ class ComickApiTest {
     }
 
     @Test
-    fun tagsAreSortedByUseAndUnusedOnesDropped() = runTest {
+    fun genresCarryTheirGroup() = runTest {
+        val genres = ComickApi(FakeHttp { json(fixture("comick/genre.json")) }).genres()
+        assertEquals("4-koma", genres.first().slug)
+        assertEquals("format", genres.first().group)
+    }
+
+    @Test
+    fun tagsAreSortedByUseAndOnesWithoutTitlesDropped() = runTest {
         val http = FakeHttp { json(fixture("comick/category.json")) }
         val tags = ComickApi(http).tags()
 
-        assertEquals(listOf("female-protagonist", "magic"), tags.map { it.slug })
-        assertEquals("Female Protagonist", tags.first().name)
-        assertEquals(3401, tags.first().count)
+        assertEquals(listOf("full-color", "webtoon", "big-breasts"), tags.map { it.slug })
+        assertEquals("Full Color", tags.first().name)
+        assertEquals(9589, tags.first().count)
     }
 }

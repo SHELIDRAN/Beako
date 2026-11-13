@@ -1,48 +1,88 @@
 [
-  {
-    "hid": "aB3xYz",
-    "slug": "00-sample-villainess",
-    "title": "Akuyaku Reijou no Sample",
-    "is_english_title": false,
-    "md_titles": [
-      {"title": "The Sample Villainess", "lang": "en"},
-      {"title": "悪役令嬢のサンプル", "lang": "ja"}
-    ],
-    "desc": "A sample description.",
-    "country": "jp",
-    "year": 2024,
-    "status": 1,
-    "content_rating": "safe",
-    "demographic": 2,
-    "bayesian_rating": "8.52",
-    "rating": "8.7",
-    "user_follow_count": 15234,
-    "last_chapter": 42,
-    "uploaded_at": "2026-11-13T10:00:00Z",
-    "md_covers": [{"b2key": "abc123.jpg", "w": 800, "h": 1200}],
-    "external_ids": {"anilist": "106929", "myanimelist": 147171, "mangaupdates": "4mnd0g3", "mangabaka": null}
+ {
+  "id": 26656,
+  "hid": "YFGuryrn",
+  "slug": "04-eleceed",
+  "title": "Eleceed",
+  "rating": "9.4",
+  "bayesian_rating": "9.37",
+  "rating_count": 5165,
+  "desc": "Jiwoo is a kind-hearted young man who harnesses the lightning quick reflexes of a cat to secretly make the world a better place – one saved little child or foster pet at a time. Kayden is a secret age",
+  "status": 1,
+  "last_chapter": 426,
+  "translation_completed": false,
+  "view_count": 1080365,
+  "content_rating": "safe",
+  "violence_rating": "none",
+  "demographic": 1,
+  "uploaded_at": "2026-11-10T19:00:03.145Z",
+  "genres": [
+   244,
+   245,
+   247,
+   257,
+   272,
+   274,
+   282,
+   295,
+   16,
+   7,
+   30,
+   281
+  ],
+  "created_at": "2019-02-16T06:52:11.834Z",
+  "user_follow_count": 117332,
+  "year": 2018,
+  "country": "kr",
+  "media_type": "manga",
+  "is_english_title": null,
+  "anime_profiles": null,
+  "md_titles": [
+   {
+    "id": 12956066,
+    "title": "تجاوز الكهرباء",
+    "lang": "ar",
+    "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+    "is_default": false
+   },
+   {
+    "id": 12956065,
+    "title": "بذور الكهرباء",
+    "lang": "ar",
+    "user_id": null,
+    "is_default": false
+   },
+   {
+    "id": 13380443,
+    "title": "Светкавична бързина",
+    "lang": "bg",
+    "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+    "is_default": false
+   },
+   {
+    "id": 13389792,
+    "title": "Eleceed",
+    "lang": "en",
+    "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+    "is_default": true
+   }
+  ],
+  "md_covers": [
+   {
+    "w": 690,
+    "h": 1000,
+    "b2key": "8w3j7.jpg"
+   }
+  ],
+  "mu_comics": {
+   "year": 2018
   },
-  {
-    "hid": "kR9qLm",
-    "slug": "sample-hunter",
-    "title": "Sample Hunter",
-    "is_english_title": true,
-    "md_titles": [],
-    "desc": "",
-    "country": "kr",
-    "year": 2021,
-    "status": 2,
-    "content_rating": "suggestive",
-    "rating": 7.9,
-    "cover_url": "https://meo.comick.pictures/direct-m.jpg",
-    "external_ids": {"anilist": null, "myanimelist": null, "mangaupdates": null, "mangabaka": null}
+  "external_ids": {
+   "anilist": "106929",
+   "myanimelist": "147171",
+   "mangabaka": "57",
+   "mangaupdates": "4mnd0g3"
   },
-  {
-    "hid": "fR1nCh",
-    "slug": "sample-bd",
-    "title": "Sample BD",
-    "is_english_title": true,
-    "country": "fr",
-    "md_covers": [{"b2key": "nodot"}]
-  }
+  "cover_url": "https://meo.comick.pictures/8w3j7-s.jpg"
+ }
 ]

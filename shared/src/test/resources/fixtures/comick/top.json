@@ -1,11 +1,881 @@
 {
-  "rank": [{"hid": "rank1", "title": "Rank One", "md_covers": [{"b2key": "r1.jpg"}]}],
-  "recentRank": [
-    {"hid": "recent1", "title": "Recent One", "md_covers": [{"b2key": "x1.jpg"}]},
-    {"hid": "nocover", "title": "No Cover"}
-  ],
-  "trending": {
-    "7": [{"hid": "trend7", "title": "Trend Seven", "md_covers": [{"b2key": "t7.jpg"}]}],
-    "30": []
+ "rank": [
+  {
+   "id": 82616,
+   "slug": "03-return-of-the-iron-blooded-hound",
+   "title": "Regression of the Ironblade Hound",
+   "demographic": 1,
+   "country": "kr",
+   "comment_count": 166,
+   "view_count": 1570365,
+   "user_follow_count": 221382,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "genres": [
+    7,
+    244,
+    245,
+    250,
+    252,
+    254,
+    261,
+    264,
+    265,
+    274,
+    279,
+    282,
+    286,
+    296,
+    297,
+    303,
+    305,
+    315
+   ],
+   "hid": "EPl3QHL_",
+   "is_english_title": null,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Drama",
+      "type": "main",
+      "slug": "drama",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Harem",
+      "type": "main",
+      "slug": "harem",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Mystery",
+      "type": "main",
+      "slug": "mystery",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Romance",
+      "type": "main",
+      "slug": "romance",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "School Life",
+      "type": "main",
+      "slug": "school-life",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Gore",
+      "type": null,
+      "slug": "gore",
+      "group": "Content"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Crossdressing",
+      "type": null,
+      "slug": "crossdressing",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Demons",
+      "type": null,
+      "slug": "demons",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Magic",
+      "type": null,
+      "slug": "magic",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Monsters",
+      "type": null,
+      "slug": "monsters",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Time Travel",
+      "type": null,
+      "slug": "time-travel",
+      "group": "Theme"
+     }
+    }
+   ],
+   "md_titles": [
+    {
+     "id": 13073717,
+     "title": "Regression of the Ironblade Hound",
+     "lang": "en",
+     "user_id": null,
+     "is_default": false
+    },
+    {
+     "id": 13073718,
+     "title": "Return of the Iron-Blooded Hound",
+     "lang": "en",
+     "user_id": null,
+     "is_default": false
+    },
+    {
+     "id": 13073719,
+     "title": "Return of the Iron-Blooded Sword Hound",
+     "lang": "en",
+     "user_id": null,
+     "is_default": false
+    },
+    {
+     "id": 13073720,
+     "title": "The Return of the Iron-Blood Sword Hound",
+     "lang": "en",
+     "user_id": null,
+     "is_default": false
+    }
+   ],
+   "last_chapter": 188,
+   "md_covers": [
+    {
+     "w": 720,
+     "h": 1030,
+     "b2key": "R878rR.jpg",
+     "gpurl": "https://uploads.mangadex.org/covers/fbf326f7-ccbd-4d54-bbad-852d76e46523/1084eda4-b6f9-46de-96b8-a3898c4819a0.jpg"
+    }
+   ]
+  },
+  {
+   "id": 77211,
+   "slug": "02-pick-me-up-1",
+   "title": "Pick Me Up",
+   "demographic": 1,
+   "country": "kr",
+   "comment_count": 113,
+   "view_count": 1500187,
+   "user_follow_count": 181210,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "genres": [
+    7,
+    244,
+    245,
+    250,
+    252,
+    263,
+    266,
+    272,
+    273,
+    274,
+    277,
+    278,
+    279,
+    282,
+    286,
+    303,
+    305,
+    310,
+    314,
+    318
+   ],
+   "hid": "99sr80kM",
+   "is_english_title": false,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Drama",
+      "type": "main",
+      "slug": "drama",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Psychological",
+      "type": "main",
+      "slug": "psychological",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Sci-Fi",
+      "type": null,
+      "slug": "sci-fi",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Supernatural",
+      "type": "main",
+      "slug": "supernatural",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Tragedy",
+      "type": null,
+      "slug": "tragedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Video Games",
+      "type": null,
+      "slug": "video-games",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Isekai",
+      "type": null,
+      "slug": "isekai",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Gore",
+      "type": null,
+      "slug": "gore",
+      "group": "Content"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Magic",
+      "type": null,
+      "slug": "magic",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Monsters",
+      "type": null,
+      "slug": "monsters",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Reincarnation",
+      "type": null,
+      "slug": "reincarnation",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Survival",
+      "type": null,
+      "slug": "survival",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Virtual Reality",
+      "type": null,
+      "slug": "virtual-reality",
+      "group": "Theme"
+     }
+    }
+   ],
+   "md_titles": [
+    {
+     "id": 13084775,
+     "title": "Pick Me Up",
+     "lang": "en",
+     "user_id": "a617eff5-00b8-432a-bd1b-a4af416af15c",
+     "is_default": false
+    },
+    {
+     "id": 14696624,
+     "title": "PICK ME UP～低レア英雄の成り上がり～",
+     "lang": "ja",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 14696620,
+     "title": "Me Escolhe! Gacha Infinito",
+     "lang": "pt-br",
+     "user_id": "a617eff5-00b8-432a-bd1b-a4af416af15c",
+     "is_default": false
+    },
+    {
+     "id": 14696623,
+     "title": "Pick Me up!! Tei Rea Eiyū No Nariagari",
+     "lang": "ko-ro",
+     "user_id": "a617eff5-00b8-432a-bd1b-a4af416af15c",
+     "is_default": false
+    }
+   ],
+   "last_chapter": 227,
+   "md_covers": [
+    {
+     "w": 720,
+     "h": 1030,
+     "b2key": "pROjm3.jpg",
+     "gpurl": "https://uploads.mangadex.org/covers/58167656-a065-4b49-b499-bd73d00555d5/a9392e62-78b1-4b08-beed-ea2e5088c0a2.jpg"
+    }
+   ]
   }
+ ],
+ "recentRank": [
+  {
+   "id": 332244,
+   "slug": "monster-s-streamer-star",
+   "title": "Monster's Live Streaming",
+   "demographic": 1,
+   "country": "kr",
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "view_count": 0,
+   "comment_count": 39,
+   "genres": [
+    7,
+    244,
+    245,
+    247,
+    250,
+    252,
+    274,
+    281,
+    282
+   ],
+   "hid": "QwogT7H5",
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Comedy",
+      "type": "main",
+      "slug": "comedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Drama",
+      "type": "main",
+      "slug": "drama",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    }
+   ],
+   "is_english_title": false,
+   "md_titles": [
+    {
+     "id": 15505507,
+     "title": "Monster's Live Streaming",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 15505508,
+     "title": "The Slime’s Livestream Star",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 15443735,
+     "title": "Monster Streaming Star",
+     "lang": "en",
+     "user_id": null,
+     "is_default": false
+    },
+    {
+     "id": 15443734,
+     "title": "Monster-ui Inbang Star",
+     "lang": "ko-ro",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 2000,
+     "h": 2595,
+     "b2key": "2NrRpJ.png",
+     "gpurl": "https://tmp2.comick.pictures/43de5e49-9375-4c81-8d7d-bf589b4f9fc0/0-lZeU4YCv7bkCp.png"
+    }
+   ]
+  },
+  {
+   "id": 414836,
+   "slug": "the-crazy-son-in-law-of-the-grand-duke-of-the-north",
+   "title": "The crazy son-in-law of the Grand Duke of the North",
+   "demographic": 1,
+   "country": "kr",
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "view_count": 0,
+   "comment_count": 13,
+   "genres": [
+    7,
+    244,
+    245,
+    247,
+    252,
+    255,
+    264,
+    274,
+    278,
+    279,
+    281,
+    282,
+    303,
+    310
+   ],
+   "hid": "hiFEZykH",
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Comedy",
+      "type": "main",
+      "slug": "comedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Historical",
+      "type": null,
+      "slug": "historical",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Romance",
+      "type": "main",
+      "slug": "romance",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Isekai",
+      "type": null,
+      "slug": "isekai",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Magic",
+      "type": null,
+      "slug": "magic",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Reincarnation",
+      "type": null,
+      "slug": "reincarnation",
+      "group": "Theme"
+     }
+    }
+   ],
+   "is_english_title": null,
+   "md_titles": [
+    {
+     "id": 15970926,
+     "title": "북부 대공의 미친 데릴사위",
+     "lang": "ko",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 15970925,
+     "title": "The crazy son-in-law of the Grand Duke of the North",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 15970972,
+     "title": "The Northern Grand Duke’s Crazy Live-In Son-in-Law",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 15970997,
+     "title": "The Northern Grand Duke’s Mad Son-in-Law",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 690,
+     "h": 1000,
+     "b2key": "w7QveR.jpg",
+     "gpurl": "https://tmp2.comick.pictures/e7e5c740-8797-4912-a3a8-8eded17ec910/0-zeztU2ZGbiEZx.jpg"
+    }
+   ]
+  },
+  {
+   "id": 366031,
+   "slug": "the-genius-knight-of-a-fallen-race",
+   "title": "The Genius Knight of a Fallen Race",
+   "demographic": 1,
+   "country": "kr",
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "view_count": 0,
+   "comment_count": 20,
+   "genres": [
+    7,
+    244,
+    245,
+    252,
+    274,
+    282
+   ],
+   "hid": "AmyTA493",
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    }
+   ],
+   "is_english_title": null,
+   "md_titles": [
+    {
+     "id": 15636616,
+     "title": "The Genius Knight of a Fallen Race",
+     "lang": "en",
+     "user_id": "580cd0f7-27fc-466f-92b6-1e8657bb21b3",
+     "is_default": true
+    },
+    {
+     "id": 15636617,
+     "title": "몰락민족의 천재 기사",
+     "lang": "ko",
+     "user_id": "580cd0f7-27fc-466f-92b6-1e8657bb21b3",
+     "is_default": true
+    },
+    {
+     "id": 15636618,
+     "title": "Mollangminjogui Cheonjae Gisa",
+     "lang": "ko-ro",
+     "user_id": "580cd0f7-27fc-466f-92b6-1e8657bb21b3",
+     "is_default": true
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 690,
+     "h": 1000,
+     "b2key": "pRY8rr.jpg",
+     "gpurl": "https://tmp2.comick.pictures/580cd0f7-27fc-466f-92b6-1e8657bb21b3/0-AhS8AgWbfncAU.jpg"
+    }
+   ]
+  }
+ ]
 }

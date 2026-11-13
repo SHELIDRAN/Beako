@@ -1,0 +1,692 @@
+{
+ "7": [
+  {
+   "id": 423167,
+   "title": "Cyberpunk Swordsman",
+   "slug": "cyberpunk-swordsman",
+   "comment_count": 29,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "hid": "uDSpI8XM",
+   "genres": [
+    7,
+    244,
+    245,
+    252,
+    257,
+    266,
+    274,
+    279,
+    281,
+    282,
+    293,
+    310
+   ],
+   "demographic": 1,
+   "view_count": 0,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Martial Arts",
+      "type": null,
+      "slug": "martial-arts",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Sci-Fi",
+      "type": null,
+      "slug": "sci-fi",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Wuxia",
+      "type": null,
+      "slug": "wuxia",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Reincarnation",
+      "type": null,
+      "slug": "reincarnation",
+      "group": "Theme"
+     }
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 480,
+     "h": 623,
+     "b2key": "Ly7RKR.jpg",
+     "gpurl": "https://tmp2.comick.pictures/580cd0f7-27fc-466f-92b6-1e8657bb21b3/0-DuronGTRUl2s5.jpg"
+    }
+   ],
+   "md_titles": []
+  },
+  {
+   "id": 426524,
+   "title": "Takou no Ichigun Gyaru to Eki no Hoomu de Hajimaru Aoharu",
+   "slug": "takou-no-ichigun-gyaru-to-eki-no-hoomu-de-hajimaru-aoharu",
+   "comment_count": 7,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "hid": "kS_eJ8jw",
+   "genres": [
+    264,
+    247,
+    265,
+    269,
+    279,
+    253
+   ],
+   "demographic": null,
+   "view_count": 0,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Comedy",
+      "type": "main",
+      "slug": "comedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Gyaru",
+      "type": null,
+      "slug": "gyaru",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Romance",
+      "type": "main",
+      "slug": "romance",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "School Life",
+      "type": "main",
+      "slug": "school-life",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Slice of Life",
+      "type": "main",
+      "slug": "slice-of-life",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 1242,
+     "h": 828,
+     "b2key": "Ygy80b.png",
+     "gpurl": "https://uploads.mangadex.org/covers/de2bb316-0533-4f1a-b789-4776ef673dd4/9a1a9976-08e4-420b-9fdb-d5c31d339922.png"
+    }
+   ],
+   "md_titles": []
+  }
+ ],
+ "30": [
+  {
+   "id": 332244,
+   "title": "Monster's Live Streaming",
+   "slug": "monster-s-streamer-star",
+   "comment_count": 39,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "hid": "QwogT7H5",
+   "genres": [
+    7,
+    244,
+    245,
+    247,
+    250,
+    252,
+    274,
+    281,
+    282
+   ],
+   "demographic": 1,
+   "view_count": 0,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Comedy",
+      "type": "main",
+      "slug": "comedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Drama",
+      "type": "main",
+      "slug": "drama",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 2000,
+     "h": 2595,
+     "b2key": "2NrRpJ.png",
+     "gpurl": "https://tmp2.comick.pictures/43de5e49-9375-4c81-8d7d-bf589b4f9fc0/0-lZeU4YCv7bkCp.png"
+    }
+   ],
+   "md_titles": []
+  },
+  {
+   "id": 414836,
+   "title": "The crazy son-in-law of the Grand Duke of the North",
+   "slug": "the-crazy-son-in-law-of-the-grand-duke-of-the-north",
+   "comment_count": 13,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "hid": "hiFEZykH",
+   "genres": [
+    7,
+    244,
+    245,
+    247,
+    252,
+    255,
+    264,
+    274,
+    278,
+    279,
+    281,
+    282,
+    303,
+    310
+   ],
+   "demographic": 1,
+   "view_count": 0,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Shounen",
+      "type": "anime",
+      "slug": "shounen",
+      "group": "demographic"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Comedy",
+      "type": "main",
+      "slug": "comedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Historical",
+      "type": null,
+      "slug": "historical",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Romance",
+      "type": "main",
+      "slug": "romance",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Isekai",
+      "type": null,
+      "slug": "isekai",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Magic",
+      "type": null,
+      "slug": "magic",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Reincarnation",
+      "type": null,
+      "slug": "reincarnation",
+      "group": "Theme"
+     }
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 690,
+     "h": 1000,
+     "b2key": "w7QveR.jpg",
+     "gpurl": "https://tmp2.comick.pictures/e7e5c740-8797-4912-a3a8-8eded17ec910/0-zeztU2ZGbiEZx.jpg"
+    }
+   ],
+   "md_titles": []
+  }
+ ],
+ "90": [
+  {
+   "id": 170959,
+   "title": "Yongsa ui Ballad",
+   "slug": "the-heros-ballad",
+   "comment_count": 40,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "hid": "eBWt91WG",
+   "genres": [
+    310,
+    244,
+    274,
+    245,
+    252,
+    281,
+    282
+   ],
+   "demographic": 1,
+   "view_count": 0,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Reincarnation",
+      "type": null,
+      "slug": "reincarnation",
+      "group": "Theme"
+     }
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 690,
+     "h": 1000,
+     "b2key": "MLgJ5E.jpg",
+     "gpurl": "https://uploads.mangadex.org/covers/23ddcbae-7074-4f07-bd23-08177bf31412/22f60810-69c8-4a33-8e73-42c057fea3d6.jpg"
+    }
+   ],
+   "md_titles": []
+  },
+  {
+   "id": 246238,
+   "title": "Hogamdoro Skill Boksa!",
+   "slug": "copy-skills-with-affinity",
+   "comment_count": 52,
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "hid": "qDlTBdOW",
+   "genres": [
+    310,
+    244,
+    274,
+    264,
+    247,
+    245,
+    254,
+    278,
+    252,
+    281,
+    279,
+    282
+   ],
+   "demographic": null,
+   "view_count": 0,
+   "md_comic_md_genres": [
+    {
+     "md_genres": {
+      "name": "Action",
+      "type": "main",
+      "slug": "action",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adventure",
+      "type": null,
+      "slug": "adventure",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Comedy",
+      "type": "main",
+      "slug": "comedy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Fantasy",
+      "type": null,
+      "slug": "fantasy",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Harem",
+      "type": "main",
+      "slug": "harem",
+      "group": "Theme"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Romance",
+      "type": "main",
+      "slug": "romance",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Long Strip",
+      "type": null,
+      "slug": "long-strip",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Isekai",
+      "type": null,
+      "slug": "isekai",
+      "group": "Genre"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Adaptation",
+      "type": null,
+      "slug": "adaptation",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Web Comic",
+      "type": null,
+      "slug": "web-comic",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Full Color",
+      "type": null,
+      "slug": "full-color",
+      "group": "Format"
+     }
+    },
+    {
+     "md_genres": {
+      "name": "Reincarnation",
+      "type": null,
+      "slug": "reincarnation",
+      "group": "Theme"
+     }
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 690,
+     "h": 1000,
+     "b2key": "7yyK0J.png",
+     "gpurl": "https://uploads.mangadex.org/covers/1267bf7e-65a9-4747-9aa4-e7ad1564f83e/792a3268-1cd4-4282-a8df-a51cb6d117bb.png"
+    }
+   ],
+   "md_titles": []
+  }
+ ]
+}
