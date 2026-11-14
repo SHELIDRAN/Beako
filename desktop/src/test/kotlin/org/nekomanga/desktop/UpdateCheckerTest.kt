@@ -106,4 +106,39 @@ class UpdateCheckerTest {
         assertTrue(first === second)
         assertEquals(1, requests)
     }
+
+    @Test
+    fun skipRulesLeaveOutTheRightTitles() {
+        val base =
+            org.nekomanga.shared.library.LibraryEntry(
+                org.nekomanga.shared.model.Title(
+                    org.nekomanga.shared.model.Sources.MANGADEX,
+                    "m",
+                    "Done",
+                    status = org.nekomanga.shared.model.PublicationStatus.COMPLETED,
+                ),
+                addedAt = 0,
+            )
+        val finished = base.copy(chapterCount = 2, readChapterIds = setOf("a", "b"))
+        val behind = base.copy(chapterCount = 3, readChapterIds = setOf("a"))
+        val fresh = base.copy(chapterCount = 3)
+        assertTrue(UpdateChecker.skips(setOf("COMPLETED"), finished))
+        assertTrue(!UpdateChecker.skips(setOf("COMPLETED"), behind))
+        assertTrue(UpdateChecker.skips(setOf("UNREAD"), behind))
+        assertTrue(UpdateChecker.skips(setOf("NOT_STARTED"), fresh))
+        assertTrue(!UpdateChecker.skips(emptySet(), finished))
+    }
+
+    @Test
+    fun dnsUsesTheSystemUntilAProviderIsChosen() {
+        var provider = ""
+        val dns = org.nekomanga.desktop.state.SwitchableDns({ provider }, okhttp3.OkHttpClient())
+        assertTrue(dns.lookup("localhost").isNotEmpty())
+        assertEquals(null, org.nekomanga.desktop.state.DohProvider.of(provider))
+        provider = "QUAD9"
+        assertEquals(
+            org.nekomanga.desktop.state.DohProvider.QUAD9,
+            org.nekomanga.desktop.state.DohProvider.of(provider),
+        )
+    }
 }

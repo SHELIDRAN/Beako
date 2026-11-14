@@ -28,6 +28,7 @@ dependencies {
     implementation(cmp.coroutines.swing)
     implementation(cmp.jna)
     implementation(libs.okhttp)
+    implementation(libs.okhttp.dnsoverhttps)
     implementation(projects.shared)
 
     testImplementation(kotlinx.test.junit5)
