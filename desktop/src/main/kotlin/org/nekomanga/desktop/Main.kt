@@ -103,6 +103,7 @@ fun main(args: Array<String>) {
         }
         var awtFrame: java.awt.Frame? = null
         val windowControl = remember { WindowControl.forWindow(windowState) { awtFrame } }
+        val keyRouter = remember { org.nekomanga.desktop.state.KeyRouter() }
         Window(
             onCloseRequest = {
                 container.library.flush()
@@ -113,6 +114,7 @@ fun main(args: Array<String>) {
             title = APP_NAME,
             icon = icon,
             state = windowState,
+            onPreviewKeyEvent = keyRouter::dispatch,
         ) {
             awtFrame = window
             val scope = rememberCoroutineScope()
@@ -148,7 +150,10 @@ fun main(args: Array<String>) {
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
             // read:<query> starts on that page, using the first MangaDex match.
             LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
-            CompositionLocalProvider(LocalWindowControl provides windowControl) {
+            CompositionLocalProvider(
+                LocalWindowControl provides windowControl,
+                org.nekomanga.desktop.state.LocalKeyRouter provides keyRouter,
+            ) {
                 val settings by container.settings.settings.collectAsState()
                 BeakoApp(
                     appearance =
