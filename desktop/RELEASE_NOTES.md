@@ -1,20 +1,15 @@
 Beako is a manga reader for Windows, based on the [Neko](https://github.com/nekomangaorg/Neko) Android app (Apache-2.0).
 
-## Beako 0.1.2
+## Beako 0.1.3
 
-**Install:** download `Beako-0.1.2-windows-x64.msi` below and run it; it upgrades earlier versions in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
+**Install:** download `Beako-0.1.3-windows-x64.msi` below and run it; it upgrades earlier versions in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
 
 ### Fixed
-- **Full screen kept the title bar** on Windows while the button said "Exit full screen". Full screen now covers the whole monitor, taskbar included, and leaving it puts the window back as it was.
-- **Comick, Weeb Central and Comix timed out** on networks that block sites through DNS, while the browser could open them. DNS now defaults to **Automatic**: sites are looked up with DNS over HTTPS (like your browser's secure DNS), falling back to Windows DNS when that's unavailable. You can change it in More → Library updates and network.
-- **Mangafire failed every search** ("getFilterList not implemented"): sources without a filter list now search without one, as in Mangayomi.
+- **Everything timed out after a restart in 0.1.2**, MangaDex included, on some networks. Automatic DNS now asks both Windows DNS and DNS over HTTPS, and Beako tries every address they give at once, keeping whichever connects first. A blocked or unreachable answer from either side no longer stops it. If you switched DNS to "Windows DNS only" as a workaround, you can set it back to Automatic.
+- **The reader got stuck after moving to the next chapter:** arrow keys stopped working and the controls stayed hidden. Reader keys now work whatever was clicked last, and every chapter opens with its controls showing.
 
-### Better error reports
-- "Couldn't reach …" now says why: the address couldn't be found, the secure connection failed, the connection timed out, or it was refused.
-- `%APPDATA%\Beako\beako.log` now records every failed connection (address and error, never passwords or sign-in tokens), and a broken image only once.
-
-### Tip
-- If Comix answers with "cannot read property 'items' of undefined", your copy of the Comix source uses Comix's old API. Install Comix from the m2k3a repository (`https://raw.githubusercontent.com/m2k3a/mangayomi-extensions/main/index.json`) in More → Sources instead.
+### For bug reports
+- `%APPDATA%\Beako\beako.log` now also notes, once per site, what Windows DNS and DNS over HTTPS returned, so connection problems can be pinned down.
 
 ### Still to come
 - Dart-based Mangayomi sources (most sources in the big repositories); JavaScript ones work.
