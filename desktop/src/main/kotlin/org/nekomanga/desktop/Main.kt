@@ -1,6 +1,8 @@
 package org.nekomanga.desktop
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.ImageBitmap
@@ -17,10 +19,14 @@ import coil3.request.crossfade
 import org.jetbrains.skia.Image
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.screens.BrowseScreen
+import org.nekomanga.desktop.screens.DetailsScreen
+import org.nekomanga.desktop.screens.ReaderScreen
 import org.nekomanga.desktop.screens.SearchScreen
 import org.nekomanga.desktop.state.AppContainer
 import org.nekomanga.desktop.state.AppState
+import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.Page
+import org.nekomanga.desktop.state.WindowControl
 
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
 const val APP_ICON = "neko-icon.png"
@@ -36,26 +42,49 @@ fun main() {
     }
     application {
         val icon = remember { BitmapPainter(loadAppIcon()) }
+        val windowState = rememberWindowState(width = 1280.dp, height = 800.dp)
+        val windowControl = remember { WindowControl(windowState) }
         Window(
             onCloseRequest = ::exitApplication,
             title = APP_NAME,
             icon = icon,
-            state = rememberWindowState(width = 1280.dp, height = 800.dp),
+            state = windowState,
         ) {
             val scope = rememberCoroutineScope()
             val state = remember { AppState(container, scope) }
-            // Developer aid: BEAKO_OPEN=search:<query> starts on the Search page.
-            remember {
-                System.getenv("BEAKO_OPEN")?.removePrefix("search:")?.let {
-                    state.navigator.open(Page.Search(it))
-                }
+            // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
+            // read:<query> starts on that page, using the first MangaDex match.
+            LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
+            CompositionLocalProvider(LocalWindowControl provides windowControl) {
+                BeakoApp(
+                    navigator = state.navigator,
+                    page = { AppPage(state, it) },
+                    screen = { AppScreen(state, it) },
+                )
             }
-            BeakoApp(
-                navigator = state.navigator,
-                page = { AppPage(state, it) },
-                screen = { AppScreen(state, it) },
-            )
         }
+    }
+}
+
+private suspend fun openForDevelopment(state: AppState, request: String?) {
+    val (kind, query) = request?.split(":", limit = 2)?.takeIf { it.size == 2 } ?: return
+    if (kind == "search") {
+        state.navigator.open(Page.Search(query))
+        return
+    }
+    val title =
+        runCatching { state.container.mangaDex.search(query, limit = 1).items.firstOrNull() }
+            .getOrNull() ?: return
+    state.navigator.open(Page.Details(title))
+    if (kind == "read") {
+        val chapters = runCatching {
+            state.container.mangaDex.allChapters(title.id)
+        }
+            .getOrNull()
+            ?.reversed()
+            .orEmpty()
+        val first = chapters.indexOfFirst { it.externalUrl == null && it.pages > 0 }
+        if (first >= 0) state.navigator.open(Page.Reader(title, chapters, first))
     }
 }
 
@@ -82,8 +111,15 @@ private fun AppPage(state: AppState, page: Page) {
                 onBack = { state.navigator.back() },
                 onOpen = { state.navigator.open(Page.Details(it)) },
             )
-        is Page.Details -> PlaceholderPage(page.title.title) { state.navigator.back() }
-        is Page.Reader -> PlaceholderPage("Reader") { state.navigator.back() }
+        is Page.Details ->
+            DetailsScreen(
+                state.details(page.title),
+                onBack = { state.navigator.back() },
+                onRead = { chapters, index ->
+                    state.navigator.open(Page.Reader(page.title, chapters, index))
+                },
+            )
+        is Page.Reader -> ReaderScreen(state.reader(page), onClose = { state.navigator.back() })
     }
 }
 
