@@ -248,6 +248,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - Unified manga page: source adapters, title matching by AniList ID, merged chapter list, source dropdown and automatic fallback; add sources one by one (Komga and Suwayomi first, since they are self-hosted APIs).
    - Extensions: Mangayomi-format repositories; JavaScript sources in an embedded JS engine, then Dart sources through a bundled helper process; "Available on" dropdown filled from installed sources.
    - Installer (`.msi`), auto-update, code signing.
+   - **Status (Nov 14, 2026):** JavaScript extensions, the "Available on" dropdown and gap-filling across sources are built; Beako 0.1.0 is released as a preview (unsigned `.msi` from CI on a `beako-v0.1.0` tag). Still open: Dart sources, Komga/Suwayomi adapters, title matching by AniList id, auto-update, code signing.
 
 Windows-only extras to consider:
 
