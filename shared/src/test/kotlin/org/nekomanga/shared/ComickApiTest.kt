@@ -198,4 +198,20 @@ class ComickApiTest {
         assertEquals("Full Color", tags.first().name)
         assertEquals(9589, tags.first().count)
     }
+
+    @Test
+    fun coversFromPngOriginalsUseComicksJpegThumbnail() {
+        runTest {
+            // Real chart entries whose md_covers keys are .png: Comick's thumbnails are always
+            // .jpg.
+            val http = FakeHttp { json(fixture("comick/top_trending.json")) }
+            val covers =
+                ComickApi(http).chart(ComickChart.MOST_RECENT_POPULAR, days = 7).mapNotNull {
+                    it.coverUrl
+                }
+            assertTrue(covers.isNotEmpty())
+            assertTrue(covers.all { it.endsWith("-m.jpg") }, covers.toString())
+            assertTrue("https://meo.comick.pictures/Ygy80b-m.jpg" in covers)
+        }
+    }
 }
