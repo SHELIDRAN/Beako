@@ -208,4 +208,64 @@ class ReaderModelTest {
         runCurrent()
         assertEquals(2, model.page)
     }
+
+    @Test
+    fun longStripPagesSwitchToWebtoonUnlessAModeWasChosen() = runTest {
+        val auto =
+            ReaderModel(backgroundScope, MangaDexApi(threePages), manga, listOf(chapter("1")), 0)
+        assertEquals(ReadingMode.RIGHT_TO_LEFT, auto.mode)
+        auto.reportAspect(0, 3.1f)
+        assertEquals(ReadingMode.RIGHT_TO_LEFT, auto.mode, "one tall page isn't enough")
+        auto.reportAspect(1, 2.9f)
+        assertEquals(ReadingMode.WEBTOON, auto.mode)
+        assertTrue(auto.autoSwitched)
+
+        val saved = mutableListOf<ReadingMode>()
+        val chosen =
+            ReaderModel(
+                backgroundScope,
+                MangaDexApi(threePages),
+                manga,
+                listOf(chapter("1")),
+                0,
+                savedMode = ReadingMode.LEFT_TO_RIGHT,
+                saveMode = { saved += it },
+            )
+        chosen.reportAspect(0, 3f)
+        chosen.reportAspect(1, 3f)
+        assertEquals(ReadingMode.LEFT_TO_RIGHT, chosen.mode)
+        chosen.mode = ReadingMode.WEBTOON
+        assertEquals(listOf(ReadingMode.WEBTOON), saved)
+    }
+
+    @Test
+    fun splitSpreadsTurnHalfByHalf() = runTest {
+        val model =
+            ReaderModel(
+                backgroundScope,
+                MangaDexApi(threePages),
+                manga,
+                listOf(chapter("1")),
+                0,
+                splitWidePages = { true },
+            )
+        model.start()
+        runCurrent()
+        model.reportAspect(1, 0.7f) // page 2 is a spread
+        model.turn(true)
+        assertEquals(1 to 0, model.page to model.half)
+        model.turn(true)
+        assertEquals(1 to 1, model.page to model.half)
+        model.turn(true)
+        assertEquals(2 to 0, model.page to model.half)
+        // Paging back enters the spread on its second half.
+        model.turn(false)
+        assertEquals(1 to 1, model.page to model.half)
+        model.turn(false)
+        model.turn(false)
+        assertEquals(0 to 0, model.page to model.half)
+        // Webtoon never splits.
+        model.mode = ReadingMode.WEBTOON
+        assertTrue(!model.isSplit(1))
+    }
 }

@@ -1,6 +1,7 @@
 package org.nekomanga.desktop.state
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +57,12 @@ class ReaderModel(
     private val dataSaver: () -> Boolean = { false },
     /** Called once per chapter when it is finished, to sync trackers. */
     private val onChapterRead: (Chapter) -> Unit = {},
+    /** The mode last chosen for this title, if any. */
+    savedMode: ReadingMode? = null,
+    /** Remembers the mode the user picks for this title. */
+    private val saveMode: (ReadingMode) -> Unit = {},
+    private val autoWebtoon: () -> Boolean = { true },
+    private val splitWidePages: () -> Boolean = { false },
 ) {
     var index by mutableStateOf(startIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0)))
         private set
@@ -75,7 +82,54 @@ class ReaderModel(
             record()
         }
 
-    var mode by mutableStateOf(ReadingMode.defaultFor(title.type))
+    private val modeState = mutableStateOf(savedMode ?: ReadingMode.defaultFor(title.type))
+    private var modeChosen = savedMode != null
+
+    /** The layout. Setting it is the user's choice: it is remembered and stops auto-detection. */
+    var mode: ReadingMode
+        get() = modeState.value
+        set(value) {
+            modeChosen = true
+            halfState.value = 0
+            if (value != modeState.value) {
+                modeState.value = value
+                saveMode(value)
+            }
+        }
+
+    /** True when the reader switched to webtoon by itself, for a one-time notice. */
+    var autoSwitched by mutableStateOf(false)
+        private set
+
+    private val halfState = mutableStateOf(0)
+
+    /** With split wide pages: 0 shows the half read first, 1 the other half. */
+    val half: Int
+        get() = halfState.value
+
+    /** Height÷width of pages loaded in the current chapter, by index. */
+    private val aspects = mutableStateMapOf<Int, Float>()
+
+    /** The loaded page's height÷width, or a portrait default. */
+    fun aspectOf(index: Int): Float = aspects[index] ?: 1.45f
+
+    /** True when [index] is a double-page spread to show in halves. */
+    fun isSplit(index: Int): Boolean =
+        mode.isPaged && splitWidePages() && (aspects[index] ?: return false) < WIDE_ASPECT
+
+    /**
+     * Reports a loaded page's height÷width. Long-strip pages switch a title to webtoon mode unless
+     * the user picked a mode for it.
+     */
+    fun reportAspect(index: Int, aspect: Float) {
+        if (aspect <= 0f) return
+        aspects[index] = aspect
+        if (modeChosen || mode == ReadingMode.WEBTOON || !autoWebtoon()) return
+        if (aspects.values.count { it >= STRIP_ASPECT } >= 2) {
+            modeState.value = ReadingMode.WEBTOON
+            autoSwitched = true
+        }
+    }
 
     /** Set when a chapter opens at its last page, after paging back from the next chapter. */
     var openAtEnd by mutableStateOf(false)
@@ -120,9 +174,18 @@ class ReaderModel(
     fun turn(forward: Boolean) {
         if (pages !is Loadable.Ready) return
         when {
-            forward && page < pageCount - 1 -> page += 1
+            forward && isSplit(page) && half == 0 -> halfState.value = 1
+            !forward && isSplit(page) && half == 1 -> halfState.value = 0
+            forward && page < pageCount - 1 -> {
+                halfState.value = 0
+                page += 1
+            }
             forward -> nextChapter()
-            page > 0 -> page -= 1
+            page > 0 -> {
+                page -= 1
+                // Coming back into a spread starts on its second half.
+                halfState.value = if (isSplit(page)) 1 else 0
+            }
             else -> previousChapter(atEnd = true)
         }
     }
@@ -156,6 +219,8 @@ class ReaderModel(
         openAtEnd = atEnd
         resumePage = 0
         pageState.value = 0
+        halfState.value = 0
+        aspects.clear()
         load()
     }
 
@@ -191,6 +256,12 @@ class ReaderModel(
         }
     }
 }
+
+/** Pages taller than this (height÷width) are long strips. */
+private const val STRIP_ASPECT = 2.2f
+
+/** Pages wider than tall by this much are double-page spreads. */
+private const val WIDE_ASPECT = 0.85f
 
 /** Marks a page "URL" that is really a downloaded file's path. */
 const val LOCAL_PAGE = "beako-file:"

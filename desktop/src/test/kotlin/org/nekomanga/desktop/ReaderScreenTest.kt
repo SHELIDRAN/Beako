@@ -74,10 +74,18 @@ class ReaderScreenTest {
         assertEquals(ReadingMode.LEFT_TO_RIGHT, model.mode)
 
         // The right-hand zone turns forward in left-to-right mode.
-        onNodeWithContentDescription("Next side").performClick()
+        onNodeWithContentDescription("Right side: turn the page").performClick()
         waitForIdle()
         assertEquals(1, model.page)
         onNodeWithText("2 of 3").assertIsDisplayed()
+
+        // The settings panel shows the paged-mode options.
+        onNodeWithContentDescription("Reader settings").performClick()
+        waitForIdle()
+        onNodeWithText("Page fit").assertIsDisplayed()
+        onNodeWithText("Split wide pages").assertIsDisplayed()
+        onNodeWithContentDescription("Close reader settings (Esc)").performClick()
+        waitForIdle()
 
         onNodeWithContentDescription("Next chapter (])").performClick()
         waitForIdle()
