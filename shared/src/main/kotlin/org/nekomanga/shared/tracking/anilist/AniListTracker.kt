@@ -74,10 +74,12 @@ class AniListTracker(
                 .await { openBrowser(url) }
                 .params
         // AniList echoes state; a mismatch means the response isn't from this attempt.
-        params["state"]?.let {
-            if (it != state) throw AuthCancelled("The sign-in response didn’t match. Try again.")
-        }
         params["error"]?.let { throw AuthCancelled("AniList sign-in failed ($it).") }
+        // The state must come back unchanged: a callback without it may be forged by another page
+        // or program trying to sign Beako into a different account.
+        if (params["state"] != state) {
+            throw AuthCancelled("The sign-in response didn’t match. Try again.")
+        }
         val token =
             params["access_token"] ?: throw AuthCancelled("AniList didn’t return a sign-in token.")
         vault.put(TOKEN_KEY, token)
