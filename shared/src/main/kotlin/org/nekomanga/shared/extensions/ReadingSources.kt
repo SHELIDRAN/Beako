@@ -27,11 +27,16 @@ data class SourceMatch(
 class PageHeaders(private val max: Int = 5_000) {
     private val headers = ConcurrentHashMap<String, Map<String, String>>()
 
+    /**
+     * Records a page URL an extension gave, with its headers; such URLs get the sandbox's rules.
+     */
     fun remember(url: String, values: Map<String, String>) {
-        if (values.isEmpty()) return
         if (headers.size >= max) headers.clear()
         headers[url] = values
     }
+
+    /** True when [url] came from an extension, so loading it must follow [HostPolicy]. */
+    fun isFromExtension(url: String): Boolean = headers.containsKey(url)
 
     fun forUrl(url: String): Map<String, String> = headers[url].orEmpty()
 }
@@ -91,7 +96,11 @@ class ReadingSources(
      * Installed sources that carry [title], found by searching each for the title's names and
      * keeping exact name matches. Searches run in parallel, each given [perSourceMillis].
      */
-    suspend fun find(title: Title, perSourceMillis: Long = 20_000): List<SourceMatch> {
+    suspend fun find(
+        title: Title,
+        skip: Set<String> = emptySet(),
+        perSourceMillis: Long = 20_000,
+    ): List<SourceMatch> {
         val names =
             (listOf(title.title) + title.altTitles)
                 .map(::normalise)
@@ -101,6 +110,7 @@ class ReadingSources(
             (listOf(title.title) + title.altTitles).filter { it.isNotBlank() }.distinct().take(2)
         return coroutineScope {
             extensions.usable
+                .filter { sourceIdOf(it.info.id) !in skip }
                 .map { installed ->
                     async {
                         withTimeoutOrNull(perSourceMillis) {
@@ -167,7 +177,9 @@ class ReadingSources(
                 title = chapter.name.takeIf { number == null },
                 language = language.ifBlank { "en" },
                 group = chapter.scanlator,
-                publishedAt = Instant.ofEpochMilli(chapter.dateUpload ?: 0).toString(),
+                // No date rather than 1970 when the source doesn't give one.
+                publishedAt =
+                    chapter.dateUpload?.let { Instant.ofEpochMilli(it).toString() }.orEmpty(),
             )
         }
 

@@ -20,6 +20,7 @@ import org.nekomanga.shared.download.DownloadManager
 import org.nekomanga.shared.download.ImageFetcher
 import org.nekomanga.shared.extensions.ExtensionHttp
 import org.nekomanga.shared.extensions.ExtensionManager
+import org.nekomanga.shared.extensions.HostPolicy
 import org.nekomanga.shared.extensions.PageHeaders
 import org.nekomanga.shared.extensions.ReadingSources
 import org.nekomanga.shared.library.AppDirs
@@ -64,19 +65,40 @@ class AppContainer(
             }
             .addInterceptor { chain ->
                 val request = chain.request()
-                val extra = pageHeaders.forUrl(request.url.toString())
+                val url = request.url.toString()
+                if (!pageHeaders.isFromExtension(url)) return@addInterceptor chain.proceed(request)
+                // Page URLs from extensions get the sandbox's rules: public hosts only, every hop.
+                try {
+                    HostPolicy.checkResolved(url)
+                } catch (e: HostPolicy.Blocked) {
+                    throw java.io.IOException(e.message)
+                }
                 chain.proceed(
-                    if (extra.isEmpty()) request
-                    else
-                        request
-                            .newBuilder()
-                            .apply {
-                                extra.forEach { (name, value) ->
-                                    runCatching { header(name, value) }
-                                }
+                    request
+                        .newBuilder()
+                        .tag(ExtensionPage::class.java, ExtensionPage)
+                        .apply {
+                            pageHeaders.forUrl(url).forEach { (name, value) ->
+                                runCatching { header(name, value) }
                             }
-                            .build(),
+                        }
+                        .build(),
                 )
+            }
+            .addNetworkInterceptor { chain ->
+                val request = chain.request()
+                if (request.tag(ExtensionPage::class.java) != null) {
+                    val address = chain.connection()?.route()?.socketAddress?.address
+                    if (address != null && HostPolicy.isPrivate(address)) {
+                        throw java.io.IOException("Extensions can’t reach the local network")
+                    }
+                    try {
+                        HostPolicy.check(request.url.toString())
+                    } catch (e: HostPolicy.Blocked) {
+                        throw java.io.IOException(e.message)
+                    }
+                }
+                chain.proceed(request)
             }
             .build()
     }
@@ -148,3 +170,6 @@ class AppContainer(
         }
     }
 }
+
+/** Marks requests for extension page images, so redirects get the sandbox's checks too. */
+private object ExtensionPage

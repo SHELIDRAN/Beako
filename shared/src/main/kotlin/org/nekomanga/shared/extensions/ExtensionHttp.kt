@@ -130,7 +130,11 @@ class ExtensionHttp(base: OkHttpClient, private val userAgent: String) : Extensi
                     override fun onResponse(call: Call, response: Response) {
                         response.use {
                             try {
-                                val text = it.body.bytes().decodeToString()
+                                val source = it.body.source()
+                                if (source.request(MAX_BODY + 1)) {
+                                    throw IOException("The page is too large")
+                                }
+                                val text = source.buffer.readUtf8()
                                 continuation.resume(
                                     ExtensionResponse(
                                         it.code,
@@ -152,6 +156,9 @@ class ExtensionHttp(base: OkHttpClient, private val userAgent: String) : Extensi
     }
 
     companion object {
+        /** Larger answers fail inside the source instead of exhausting the app's memory. */
+        const val MAX_BODY = 32L * 1024 * 1024
+
         /** A browser-like agent that still names Beako, as many sites refuse unknown clients. */
         fun userAgent(version: String) =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36 Beako/$version"

@@ -231,4 +231,53 @@ class ExtensionTest {
         assertEquals("7", number("Ch.7 - The Gate"))
         assertNull(number("Prologue"))
     }
+
+    @Test
+    fun aScriptStuckInALoopIsStoppedAndClosesWithoutWaiting() =
+        runBlocking<Unit> {
+            val looping =
+                JsSource(
+                    info,
+                    "class DefaultExtension extends MProvider { async getPopular() { while (true) {} } }",
+                    Site(),
+                    callTimeoutMillis = 1_000,
+                )
+            val started = System.currentTimeMillis()
+            assertFailsWith<ExtensionError> { looping.popular(1) }
+            looping.close()
+            assertTrue(System.currentTimeMillis() - started < 70_000)
+        }
+
+    @Test
+    fun switchingReadingSourceStartsAFreshBaseline() {
+        val store =
+            org.nekomanga.shared.library.LibraryStore(
+                java.io.File(java.nio.file.Files.createTempDirectory("b").toFile(), "l.json"),
+            )
+        val title =
+            org.nekomanga.shared.model.Title(org.nekomanga.shared.model.Sources.COMICK, "h", "T")
+        store.add(title)
+        val md =
+            org.nekomanga.shared.model.Chapter(
+                "mangadex",
+                "a",
+                "1",
+                language = "en",
+                publishedAt = "",
+            )
+        store.recordCheck(org.nekomanga.shared.library.LibraryEntry.keyOf(title), listOf(md))
+        store.switchReadingSource(title, "ext:1")
+        val ext =
+            org.nekomanga.shared.model.Chapter(
+                "ext:1",
+                "/c/1",
+                "1",
+                language = "en",
+                publishedAt = "",
+            )
+        val fresh =
+            store.recordCheck(org.nekomanga.shared.library.LibraryEntry.keyOf(title), listOf(ext))
+        assertTrue(fresh.isEmpty(), "a new source's chapters aren't all new")
+        assertEquals("ext:1", store.entry(title)!!.readingSource)
+    }
 }

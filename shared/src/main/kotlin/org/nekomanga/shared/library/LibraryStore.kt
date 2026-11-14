@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.SerializationException
 import org.nekomanga.shared.model.Chapter
+import org.nekomanga.shared.model.Sources
 import org.nekomanga.shared.model.Title
 import org.nekomanga.shared.net.BeakoJson
 
@@ -216,6 +217,27 @@ class LibraryStore(
      * Stores the result of an update check. Chapters not seen before become new chapters, except on
      * the first check, which only records what exists. Returns the chapters that are new.
      */
+    /**
+     * Reads [title]'s chapters from [sourceId] from now on. A different source has different
+     * chapter ids, so the next check starts a fresh baseline instead of reporting every chapter as
+     * new.
+     */
+    fun switchReadingSource(title: Title, sourceId: String) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) { entry ->
+            val previous =
+                entry.readingSource ?: Sources.MANGADEX.takeIf { entry.lastCheckedAt != null }
+            if (previous == sourceId && entry.readingSource == sourceId) entry
+            else if (previous == null || previous == sourceId) entry.copy(readingSource = sourceId)
+            else
+                entry.copy(
+                    readingSource = sourceId,
+                    knownChapterIds = emptySet(),
+                    newChapters = emptyList(),
+                    lastCheckedAt = null,
+                )
+        }
+    }
+
     fun recordCheck(key: String, chapters: List<Chapter>): List<Chapter> {
         var found = emptyList<Chapter>()
         val time = now()
