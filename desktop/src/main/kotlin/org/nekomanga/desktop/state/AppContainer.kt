@@ -38,10 +38,16 @@ class AppContainer(
     val vault: SecretVault = WindowsVault.forThisSystem(),
 ) {
     val userAgent = beakoUserAgent(version)
+    val settings = SettingsStore(dirs.settingsFile)
 
     /** Shared by API calls and image loading; every request names Beako. */
-    val httpClient: OkHttpClient =
-        OkHttpClient.Builder()
+    val httpClient: OkHttpClient = run {
+        // DNS-over-HTTPS queries go through a plain client, so they never resolve through
+        // themselves.
+        val bootstrap = OkHttpClient()
+        bootstrap
+            .newBuilder()
+            .dns(SwitchableDns({ settings.current.dnsOverHttps }, bootstrap))
             .addInterceptor { chain ->
                 val request = chain.request()
                 chain.proceed(
@@ -50,13 +56,13 @@ class AppContainer(
                 )
             }
             .build()
+    }
 
     private val http = OkHttpFetcher(httpClient, userAgent)
     val mangaDex = MangaDexApi(http)
     val comick = ComickApi(http)
     val discovery = Discovery(comick, mangaDex)
     val library = LibraryStore(dirs.libraryFile)
-    val settings = SettingsStore(dirs.settingsFile)
 
     private val transport = OkHttpTransport(httpClient, userAgent)
     val comickAccount = ComickAccount(transport, vault)

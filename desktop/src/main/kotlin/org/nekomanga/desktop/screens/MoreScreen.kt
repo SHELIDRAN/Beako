@@ -54,6 +54,7 @@ import java.awt.Desktop
 import java.io.File
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.state.DohProvider
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.Palette
@@ -171,6 +172,46 @@ fun MoreScreen(
                 ) { value ->
                     settingsStore.update { it.copy(uiScale = value) }
                 }
+            }
+        }
+        item("general") {
+            Section("Library updates and network") {
+                LabeledMenu(
+                    "Check for new chapters",
+                    UpdateIntervals.firstOrNull { it.first == settings.updateIntervalHours }?.second
+                        ?: "Every ${settings.updateIntervalHours} hours",
+                    UpdateIntervals.map { it.second },
+                ) { index ->
+                    settingsStore.update {
+                        it.copy(updateIntervalHours = UpdateIntervals[index].first)
+                    }
+                }
+                SkipRules.forEach { (rule, title, detail) ->
+                    ToggleRow(title, detail, rule in settings.updateSkip) { on ->
+                        settingsStore.update {
+                            it.copy(
+                                updateSkip = if (on) it.updateSkip + rule else it.updateSkip - rule,
+                            )
+                        }
+                    }
+                }
+                LabeledMenu(
+                    "DNS over HTTPS",
+                    DohProvider.of(settings.dnsOverHttps)?.label ?: "Off (use Windows DNS)",
+                    listOf("Off (use Windows DNS)") + DohProvider.entries.map { it.label },
+                ) { index ->
+                    settingsStore.update {
+                        it.copy(
+                            dnsOverHttps =
+                                if (index == 0) "" else DohProvider.entries[index - 1].name,
+                        )
+                    }
+                }
+                Text(
+                    "DNS over HTTPS can help when your network blocks a site. It applies to new connections at once.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BeakoColors.TextMuted,
+                )
             }
         }
         item("reading") {
@@ -437,3 +478,52 @@ private fun SliderRow(
         Text(valueText, style = MaterialTheme.typography.bodyMedium, color = BeakoColors.TextMuted)
     }
 }
+
+@Composable
+private fun LabeledMenu(
+    title: String,
+    current: String,
+    options: List<String>,
+    onSelect: (Int) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            color = BeakoColors.Text,
+            modifier = Modifier.width(180.dp),
+        )
+        Menu(current, options, onSelect)
+    }
+}
+
+private val UpdateIntervals =
+    listOf(
+        0 to "Never (only when I ask)",
+        3 to "Every 3 hours",
+        6 to "Every 6 hours",
+        12 to "Every 12 hours",
+        24 to "Once a day",
+    )
+
+private val SkipRules =
+    listOf(
+        Triple(
+            "COMPLETED",
+            "Skip finished series",
+            "Leave out completed series you’ve read to the end.",
+        ),
+        Triple(
+            "UNREAD",
+            "Skip series with unread chapters",
+            "Check only series you’re caught up on.",
+        ),
+        Triple(
+            "NOT_STARTED",
+            "Skip series you haven’t started",
+            "Leave out titles with nothing read yet.",
+        ),
+    )

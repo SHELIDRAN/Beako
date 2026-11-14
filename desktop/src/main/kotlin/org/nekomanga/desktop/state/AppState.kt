@@ -39,6 +39,7 @@ class AppState(
             container.discovery,
             intervalHours = { container.settings.current.updateIntervalHours },
             languages = { container.settings.current.languages },
+            skip = { entry -> UpdateChecker.skips(container.settings.current.updateSkip, entry) },
             onFound = onUpdates,
         )
 

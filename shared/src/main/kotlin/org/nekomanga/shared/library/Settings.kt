@@ -25,6 +25,13 @@ data class Settings(
     val uiScale: Float = 1f,
     /** Hours between library update checks; 0 turns them off. */
     val updateIntervalHours: Int = 6,
+    /**
+     * Titles the update check skips: "COMPLETED" (finished and fully read), "UNREAD",
+     * "NOT_STARTED".
+     */
+    val updateSkip: Set<String> = emptySet(),
+    /** DNS-over-HTTPS provider ("CLOUDFLARE", "GOOGLE", "QUAD9"), or "" for the system's DNS. */
+    val dnsOverHttps: String = "",
     /** Download MangaDex's smaller, compressed images. */
     val dataSaver: Boolean = false,
     /** Chapter languages, as MangaDex codes. */

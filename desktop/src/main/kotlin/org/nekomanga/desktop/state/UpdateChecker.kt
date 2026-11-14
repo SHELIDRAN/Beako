@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.nekomanga.shared.discovery.Discovery
+import org.nekomanga.shared.library.LibraryEntry
 import org.nekomanga.shared.library.LibraryStore
 import org.nekomanga.shared.mangadex.MangaDexApi
 import org.nekomanga.shared.model.Chapter
@@ -33,6 +34,8 @@ class UpdateChecker(
     /** Chapter languages to check, as MangaDex codes. */
     private val languages: () -> List<String> = { listOf("en") },
     private val firstDelayMillis: Long = 15_000L,
+    /** Titles the check leaves out, from the "skip when updating" settings. */
+    private val skip: (LibraryEntry) -> Boolean = { false },
     private val onFound: (List<TitleUpdate>) -> Unit = {},
 ) {
     var running by mutableStateOf(false)
@@ -77,7 +80,7 @@ class UpdateChecker(
     private suspend fun check() {
         running = true
         failures = 0
-        val entries = library.entries
+        val entries = library.entries.filterNot(skip)
         progress = 0 to entries.size
         val found = mutableListOf<TitleUpdate>()
         try {
@@ -106,6 +109,16 @@ class UpdateChecker(
     }
 
     companion object {
+        /** Whether [entry] is left out of checks by the "skip when updating" [rules]. */
+        fun skips(rules: Set<String>, entry: LibraryEntry): Boolean =
+            ("COMPLETED" in rules &&
+                entry.title.status == org.nekomanga.shared.model.PublicationStatus.COMPLETED &&
+                entry.chapterCount > 0 &&
+                entry.unreadCount == 0) ||
+                ("UNREAD" in rules && entry.unreadCount > 0) ||
+                ("NOT_STARTED" in rules &&
+                    entry.status == org.nekomanga.shared.library.ReadingStatus.NOT_STARTED)
+
         /** A one-line summary for a notification, e.g. "Eleceed 391 and 2 more titles". */
         fun summary(updates: List<TitleUpdate>): String {
             val count = updates.sumOf { it.chapters.size }
