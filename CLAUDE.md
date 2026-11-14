@@ -116,6 +116,8 @@ The JS extension runtime executes untrusted third-party scripts and is the highe
 ### 8. Images and diagnostics
 - Comick's resized covers are always JPEG: build `https://meo.comick.pictures/<key without extension>-m.jpg`, never keep the original's `.png` (those 404; about half the covers were blank in 0.1.0).
 - Extension URLs are normalised like a browser would (spaces and illegal characters percent-encoded) and checked with OkHttp's URL parser, the same one that sends the request; never `java.net.URI`, which rejects addresses sites use.
+- DNS defaults to **Automatic**: DNS over HTTPS (Cloudflare, then Google) with the system's DNS as fallback, and a brief cache. Some networks block sites by answering their lookups with addresses that never connect ("Connect timed out" for Comick, Weeb Central and Comix in 0.1.1 QA), which browsers' secure DNS avoids. Keep it the default; "Windows DNS only" and single providers stay as options.
+- Before a search, a source's filter list comes from `__filters()`, which returns `[]` when the script's `getFilterList` throws (Mangafire), as Mangayomi does.
 - `beako.log` in the data folder (`%APPDATA%\Beako` on Windows; `BEAKO_HOME/data` when set) records source failures (name, id, stack trace), image load failures and uncaught errors. It rotates at 1 MB to `beako.log.1`. Never log tokens, passwords or request headers.
 
 ### 9. Git and release workflow

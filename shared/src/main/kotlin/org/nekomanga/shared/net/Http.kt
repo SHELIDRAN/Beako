@@ -195,7 +195,11 @@ internal fun reasonOf(cause: Throwable): String {
             is javax.net.ssl.SSLException ->
                 return ": the secure connection failed. A network filter, VPN or antivirus may be " +
                     "intercepting it."
-            is java.net.SocketTimeoutException -> return ": it took too long to answer."
+            is java.net.SocketTimeoutException ->
+                return if (e.message?.contains("connect", ignoreCase = true) == true)
+                    ": the connection timed out. Your network may be blocking it; " +
+                        "check that DNS is set to Automatic in More → Library updates and network."
+                else ": it took too long to answer."
             is java.net.ConnectException -> return ": the connection was refused."
         }
         e = e.cause

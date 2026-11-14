@@ -128,17 +128,4 @@ class UpdateCheckerTest {
         assertTrue(UpdateChecker.skips(setOf("NOT_STARTED"), fresh))
         assertTrue(!UpdateChecker.skips(emptySet(), finished))
     }
-
-    @Test
-    fun dnsUsesTheSystemUntilAProviderIsChosen() {
-        var provider = ""
-        val dns = org.nekomanga.desktop.state.SwitchableDns({ provider }, okhttp3.OkHttpClient())
-        assertTrue(dns.lookup("localhost").isNotEmpty())
-        assertEquals(null, org.nekomanga.desktop.state.DohProvider.of(provider))
-        provider = "QUAD9"
-        assertEquals(
-            org.nekomanga.desktop.state.DohProvider.QUAD9,
-            org.nekomanga.desktop.state.DohProvider.of(provider),
-        )
-    }
 }

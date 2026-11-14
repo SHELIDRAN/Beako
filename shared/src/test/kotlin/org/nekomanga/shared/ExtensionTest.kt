@@ -424,4 +424,23 @@ class ExtensionTest {
             manager.closeAll()
         }
     }
+
+    @Test
+    fun sourcesWithoutAFilterListStillSearch() {
+        runBlocking {
+            // Like Mangafire: getFilterList throws "not implemented".
+            val code =
+                """
+                class DefaultExtension extends MProvider {
+                  getFilterList() { throw new Error("getFilterList not implemented"); }
+                  async search(query, page, filters) {
+                    return { list: [{ name: query + ":" + filters.length, link: "/t" }], hasNextPage: false };
+                  }
+                }
+                """
+            JsSource(info, code, Site()).use {
+                assertEquals("solo:0", it.search("solo").titles.single().name)
+            }
+        }
+    }
 }

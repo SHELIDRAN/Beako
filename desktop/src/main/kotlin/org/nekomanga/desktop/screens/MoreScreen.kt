@@ -54,6 +54,7 @@ import java.awt.Desktop
 import java.io.File
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.state.DnsMode
 import org.nekomanga.desktop.state.DohProvider
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
@@ -196,20 +197,23 @@ fun MoreScreen(
                         }
                     }
                 }
+                val dnsOptions =
+                    listOf(
+                        DnsMode.AUTOMATIC to "Automatic (recommended)",
+                        DnsMode.SYSTEM to "Windows DNS only",
+                    ) + DohProvider.entries.map { it.name to "${it.label} only" }
                 LabeledMenu(
-                    "DNS over HTTPS",
-                    DohProvider.of(settings.dnsOverHttps)?.label ?: "Off (use Windows DNS)",
-                    listOf("Off (use Windows DNS)") + DohProvider.entries.map { it.label },
+                    "DNS",
+                    dnsOptions.firstOrNull { it.first == settings.dnsOverHttps }?.second
+                        ?: "Automatic (recommended)",
+                    dnsOptions.map { it.second },
                 ) { index ->
-                    settingsStore.update {
-                        it.copy(
-                            dnsOverHttps =
-                                if (index == 0) "" else DohProvider.entries[index - 1].name,
-                        )
-                    }
+                    settingsStore.update { it.copy(dnsOverHttps = dnsOptions[index].first) }
                 }
                 Text(
-                    "DNS over HTTPS can help when your network blocks a site. It applies to new connections at once.",
+                    "Automatic looks sites up with DNS over HTTPS (like your browser’s secure DNS), which gets " +
+                        "past networks that block sites, and uses Windows DNS when that’s unavailable. " +
+                        "Changes apply to new connections at once.",
                     style = MaterialTheme.typography.bodySmall,
                     color = BeakoColors.TextMuted,
                 )

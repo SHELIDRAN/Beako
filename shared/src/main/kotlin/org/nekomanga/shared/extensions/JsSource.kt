@@ -85,7 +85,7 @@ class JsSource(
     suspend fun latest(page: Int): ExtensionPage = pageOf(call("getLatestUpdates($page)"))
 
     suspend fun search(query: String, page: Int = 1): ExtensionPage =
-        pageOf(call("search(${quote(query)},$page,extention.getFilterList())"))
+        pageOf(call("search(${quote(query)},$page,__filters())"))
 
     suspend fun detail(url: String): ExtensionDetail {
         val json = call("getDetail(${quote(url)})")
