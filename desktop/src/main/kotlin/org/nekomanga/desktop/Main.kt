@@ -27,6 +27,7 @@ import org.nekomanga.desktop.components.AccountSlot
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.screens.AccountsSection
 import org.nekomanga.desktop.screens.BrowseScreen
+import org.nekomanga.desktop.screens.ComickReleasesShelf
 import org.nekomanga.desktop.screens.DetailsScreen
 import org.nekomanga.desktop.screens.HistoryScreen
 import org.nekomanga.desktop.screens.LibraryScreen
@@ -191,6 +192,9 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.updates,
                 onOpen = { state.navigator.open(Page.Details(it)) },
                 onLibrary = { state.navigator.show(Destination.LIBRARY) },
+                shelf = {
+                    ComickReleasesShelf(state.accounts) { state.navigator.open(Page.Details(it)) }
+                },
             )
         Destination.HISTORY ->
             HistoryScreen(

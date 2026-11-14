@@ -208,11 +208,14 @@ fun Shelf(
     onOpen: (Title) -> Unit,
     modifier: Modifier = Modifier,
     ranked: Boolean = false,
+    /** Side margin, so the row can scroll edge to edge inside padded screens. */
+    inset: androidx.compose.ui.unit.Dp = 32.dp,
+    badge: (Title) -> String? = { null },
     trailing: @Composable () -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(
-            Modifier.padding(horizontal = 32.dp),
+            Modifier.padding(horizontal = inset),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -222,7 +225,7 @@ fun Shelf(
         when (titles) {
             is Loadable.Loading ->
                 Row(
-                    Modifier.padding(horizontal = 32.dp),
+                    Modifier.padding(horizontal = inset),
                     horizontalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                     repeat(6) { Skeleton(Modifier.size(width = 172.dp, height = 258.dp), 18) }
@@ -232,7 +235,7 @@ fun Shelf(
                     titles.message,
                     style = MaterialTheme.typography.bodyMedium,
                     color = BeakoColors.TextMuted,
-                    modifier = Modifier.padding(horizontal = 32.dp).height(60.dp),
+                    modifier = Modifier.padding(horizontal = inset).height(60.dp),
                 )
             is Loadable.Ready ->
                 if (titles.value.isEmpty()) {
@@ -240,11 +243,11 @@ fun Shelf(
                         "Nothing here yet.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = BeakoColors.TextMuted,
-                        modifier = Modifier.padding(horizontal = 32.dp).height(60.dp),
+                        modifier = Modifier.padding(horizontal = inset).height(60.dp),
                     )
                 } else {
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(horizontal = inset, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
                         items(titles.value.size) { index ->
@@ -253,6 +256,7 @@ fun Shelf(
                                 title,
                                 onClick = { onOpen(title) },
                                 rank = if (ranked) index + 1 else null,
+                                badge = badge(title),
                             )
                         }
                     }

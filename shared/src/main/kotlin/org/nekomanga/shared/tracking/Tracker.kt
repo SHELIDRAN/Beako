@@ -17,7 +17,14 @@ data class TrackerMatch(
 )
 
 /** One entry of a tracker list, for importing into the library. */
-data class RemoteEntry(val title: Title, val track: Track)
+data class RemoteEntry(
+    val title: Title,
+    val track: Track,
+    /** The newest released chapter number the tracker knows of (not a total). */
+    val latestNumber: String? = null,
+    /** When it was released, ISO-8601. */
+    val latestAt: String? = null,
+)
 
 /**
  * A reading tracker (Comick, AniList). Implementations follow each service's rules; the shared
