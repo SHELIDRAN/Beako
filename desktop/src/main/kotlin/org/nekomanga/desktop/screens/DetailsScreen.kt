@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.LibraryAdd
 import androidx.compose.material.icons.outlined.LibraryAddCheck
 import androidx.compose.material3.DropdownMenu
@@ -65,6 +66,7 @@ import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.glass
+import org.nekomanga.shared.download.DownloadState
 import org.nekomanga.shared.model.Chapter
 
 /** A title's page: cover and details, where it can be read, and its chapters. */
@@ -78,6 +80,8 @@ fun DetailsScreen(
 ) {
     LaunchedEffect(model) { model.start() }
     val libraryData by model.libraryData.collectAsState()
+    val queue by model.downloads.queue.collectAsState()
+    val downloadChanges by model.downloads.changes.collectAsState()
     val entry = remember(libraryData) { model.entry() }
     val title = model.title
     var expanded by remember { mutableStateOf(false) }
@@ -170,6 +174,13 @@ fun DetailsScreen(
                                     primary = true,
                                 )
                             }
+                            if (readingOrder.isNotEmpty()) {
+                                GlassButton(
+                                    "Download unread",
+                                    onClick = { model.download(model.unreadChapters()) },
+                                    icon = Icons.Outlined.Download,
+                                )
+                            }
                             LibraryButton(
                                 model,
                                 inLibrary = entry != null,
@@ -211,26 +222,58 @@ fun DetailsScreen(
                         val read = entry != null && chapter.id in entry.readChapterIds
                         val isNew = entry?.newChapters?.any { it.chapter.id == chapter.id } == true
                         val page = entry?.progress?.takeIf { it.chapterId == chapter.id }?.page
+                        val job = queue.firstOrNull {
+                            it.chapter.id == chapter.id && it.title.id == model.title.id
+                        }
+                        val downloaded =
+                            remember(downloadChanges, chapter.id) { model.isDownloaded(chapter) }
+                        val download =
+                            when {
+                                downloaded -> "Downloaded"
+                                job == null -> null
+                                job.state == DownloadState.FAILED -> "Download failed"
+                                job.total > 0 -> "Downloading ${job.done}/${job.total}"
+                                else -> "Queued"
+                            }
                         ContextMenuArea(
                             items = {
-                                if (entry == null) emptyList()
-                                else
+                                (if (downloaded)
                                     listOf(
-                                        if (read)
-                                            ContextMenuItem("Mark as unread") {
-                                                model.setRead(listOf(chapter), false)
-                                            }
-                                        else
-                                            ContextMenuItem("Mark as read") {
-                                                model.setRead(listOf(chapter), true)
-                                            },
-                                        ContextMenuItem("Mark this and earlier as read") {
-                                            model.markReadUpTo(chapter)
+                                        ContextMenuItem("Delete download") {
+                                            model.deleteDownload(chapter)
                                         },
                                     )
+                                else if (chapter.externalUrl == null && job == null)
+                                    listOf(
+                                        ContextMenuItem("Download") {
+                                            model.download(listOf(chapter))
+                                        },
+                                    )
+                                else emptyList()) +
+                                    if (entry == null) emptyList()
+                                    else
+                                        listOf(
+                                            if (read)
+                                                ContextMenuItem("Mark as unread") {
+                                                    model.setRead(listOf(chapter), false)
+                                                }
+                                            else
+                                                ContextMenuItem("Mark as read") {
+                                                    model.setRead(listOf(chapter), true)
+                                                },
+                                            ContextMenuItem("Mark this and earlier as read") {
+                                                model.markReadUpTo(chapter)
+                                            },
+                                        )
                             },
                         ) {
-                            ChapterRow(chapter, read = read, isNew = isNew, page = page) {
+                            ChapterRow(
+                                chapter,
+                                read = read,
+                                isNew = isNew,
+                                page = page,
+                                download = download,
+                            ) {
                                 onRead(
                                     readingOrder,
                                     readingOrder.indexOfFirst { it.id == chapter.id },
@@ -341,6 +384,7 @@ private fun ChapterRow(
     read: Boolean,
     isNew: Boolean,
     page: Int?,
+    download: String?,
     onClick: () -> Unit,
 ) {
     val hover = remember { MutableInteractionSource() }
@@ -376,6 +420,7 @@ private fun ChapterRow(
                         chapter.group,
                         chapter.publishedAt.take(10),
                         if (read) "Read" else page?.let { "Page ${it + 1}" },
+                        download,
                     )
                     .joinToString("  •  "),
                 style = MaterialTheme.typography.bodySmall,

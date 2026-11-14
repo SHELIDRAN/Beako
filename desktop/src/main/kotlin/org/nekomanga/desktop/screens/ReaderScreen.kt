@@ -71,6 +71,7 @@ import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.ReaderModel
 import org.nekomanga.desktop.state.ReadingMode
 import org.nekomanga.desktop.state.displayName
+import org.nekomanga.desktop.state.pageModel
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.LocalAppearance
 import org.nekomanga.desktop.theme.glass
@@ -232,7 +233,7 @@ private fun WebtoonStrip(
     ) {
         itemsIndexed(urls, key = { _, url -> url }) { index, url ->
             AsyncImage(
-                model = url,
+                model = pageModel(url),
                 contentDescription = "Page ${index + 1} of ${urls.size}",
                 contentScale = ContentScale.FillWidth,
                 onSuccess = { state ->
@@ -270,14 +271,18 @@ private fun PagedView(model: ReaderModel, urls: List<String>, onToggleControls: 
     val page = model.page.coerceIn(0, urls.lastIndex)
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
-            model = urls[page],
+            model = pageModel(urls[page]),
             contentDescription = "Page ${page + 1} of ${urls.size}",
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),
         )
         // Read ahead, so the next page is ready when it is turned to.
         urls.getOrNull(page + 1)?.let {
-            AsyncImage(model = it, contentDescription = null, modifier = Modifier.height(1.dp))
+            AsyncImage(
+                model = pageModel(it),
+                contentDescription = null,
+                modifier = Modifier.height(1.dp),
+            )
         }
         // Click zones: the outer thirds turn the page, the middle shows or hides the controls.
         Row(Modifier.fillMaxSize()) {

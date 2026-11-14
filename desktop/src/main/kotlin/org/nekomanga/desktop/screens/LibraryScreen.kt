@@ -54,6 +54,8 @@ fun LibraryScreen(
     /** Searches the sources for text that matched nothing in the library. */
     onSearchSources: (String) -> Unit,
     onBrowse: () -> Unit,
+    /** Changes whenever a download finishes or is deleted. */
+    downloadChanges: Int = 0,
 ) {
     val data by model.store.data.collectAsState()
     val groups =
@@ -64,6 +66,8 @@ fun LibraryScreen(
             model.groupBy,
             model.sort,
             model.descending,
+            model.downloadedOnly,
+            downloadChanges,
         ) {
             model.groups(data.entries)
         }
