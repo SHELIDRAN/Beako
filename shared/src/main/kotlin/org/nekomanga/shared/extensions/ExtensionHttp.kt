@@ -33,8 +33,10 @@ import org.nekomanga.shared.net.RateLimiter
 class ExtensionHttp(base: OkHttpClient, private val userAgent: String) : ExtensionTransport {
     private val limiter = RateLimiter(permits = 4, periodMillis = 1_000)
 
+    // Resolves through the app's DNS (DNS over HTTPS when chosen), then drops private addresses.
+    private val upstream = base.dns
     private val publicDns = Dns { host ->
-        val addresses = Dns.SYSTEM.lookup(host).filterNot(HostPolicy::isPrivate)
+        val addresses = upstream.lookup(host).filterNot(HostPolicy::isPrivate)
         addresses.ifEmpty { throw UnknownHostException("$host isn’t a public address") }
     }
 

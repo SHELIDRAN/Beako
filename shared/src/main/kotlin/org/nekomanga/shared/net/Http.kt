@@ -110,6 +110,10 @@ sealed class ApiError(val service: String, message: String, cause: Throwable? = 
     class ServerError(service: String, val code: Int) :
         ApiError(service, "$service had a server error ($code)")
 
+    /** An installed source's script failed (the site changed, or the script has a bug). */
+    class SourceFailed(service: String, detail: String, cause: Throwable? = null) :
+        ApiError(service, detail, cause)
+
     class Rejected(service: String, val code: Int, detail: String, val errorCode: String? = null) :
         ApiError(service, "$service refused the request ($code)" + detail)
 

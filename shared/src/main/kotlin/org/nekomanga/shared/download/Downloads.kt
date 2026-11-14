@@ -277,7 +277,13 @@ class DownloadManager(
         private const val MANIFEST = "chapter.json"
         private const val TITLE_KEY = ".beako-title"
 
-        private fun idSuffix(id: String) = " [${safeName(id)}]"
+        /** Short ids (MangaDex UUIDs) as they are; long ones (extension chapter URLs) hashed. */
+        private fun idSuffix(id: String): String {
+            val safe = safeName(id)
+            if (safe.length <= 40) return " [$safe]"
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest(id.toByteArray())
+            return " [${digest.take(8).joinToString("") { "%02x".format(it) }}]"
+        }
 
         /** "<name> [id]", shortening only the name so the id part always survives. */
         private fun folderName(name: String, suffix: String): String =

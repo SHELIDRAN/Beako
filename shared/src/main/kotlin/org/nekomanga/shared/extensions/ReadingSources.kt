@@ -10,6 +10,7 @@ import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.PageList
 import org.nekomanga.shared.model.Sources
 import org.nekomanga.shared.model.Title
+import org.nekomanga.shared.net.ApiError
 
 /** A place a title can be read: MangaDex or an installed source, with the title's address there. */
 data class SourceMatch(
@@ -42,10 +43,20 @@ class ReadingSources(
     val pageHeaders: PageHeaders = PageHeaders(),
     private val dataSaver: () -> Boolean = { false },
 ) {
+    /** True when any installed source can be searched. */
+    val hasExtensions: Boolean
+        get() = extensions.usable.isNotEmpty()
+
+    /** An installed source's name, or null when it's no longer installed and enabled. */
+    fun nameOf(sourceId: String): String? =
+        extensionId(sourceId)?.let { id ->
+            extensions.usable.firstOrNull { it.info.id == id }?.info?.name
+        }
+
     /** The page images of [chapter]. */
     suspend fun pages(chapter: Chapter): PageList {
         val id = extensionId(chapter.source) ?: return mangaDex.pages(chapter.id, dataSaver())
-        val images = extensions.source(id).pageList(chapter.id)
+        val images = guarded(id) { extensions.source(id).pageList(chapter.id) }
         images.forEach { pageHeaders.remember(it.url, it.headers) }
         return PageList(images.map { it.url })
     }
@@ -56,8 +67,24 @@ class ReadingSources(
      */
     suspend fun chapters(sourceId: String, url: String): List<Chapter> {
         val id = extensionId(sourceId) ?: return emptyList()
-        val source = extensions.source(id)
-        return source.detail(url).chapters.map { toChapter(sourceId, source.info.lang, it) }
+        return guarded(id) {
+            val source = extensions.source(id)
+            source.detail(url).chapters.map { toChapter(sourceId, source.info.lang, it) }
+        }
+    }
+
+    /** Extension failures as [ApiError]s, so screens handle them like any other source's. */
+    private suspend fun <T> guarded(id: Long, block: suspend () -> T): T {
+        val name = extensions.installed.firstOrNull { it.info.id == id }?.info?.name ?: "Source"
+        return try {
+            block()
+        } catch (e: ExtensionError) {
+            throw ApiError.SourceFailed(name, e.message ?: "$name failed", e)
+        } catch (e: ApiError) {
+            throw e
+        } catch (e: java.io.IOException) {
+            throw ApiError.Unreachable(name, e)
+        }
     }
 
     /**
