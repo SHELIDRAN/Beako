@@ -12,6 +12,7 @@ class AppState(
     openBrowser: (String) -> Unit = ::openInBrowser,
 ) {
     val navigator = Navigator()
+    val backups = BackupModel(scope, container.library, container.settings, container.dirs.backups)
     val accounts =
         AccountsModel(
             scope,

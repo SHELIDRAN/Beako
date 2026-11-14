@@ -33,6 +33,8 @@ data class Settings(
     /** Push reading progress to linked trackers as chapters are finished. */
     val autoTrack: Boolean = true,
     val reader: ReaderPrefs = ReaderPrefs(),
+    /** Write a backup once a day, keeping a week of them. */
+    val autoBackup: Boolean = true,
 )
 
 /** How the reader lays out pages. */
