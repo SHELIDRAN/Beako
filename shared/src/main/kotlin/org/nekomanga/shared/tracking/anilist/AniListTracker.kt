@@ -343,10 +343,10 @@ class AniListTracker(
         const val TOKEN_KEY = "anilist.access_token"
 
         /**
-         * Beako's registered AniList API client (public; the implicit grant has no secret). Empty
-         * until registered: users then enter their own client's id.
+         * Beako's registered AniList API client (public; the implicit grant uses no secret, so none
+         * is stored). Redirect URL registered as [REDIRECT_URI].
          */
-        const val BEAKO_CLIENT_ID = ""
+        const val BEAKO_CLIENT_ID = "56993"
         private const val MEDIA =
             "id idMal title { romaji english native } coverImage { large } startDate { year } countryOfOrigin"
 
