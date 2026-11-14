@@ -134,9 +134,12 @@ class ComickApi(
         private fun coverOf(v: JsonElement): String? {
             // cover_url (sent with tachiyomi=true) is the small size, so it is only the fallback.
             val key = v["md_covers"].items().firstOrNull().str("b2key") ?: return v.str("cover_url")
-            val dot = key.lastIndexOf('.')
-            return if (dot > 0) "$COVERS/${key.substring(0, dot)}-m${key.substring(dot)}"
-            else "$COVERS/$key"
+            // Comick's resized covers are always JPEG ("<key>-m.jpg"), whatever the original's
+            // format:
+            // keeping a ".png" here asks for a file that doesn't exist (verified live, Nov 14
+            // 2026).
+            if ('.' !in key) return "$COVERS/$key"
+            return "$COVERS/${key.substringBeforeLast('.')}-m.jpg"
         }
 
         /**
