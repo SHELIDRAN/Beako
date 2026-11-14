@@ -63,7 +63,7 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 
 ## Rules
 - Keep the Apache-2.0 LICENSE and upstream copyright notices.
-- comick.dev is allowed only as a catalog and tracker (search, tags, popular/trending, library sync through its official developer API and OAuth). **Never read chapters or page images from Comick** (owner's decision, Nov 13 2026): don't call its chapter-list, chapter-detail or `get_images` endpoints for reading, and never offer Comick in the "Available on" dropdown. Never use Comick lookalike domains or any site claiming to host Comick chapters; they're reported unsafe. AniList and MangaDex stay as secondary sources of tags and popularity.
+- comick.dev is allowed only as a catalog and tracker (search, tags, popular/trending, library sync through its official developer API and OAuth). **Never read chapters or page images from Comick** (owner's decision, Nov 13 2026): don't call its chapter-list, chapter-detail or `get_images` endpoints for reading, and never offer Comick in the "Available on" dropdown. AniList and MangaDex stay as secondary sources of tags and popularity.
 - Ship no extensions or extension repositories; users add their own. Load extensions with the least access possible and say clearly that they are third-party code.
 - Respect MangaDex and AniList API rate limits.
 
