@@ -31,6 +31,7 @@ dependencies {
 
     testImplementation(kotlinx.test.junit5)
     testImplementation(cmp.ui.test)
+    testImplementation(kotlinx.coroutines.test)
 }
 
 compose.desktop {
