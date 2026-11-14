@@ -113,7 +113,8 @@ class AccountsModel(
         }
 
     fun connectAniList(clientId: String) {
-        settings.update { it.copy(aniListClientId = clientId.trim()) }
+        if (clientId != AniListTracker.BEAKO_CLIENT_ID)
+            settings.update { it.copy(aniListClientId = clientId.trim()) }
         run(Service.ANILIST, BROWSER_HINT, done = { "Connected" }) {
             aniList.signIn(clientId, openBrowser)
         }

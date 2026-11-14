@@ -81,7 +81,6 @@ fun AccountsSection(
             }
         }
 
-        // AniList is on hold (owner, Nov 14 2026): the code is ready, the row stays hidden.
         if (ANILIST_ENABLED) {
             HorizontalDivider(color = BeakoColors.Rim)
             var clientId by remember { mutableStateOf(settings.aniListClientId) }
@@ -92,7 +91,8 @@ fun AccountsSection(
                 status = accounts.status[Service.ANILIST],
                 onCancel = { accounts.cancel(Service.ANILIST) },
                 form =
-                    if (aniList != null) null
+                    // With Beako's own AniList client there's nothing to fill in.
+                    if (aniList != null || AniListTracker.BEAKO_CLIENT_ID.isNotEmpty()) null
                     else {
                         {
                             Text(
@@ -121,7 +121,15 @@ fun AccountsSection(
                     GlassButton("Import list", { accounts.import(Service.ANILIST) })
                     GlassButton("Disconnect", { accounts.disconnect(Service.ANILIST) })
                 } else {
-                    GlassButton("Connect", { accounts.connectAniList(clientId) }, primary = true)
+                    GlassButton(
+                        "Connect",
+                        {
+                            accounts.connectAniList(
+                                AniListTracker.BEAKO_CLIENT_ID.ifEmpty { clientId },
+                            )
+                        },
+                        primary = true,
+                    )
                 }
             }
         }
@@ -200,8 +208,8 @@ fun AccountsSection(
     }
 }
 
-/** Shows AniList sign-in; off until the owner registers an AniList client. */
-const val ANILIST_ENABLED = false
+/** Shows AniList sign-in. */
+const val ANILIST_ENABLED = true
 
 private val FieldWidth = Modifier.widthIn(min = 200.dp, max = 280.dp)
 

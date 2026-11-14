@@ -341,6 +341,12 @@ class AniListTracker(
         const val CALLBACK_PATH = "/anilist/callback"
         const val REDIRECT_URI = "http://127.0.0.1:47823/anilist/callback"
         const val TOKEN_KEY = "anilist.access_token"
+
+        /**
+         * Beako's registered AniList API client (public; the implicit grant has no secret). Empty
+         * until registered: users then enter their own client's id.
+         */
+        const val BEAKO_CLIENT_ID = ""
         private const val MEDIA =
             "id idMal title { romaji english native } coverImage { large } startDate { year } countryOfOrigin"
 
