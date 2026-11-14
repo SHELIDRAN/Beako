@@ -21,8 +21,8 @@ class Client {
             [method, String(url), headers || {}, body === undefined ? null : body, this.reqcopyWith]));
         return JSON.parse(answer);
     }
-    head(url, headers) { return this._request("HEAD", url, headers); }
-    get(url, headers) { return this._request("GET", url, headers); }
+    head(url, headers = {}) { return this._request("HEAD", url, headers); }
+    get(url, headers = {}) { return this._request("GET", url, headers); }
     post(url, headers, body) { return this._request("POST", url, headers, body); }
     put(url, headers, body) { return this._request("PUT", url, headers, body); }
     delete(url, headers, body) { return this._request("DELETE", url, headers, body); }
