@@ -77,6 +77,7 @@ import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.state.KeyBindings
 import org.nekomanga.desktop.state.Loadable
+import org.nekomanga.desktop.state.LocalKeyRouter
 import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.ReaderAction
 import org.nekomanga.desktop.state.ReaderModel
@@ -114,7 +115,12 @@ fun ReaderScreen(
     var controls by remember { mutableStateOf(true) }
     var settingsOpen by remember { mutableStateOf(false) }
     val listState = remember(model.index) { LazyListState() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // Each chapter opens with its controls showing and the reader holding focus, whatever was
+    // clicked to get there.
+    LaunchedEffect(model.index) {
+        controls = true
+        runCatching { focus.requestFocus() }
+    }
 
     fun close() {
         window?.setFullscreen(false)
@@ -126,36 +132,46 @@ fun ReaderScreen(
         }
     }
 
+    fun handleKey(event: androidx.compose.ui.input.key.KeyEvent): Boolean {
+        if (event.type != KeyEventType.KeyDown) return false
+        val rtl = model.mode == ReadingMode.RIGHT_TO_LEFT
+        val paged = model.mode.isPaged
+        if (event.key == Key.Escape) {
+            when {
+                settingsOpen -> settingsOpen = false
+                window?.isFullscreen == true -> window.setFullscreen(false)
+                else -> close()
+            }
+            return true
+        }
+        when (keys.actionFor(event.key.nativeKeyCode)) {
+            ReaderAction.FULL_SCREEN -> window?.toggleFullscreen()
+            ReaderAction.PREVIOUS_CHAPTER -> model.previousChapter()
+            ReaderAction.NEXT_CHAPTER -> model.nextChapter()
+            ReaderAction.RIGHT -> if (paged) model.turn(forward = !rtl) else scroll(0.85f)
+            ReaderAction.LEFT -> if (paged) model.turn(forward = rtl) else scroll(-0.85f)
+            ReaderAction.NEXT_PAGE -> if (paged) model.turn(true) else scroll(0.85f)
+            ReaderAction.PREVIOUS_PAGE -> if (paged) model.turn(false) else scroll(-0.85f)
+            ReaderAction.SETTINGS -> settingsOpen = !settingsOpen
+            null -> return false
+        }
+        return true
+    }
+
+    // Keys come from the window while the reader is open, so they work whatever has focus.
+    val router = LocalKeyRouter.current
+    val latestHandler = androidx.compose.runtime.rememberUpdatedState(::handleKey)
+    androidx.compose.runtime.DisposableEffect(router) {
+        router?.handler = { event -> latestHandler.value(event) }
+        onDispose { router?.handler = null }
+    }
+
     Box(
         Modifier.fillMaxSize()
             .background(readerBackground(prefs.background))
             .focusRequester(focus)
             .focusable()
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                val rtl = model.mode == ReadingMode.RIGHT_TO_LEFT
-                val paged = model.mode.isPaged
-                if (event.key == Key.Escape) {
-                    when {
-                        settingsOpen -> settingsOpen = false
-                        window?.isFullscreen == true -> window.setFullscreen(false)
-                        else -> close()
-                    }
-                    return@onPreviewKeyEvent true
-                }
-                when (keys.actionFor(event.key.nativeKeyCode)) {
-                    ReaderAction.FULL_SCREEN -> window?.toggleFullscreen()
-                    ReaderAction.PREVIOUS_CHAPTER -> model.previousChapter()
-                    ReaderAction.NEXT_CHAPTER -> model.nextChapter()
-                    ReaderAction.RIGHT -> if (paged) model.turn(forward = !rtl) else scroll(0.85f)
-                    ReaderAction.LEFT -> if (paged) model.turn(forward = rtl) else scroll(-0.85f)
-                    ReaderAction.NEXT_PAGE -> if (paged) model.turn(true) else scroll(0.85f)
-                    ReaderAction.PREVIOUS_PAGE -> if (paged) model.turn(false) else scroll(-0.85f)
-                    ReaderAction.SETTINGS -> settingsOpen = !settingsOpen
-                    null -> return@onPreviewKeyEvent false
-                }
-                true
-            },
+            .onPreviewKeyEvent { event -> if (router == null) handleKey(event) else false },
     ) {
         val chapter = model.chapter
         when (val pages = model.pages) {

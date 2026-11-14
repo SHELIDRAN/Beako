@@ -1,11 +1,15 @@
 package org.nekomanga.desktop
 
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -91,6 +95,12 @@ class ReaderScreenTest {
         waitForIdle()
         assertEquals(1, model.index)
         onNodeWithText("Chapter 2").assertIsDisplayed()
+        // The clicked button had focus; arrow keys must still turn pages in the new chapter (0.1.2
+        // QA).
+        onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+        waitForIdle()
+        assertEquals(1, model.page, "the arrow key turns the page after a chapter change")
+        onNodeWithContentDescription("Close reader (Esc)").assertIsDisplayed()
 
         onNodeWithContentDescription("Close reader (Esc)").performClick()
         assertEquals(true, closed)
