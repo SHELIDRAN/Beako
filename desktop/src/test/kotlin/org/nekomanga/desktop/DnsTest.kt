@@ -25,15 +25,23 @@ class DnsTest {
     }
 
     @Test
-    fun automaticUsesDnsOverHttpsAndCachesTheAnswer() {
+    fun automaticMergesBothSourcesSoTheConnectionCanRaceThem() {
         val system = Counting { poisoned }
         val cloudflare = Counting { real }
         val dns = SwitchableDns({ DnsMode.AUTOMATIC }, system, { 0L }) { cloudflare }
 
-        assertEquals(real, dns.lookup("comick.dev"))
-        assertEquals(real, dns.lookup("comick.dev"))
+        // Over-HTTPS answers first, then Windows DNS's: one of them connects whichever is blocked.
+        assertEquals(real + poisoned, dns.lookup("comick.dev"))
+        assertEquals(real + poisoned, dns.lookup("comick.dev"))
         assertEquals(1, cloudflare.calls, "the answer is cached")
-        assertEquals(0, system.calls)
+        assertEquals(1, system.calls)
+    }
+
+    @Test
+    fun aBlockedWindowsDnsStillResolvesOverHttps() {
+        val system = Counting { throw UnknownHostException("blocked") }
+        val dns = SwitchableDns({ DnsMode.AUTOMATIC }, system, { 0L }) { Counting { real } }
+        assertEquals(real, dns.lookup("comix.to"))
     }
 
     @Test
@@ -52,6 +60,19 @@ class DnsTest {
         now += 11 * 60_000
         dns.lookup("c.test")
         assertEquals(triesAfterFirst + 2, blocked.calls, "tried again later")
+    }
+
+    @Test
+    fun nothingResolvesOnlyWhenBothFail() {
+        val dns =
+            SwitchableDns(
+                { DnsMode.AUTOMATIC },
+                Counting { throw UnknownHostException("nope") },
+                { 0L },
+            ) {
+                Counting { throw UnknownHostException("nope") }
+            }
+        kotlin.test.assertFailsWith<UnknownHostException> { dns.lookup("x.test") }
     }
 
     @Test
