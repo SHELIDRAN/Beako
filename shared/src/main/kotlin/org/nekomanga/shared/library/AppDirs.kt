@@ -31,4 +31,8 @@ class AppDirs(
 
     val settingsFile: File
         get() = data.resolve("settings.json")
+
+    /** Automatic daily backups. */
+    val backups: File
+        get() = data.resolve("backups")
 }

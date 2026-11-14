@@ -26,6 +26,7 @@ import org.jetbrains.skia.Image
 import org.nekomanga.desktop.components.AccountSlot
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.screens.AccountsSection
+import org.nekomanga.desktop.screens.BackupSection
 import org.nekomanga.desktop.screens.BrowseScreen
 import org.nekomanga.desktop.screens.ComickReleasesShelf
 import org.nekomanga.desktop.screens.DetailsScreen
@@ -106,6 +107,8 @@ fun main() {
             }
             LaunchedEffect(state) {
                 state.accounts.restore()
+                // Only when the library loaded: a backup of an unreadable library would be empty.
+                if (container.library.loadError == null) state.backups.runAutomatic()
                 state.updates.start()
             }
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
@@ -215,6 +218,7 @@ private fun AppScreen(state: AppState, destination: Destination) {
                         state.container.vault.persistent,
                     )
                 },
+                backup = { BackupSection(state.backups, state.container.settings) },
             )
     }
 }

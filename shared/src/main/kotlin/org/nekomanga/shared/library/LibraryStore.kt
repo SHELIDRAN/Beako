@@ -104,6 +104,46 @@ class LibraryStore(
         data.withEntry(LibraryEntry.keyOf(title)) { it.copy(excludedGroups = groups) }
     }
 
+    /**
+     * Merges a restored library into this one. Titles already here keep their progress and tracker
+     * links; read chapters, categories and hidden groups are combined. Returns how many titles were
+     * added.
+     */
+    fun merge(incoming: LibraryData): Int {
+        var added = 0
+        update { data ->
+            val byKey = data.entries.associateBy { it.key }.toMutableMap()
+            for (entry in incoming.entries) {
+                val current = byKey[entry.key]
+                byKey[entry.key] =
+                    if (current == null) {
+                        added++
+                        entry
+                    } else {
+                        current.copy(
+                            mangaDexId = current.mangaDexId ?: entry.mangaDexId,
+                            categories = (current.categories + entry.categories).distinct(),
+                            readChapterIds = current.readChapterIds + entry.readChapterIds,
+                            progress = current.progress ?: entry.progress,
+                            tracks = entry.tracks + current.tracks,
+                            excludedGroups = current.excludedGroups + entry.excludedGroups,
+                        )
+                    }
+            }
+            val history =
+                (data.history + incoming.history)
+                    .distinctBy { it.title.source to it.chapter.id }
+                    .sortedByDescending { it.readAt }
+                    .take(MAX_HISTORY_ON_MERGE)
+            data.copy(
+                entries = byKey.values.toList(),
+                categories = (data.categories + incoming.categories).distinct(),
+                history = history,
+            )
+        }
+        return added
+    }
+
     fun setMangaDexId(title: Title, mangaDexId: String) = update { data ->
         data.withEntry(LibraryEntry.keyOf(title)) { it.copy(mangaDexId = mangaDexId) }
     }
@@ -243,3 +283,5 @@ class LibraryStore(
         const val MAX_NEW = 200
     }
 }
+
+private const val MAX_HISTORY_ON_MERGE = 1_000

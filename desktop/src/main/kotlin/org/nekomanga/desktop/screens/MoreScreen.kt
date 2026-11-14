@@ -58,6 +58,7 @@ fun MoreScreen(
     downloads: DownloadManager,
     downloadsFolder: File,
     accounts: (@Composable () -> Unit)? = null,
+    backup: (@Composable () -> Unit)? = null,
 ) {
     val settings by settingsStore.settings.collectAsState()
     val data by library.data.collectAsState()
@@ -231,6 +232,7 @@ fun MoreScreen(
                 GlassIconButton(Icons.Outlined.Close, "Cancel download", { downloads.cancel(job) })
             }
         }
+        if (backup != null) item("backup") { backup() }
         item("about") {
             Section("About") {
                 Text(
@@ -254,7 +256,7 @@ private val SidebarModes =
 private fun sidebarLabel(mode: String) =
     SidebarModes.firstOrNull { it.first == mode }?.second ?: "Auto-collapse"
 
-private fun openFolder(folder: File) {
+internal fun openFolder(folder: File) {
     runCatching {
         folder.mkdirs()
         if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(folder)

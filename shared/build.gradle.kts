@@ -18,6 +18,7 @@ ktfmt {
 dependencies {
     api(kotlinx.coroutines.core)
     api(kotlinx.serialization.json)
+    implementation(kotlinx.serialization.protobuf)
     implementation(libs.okhttp)
 
     testImplementation(kotlinx.test.junit5)
