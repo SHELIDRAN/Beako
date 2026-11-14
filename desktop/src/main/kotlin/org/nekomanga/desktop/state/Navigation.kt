@@ -1,6 +1,10 @@
 package org.nekomanga.desktop.state
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import org.nekomanga.desktop.components.Destination
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.Title
 
@@ -42,4 +46,13 @@ class Navigator {
     fun back(): Boolean = stack.removeLastOrNull() != null
 
     fun clear() = stack.clear()
+
+    /** A sidebar screen a page asked to switch to; the shell applies it and clears it. */
+    var requestedDestination by mutableStateOf<Destination?>(null)
+
+    /** Closes every page and shows [destination]. */
+    fun show(destination: Destination) {
+        stack.clear()
+        requestedDestination = destination
+    }
 }

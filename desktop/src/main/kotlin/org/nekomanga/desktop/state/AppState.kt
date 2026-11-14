@@ -4,11 +4,23 @@ import kotlinx.coroutines.CoroutineScope
 import org.nekomanga.shared.model.Title
 
 /** Everything that outlives a single screen: navigation and each screen's model. */
-class AppState(val container: AppContainer, private val scope: CoroutineScope) {
+class AppState(
+    val container: AppContainer,
+    private val scope: CoroutineScope,
+    onUpdates: (List<TitleUpdate>) -> Unit = {},
+) {
     val navigator = Navigator()
     val browse = BrowseModel(scope, container.comick, container.mangaDex)
     val search = SearchModel(scope, container.discovery, container.comick)
     val libraryScreen = LibraryModel(container.library)
+    val updates =
+        UpdateChecker(
+            scope,
+            container.library,
+            container.mangaDex,
+            container.discovery,
+            onFound = onUpdates,
+        )
 
     private val details = mutableMapOf<String, DetailsModel>()
     private var reader: Pair<Page.Reader, ReaderModel>? = null

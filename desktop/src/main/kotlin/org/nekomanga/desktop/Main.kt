@@ -9,8 +9,12 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.isTraySupported
+import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
@@ -24,10 +28,12 @@ import org.nekomanga.desktop.screens.HistoryScreen
 import org.nekomanga.desktop.screens.LibraryScreen
 import org.nekomanga.desktop.screens.ReaderScreen
 import org.nekomanga.desktop.screens.SearchScreen
+import org.nekomanga.desktop.screens.UpdatesScreen
 import org.nekomanga.desktop.state.AppContainer
 import org.nekomanga.desktop.state.AppState
 import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.Page
+import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.WindowControl
 
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
@@ -45,6 +51,19 @@ fun main() {
     application {
         val icon = remember { BitmapPainter(loadAppIcon()) }
         val windowState = rememberWindowState(width = 1280.dp, height = 800.dp)
+        // A tray icon carries Windows notifications for new chapters.
+        val trayState = rememberTrayState()
+        if (isTraySupported) {
+            Tray(
+                icon = icon,
+                state = trayState,
+                tooltip = APP_NAME,
+                onAction = { windowState.isMinimized = false },
+            ) {
+                Item("Open $APP_NAME", onClick = { windowState.isMinimized = false })
+                Item("Quit", onClick = ::exitApplication)
+            }
+        }
         val windowControl = remember { WindowControl(windowState) }
         Window(
             onCloseRequest = ::exitApplication,
@@ -53,7 +72,18 @@ fun main() {
             state = windowState,
         ) {
             val scope = rememberCoroutineScope()
-            val state = remember { AppState(container, scope) }
+            val state = remember {
+                AppState(container, scope) { updates ->
+                    trayState.sendNotification(
+                        Notification(
+                            APP_NAME,
+                            UpdateChecker.summary(updates),
+                            Notification.Type.Info,
+                        ),
+                    )
+                }
+            }
+            LaunchedEffect(state) { state.updates.start() }
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
             // read:<query> starts on that page, using the first MangaDex match.
             LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
@@ -115,13 +145,20 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.libraryScreen,
                 onOpen = { state.navigator.open(Page.Details(it)) },
                 onSearchSources = { state.navigator.open(Page.Search(it)) },
-                onBrowse = { state.navigator.open(Page.Search()) },
+                onBrowse = { state.navigator.show(Destination.BROWSE) },
+            )
+        Destination.UPDATES ->
+            UpdatesScreen(
+                state.container.library,
+                state.updates,
+                onOpen = { state.navigator.open(Page.Details(it)) },
+                onLibrary = { state.navigator.show(Destination.LIBRARY) },
             )
         Destination.HISTORY ->
             HistoryScreen(
                 state.container.library,
                 onResume = { state.navigator.open(Page.Details(it.title)) },
-                onBrowse = { state.navigator.open(Page.Search()) },
+                onBrowse = { state.navigator.show(Destination.BROWSE) },
             )
         else -> PlaceholderScreen(destination)
     }

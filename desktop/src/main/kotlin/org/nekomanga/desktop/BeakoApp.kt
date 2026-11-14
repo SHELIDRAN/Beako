@@ -62,6 +62,10 @@ fun BeakoApp(
     screen: @Composable (Destination) -> Unit = { PlaceholderScreen(it) },
 ) {
     var destination by remember { mutableStateOf(start) }
+    navigator.requestedDestination?.let {
+        destination = it
+        navigator.requestedDestination = null
+    }
     val openPage = navigator.top
     // The reader takes the whole window; every other page keeps the sidebar.
     val immersive = openPage is Page.Reader
