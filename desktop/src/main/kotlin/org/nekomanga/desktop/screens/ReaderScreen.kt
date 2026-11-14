@@ -214,6 +214,7 @@ fun ReaderScreen(
             visible = controls || model.pages !is Loadable.Ready,
             onClose = ::close,
             onSettings = { settingsOpen = !settingsOpen },
+            keys = keys,
         )
         ReaderSettingsPanel(
             visible = settingsOpen,
@@ -473,6 +474,7 @@ private fun BoxScope.ReaderControls(
     visible: Boolean,
     onClose: () -> Unit,
     onSettings: () -> Unit,
+    keys: KeyBindings,
 ) {
     val window = LocalWindowControl.current
     val reduceMotion = LocalAppearance.current.reduceMotion
@@ -513,7 +515,11 @@ private fun BoxScope.ReaderControls(
                 label = "Reading mode",
                 optionWidth = 104.dp,
             )
-            GlassIconButton(Icons.Outlined.Tune, "Reader settings", onSettings)
+            GlassIconButton(
+                Icons.Outlined.Tune,
+                "Reader settings${keys.hint(ReaderAction.SETTINGS)}",
+                onSettings,
+            )
             if (window != null) {
                 // The label comes from the real window state, so it can't go stale.
                 val full = window.isFullscreen
@@ -537,7 +543,7 @@ private fun BoxScope.ReaderControls(
             if (model.hasPrevious) {
                 GlassIconButton(
                     Icons.Outlined.ChevronLeft,
-                    "Previous chapter ([)",
+                    "Previous chapter${keys.hint(ReaderAction.PREVIOUS_CHAPTER)}",
                     { model.previousChapter() },
                 )
             }
@@ -549,7 +555,11 @@ private fun BoxScope.ReaderControls(
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
             if (model.hasNext) {
-                GlassIconButton(Icons.Outlined.ChevronRight, "Next chapter (])", model::nextChapter)
+                GlassIconButton(
+                    Icons.Outlined.ChevronRight,
+                    "Next chapter${keys.hint(ReaderAction.NEXT_CHAPTER)}",
+                    model::nextChapter,
+                )
             }
         }
     }

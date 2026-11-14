@@ -151,4 +151,19 @@ class BackupTest {
         assertEquals(7, names.size)
         assertTrue(names.first().contains("2026-11-03"))
     }
+
+    @Test
+    fun restoredMangaDexTitlesMergeIntoTheSameSeriesFromComick() {
+        val store = LibraryStore(File(dir, "m.json"))
+        val fromComick = Title(Sources.COMICK, "hid", "Eleceed")
+        store.add(fromComick, mangaDexId = "md-uuid")
+        val restored =
+            LibraryStore(File(dir, "r.json")).apply {
+                add(Title(Sources.MANGADEX, "md-uuid", "Eleceed"), mangaDexId = "md-uuid")
+                setRead(Title(Sources.MANGADEX, "md-uuid", "Eleceed"), listOf("c9"), true)
+            }
+        assertEquals(0, store.merge(restored.data.value))
+        assertEquals(1, store.data.value.entries.size)
+        assertEquals(setOf("c9"), store.entry(fromComick)!!.readChapterIds)
+    }
 }

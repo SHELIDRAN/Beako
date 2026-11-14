@@ -113,9 +113,17 @@ class LibraryStore(
         var added = 0
         update { data ->
             val byKey = data.entries.associateBy { it.key }.toMutableMap()
-            for (entry in incoming.entries) {
-                val current = byKey[entry.key]
-                byKey[entry.key] =
+            // The same series may be here under another source (e.g. added from Comick): match its
+            // MangaDex id too.
+            val keyByMangaDexId =
+                data.entries.mapNotNull { e -> e.mangaDexId?.let { it to e.key } }.toMap()
+            for (incomingEntry in incoming.entries) {
+                val key =
+                    if (incomingEntry.key in byKey) incomingEntry.key
+                    else incomingEntry.mangaDexId?.let { keyByMangaDexId[it] } ?: incomingEntry.key
+                val entry = incomingEntry
+                val current = byKey[key]
+                byKey[key] =
                     if (current == null) {
                         added++
                         entry

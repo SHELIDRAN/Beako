@@ -22,6 +22,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import kotlinx.coroutines.launch
 import org.jetbrains.skia.Image
 import org.nekomanga.desktop.components.AccountSlot
 import org.nekomanga.desktop.components.Destination
@@ -110,7 +111,15 @@ fun main() {
             LaunchedEffect(state) {
                 state.accounts.restore()
                 // Only when the library loaded: a backup of an unreadable library would be empty.
-                if (container.library.loadError == null) state.backups.runAutomatic()
+                if (container.library.loadError == null) {
+                    // Checked hourly, so a Beako left open for days still backs up once a day.
+                    launch {
+                        while (true) {
+                            state.backups.runAutomatic()
+                            kotlinx.coroutines.delay(60 * 60 * 1000L)
+                        }
+                    }
+                }
                 state.updates.start()
             }
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or

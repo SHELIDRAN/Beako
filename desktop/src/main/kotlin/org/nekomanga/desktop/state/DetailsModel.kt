@@ -69,6 +69,10 @@ class DetailsModel(
     fun visibleChapters(): List<Chapter> =
         allChapters().filter { it.group == null || it.group !in excludedGroups }
 
+    private fun visibleOf(list: List<Chapter>) = list.filter {
+        it.group == null || it.group !in excludedGroups
+    }
+
     private fun allChapters(): List<Chapter> = (chapters as? Loadable.Ready)?.value.orEmpty()
 
     private var started = false
@@ -96,7 +100,7 @@ class DetailsModel(
         if (excludedGroups.isNotEmpty()) library.setExcludedGroups(title, excludedGroups)
         // Record what exists now, so the first update check doesn't report every chapter as new.
         (chapters as? Loadable.Ready)?.value?.let {
-            library.recordCheck(LibraryEntry.keyOf(title), it)
+            library.recordCheck(LibraryEntry.keyOf(title), visibleOf(it))
         }
     }
 
@@ -184,7 +188,7 @@ class DetailsModel(
                         }
                         availableOn = listOf(MangaDexApi.SERVICE)
                         val list = mangaDex.allChapters(id, languages())
-                        library.entry(title)?.let { library.recordCheck(it.key, list) }
+                        library.entry(title)?.let { library.recordCheck(it.key, visibleOf(list)) }
                         Loadable.Ready(list)
                     }
                 } catch (e: ApiError) {
