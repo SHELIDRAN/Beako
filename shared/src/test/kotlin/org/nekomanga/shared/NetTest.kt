@@ -85,4 +85,38 @@ class NetTest {
         val garbage = FakeHttp { json("not json {") }
         assertFailsWith<ApiError.Unreadable> { garbage.getJson("Comick", "https://x.test/") }
     }
+
+    @Test
+    fun connectionFailuresSayWhyAndAreLogged() {
+        kotlinx.coroutines.test.runTest {
+            val dir = java.nio.file.Files.createTempDirectory("beako-net").toFile()
+            org.nekomanga.shared.diagnostics.DiagnosticLog.start(dir)
+            val blocked = FakeHttp { throw java.net.UnknownHostException("api.comick.dev") }
+            val error =
+                kotlin.test.assertFailsWith<org.nekomanga.shared.net.ApiError.Unreachable> {
+                    blocked.getJson("Comick", "https://api.comick.dev/v1.0/search/?q=a")
+                }
+            kotlin.test.assertTrue(
+                error.message!!.contains("address couldn’t be found"),
+                error.message,
+            )
+            kotlin.test.assertTrue(error.message!!.contains("DNS over HTTPS"))
+            val log = java.io.File(dir, "beako.log").readText()
+            kotlin.test.assertTrue(
+                log.contains("Comick request failed: GET https://api.comick.dev/v1.0/search/?q=a"),
+                log,
+            )
+            kotlin.test.assertTrue(log.contains("java.net.UnknownHostException"))
+
+            val tls = FakeHttp { throw javax.net.ssl.SSLHandshakeException("bad cert") }
+            val tlsError =
+                kotlin.test.assertFailsWith<org.nekomanga.shared.net.ApiError.Unreachable> {
+                    tls.getJson("Comick", "https://api.comick.dev/top")
+                }
+            kotlin.test.assertTrue(
+                tlsError.message!!.contains("secure connection failed"),
+                tlsError.message,
+            )
+        }
+    }
 }

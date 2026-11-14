@@ -98,7 +98,7 @@ sealed class ApiError(val service: String, message: String, cause: Throwable? = 
     Exception(message, cause) {
     /** The server couldn't be reached at all. */
     class Unreachable(service: String, cause: Throwable) :
-        ApiError(service, "Couldn't reach $service", cause)
+        ApiError(service, "Couldn't reach $service${reasonOf(cause)}", cause)
 
     /** The server answered with a web page (a Cloudflare browser check) instead of JSON. */
     class BlockedByChallenge(service: String) :
@@ -146,12 +146,20 @@ suspend fun HttpFetcher.getJson(service: String, url: String): JsonElement {
         try {
             get(url)
         } catch (e: IOException) {
+            logFailure(service, "GET $url", e)
             throw ApiError.Unreachable(service, e)
         }
     val looksLikeHtml =
         response.contentType?.contains("html", ignoreCase = true) == true ||
             response.body.trimStart().startsWith("<")
-    if (looksLikeHtml) throw ApiError.BlockedByChallenge(service)
+    if (looksLikeHtml) {
+        logFailure(
+            service,
+            "GET $url answered HTML (${response.code}), likely a Cloudflare check",
+            IllegalStateException(),
+        )
+        throw ApiError.BlockedByChallenge(service)
+    }
     when {
         response.code == 429 ->
             throw ApiError.RateLimited(service, response.header("Retry-After")?.toLongOrNull())
@@ -171,4 +179,31 @@ suspend fun HttpFetcher.getJson(service: String, url: String): JsonElement {
     } catch (e: SerializationException) {
         throw ApiError.Unreadable(service, e)
     }
+}
+
+/**
+ * Why a connection failed, in words, so the screen (and a bug report) says more than "couldn't
+ * reach".
+ */
+internal fun reasonOf(cause: Throwable): String {
+    var e: Throwable? = cause
+    while (e != null) {
+        when (e) {
+            is java.net.UnknownHostException ->
+                return ": its address couldn’t be found. Your network may be blocking it; " +
+                    "try DNS over HTTPS in More → Library updates and network."
+            is javax.net.ssl.SSLException ->
+                return ": the secure connection failed. A network filter, VPN or antivirus may be " +
+                    "intercepting it."
+            is java.net.SocketTimeoutException -> return ": it took too long to answer."
+            is java.net.ConnectException -> return ": the connection was refused."
+        }
+        e = e.cause
+    }
+    return ""
+}
+
+/** Records a failed request in the diagnostic log: the address only, never headers or bodies. */
+internal fun logFailure(service: String, what: String, error: Throwable) {
+    org.nekomanga.shared.diagnostics.DiagnosticLog.error("$service request failed: $what", error)
 }
