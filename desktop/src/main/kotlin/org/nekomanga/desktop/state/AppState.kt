@@ -12,6 +12,7 @@ class AppState(
     openBrowser: (String) -> Unit = ::openInBrowser,
 ) {
     val navigator = Navigator()
+    val extensions = ExtensionsModel(scope, container.extensions)
     val backups = BackupModel(scope, container.library, container.settings, container.dirs.backups)
     val accounts =
         AccountsModel(
@@ -40,6 +41,7 @@ class AppState(
             intervalHours = { container.settings.current.updateIntervalHours },
             languages = { container.settings.current.languages },
             skip = { entry -> UpdateChecker.skips(container.settings.current.updateSkip, entry) },
+            extensionChapters = { source, url -> container.readingSources.chapters(source, url) },
             onFound = onUpdates,
         )
 
@@ -58,6 +60,7 @@ class AppState(
                 title,
                 languages = { container.settings.current.languages },
                 onChaptersRead = { chapters -> accounts.chaptersRead(title, chapters) },
+                readingSources = container.readingSources,
             )
         }
 
@@ -100,6 +103,7 @@ class AppState(
                 },
                 autoWebtoon = { container.settings.current.reader.autoWebtoon },
                 splitWidePages = { container.settings.current.reader.splitWidePages },
+                pageSource = { chapter -> container.readingSources.pages(chapter) },
             )
         reader = page to model
         return model

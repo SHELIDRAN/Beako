@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.LibraryAdd
 import androidx.compose.material.icons.outlined.LibraryAddCheck
@@ -68,7 +69,6 @@ import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.TitleTracking
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
-import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.download.DownloadState
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.Title
@@ -240,7 +240,7 @@ fun DetailsScreen(
                     item("none") {
                         StateMessage(
                             "No source has this title yet",
-                            "It isn’t on MangaDex. Installing source extensions comes in a later version.",
+                            "It isn’t on MangaDex or any source you’ve installed. Add sources in More → Sources.",
                         )
                     }
                 } else {
@@ -354,23 +354,59 @@ private fun GroupFilter(model: DetailsModel, groups: List<String>, excluded: Set
     }
 }
 
-/** Where the title can be read. A single source for now; it becomes a dropdown with extensions. */
+/**
+ * Where the title can be read: MangaDex and the installed sources that carry it. Picking one loads
+ * its chapters; Comick is never listed (Beako doesn't read from it).
+ */
 @Composable
 private fun AvailableOn(model: DetailsModel) {
+    var open by remember { mutableStateOf(false) }
+    val selected = model.availableOn.firstOrNull { it.sourceId == model.selectedSource }
     val text =
         when {
-            model.chapters is Loadable.Loading -> "Looking for sources…"
-            model.availableOn.isEmpty() -> "Not available on any source"
-            else -> "Available on ${model.availableOn.joinToString(", ")}"
+            selected != null -> "Reading from ${selected.name}"
+            model.chapters is Loadable.Loading || model.searchingSources -> "Looking for sources…"
+            else -> "Not available on any source"
         }
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = BeakoColors.Text,
-        modifier =
-            Modifier.glass(RoundedCornerShape(50), tint = BeakoColors.Rim)
-                .padding(horizontal = 14.dp, vertical = 9.dp),
-    )
+    Box {
+        GlassButton(
+            text + if (model.searchingSources && selected != null) " · searching…" else "",
+            onClick = { if (model.availableOn.size > 1 || model.searchingSources) open = true },
+            icon = if (model.availableOn.size > 1) Icons.Outlined.ExpandMore else null,
+        )
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            Text(
+                "Available on",
+                style = MaterialTheme.typography.labelMedium,
+                color = BeakoColors.TextMuted,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+            model.availableOn.forEach { match ->
+                val on = match.sourceId == model.selectedSource
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            (if (on) "✓  " else "     ") +
+                                match.name +
+                                if (match.unoriginal) " (copy of another site)" else "",
+                        )
+                    },
+                    onClick = {
+                        model.selectSource(match.sourceId)
+                        open = false
+                    },
+                )
+            }
+            if (model.searchingSources) {
+                Text(
+                    "Still searching your installed sources…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = BeakoColors.TextMuted,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
 }
 
 /** Add to library, or, when it's there, a menu to change its categories or remove it. */

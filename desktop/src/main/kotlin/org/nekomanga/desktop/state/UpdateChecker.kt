@@ -36,6 +36,9 @@ class UpdateChecker(
     private val firstDelayMillis: Long = 15_000L,
     /** Titles the check leaves out, from the "skip when updating" settings. */
     private val skip: (LibraryEntry) -> Boolean = { false },
+    /** Chapters from an installed source, for titles read there. */
+    private val extensionChapters: (suspend (sourceId: String, url: String) -> List<Chapter>)? =
+        null,
     private val onFound: (List<TitleUpdate>) -> Unit = {},
 ) {
     var running by mutableStateOf(false)
@@ -86,6 +89,23 @@ class UpdateChecker(
         try {
             for ((index, entry) in entries.withIndex()) {
                 try {
+                    val source = entry.readingSource
+                    val link = source?.let { entry.sourceLinks[it] }
+                    if (
+                        source != null &&
+                            link != null &&
+                            extensionChapters != null &&
+                            org.nekomanga.shared.extensions.ReadingSources.isExtension(source)
+                    ) {
+                        val fresh =
+                            library.recordCheck(
+                                entry.key,
+                                entry.visible(extensionChapters.invoke(source, link)),
+                            )
+                        if (fresh.isNotEmpty()) found += TitleUpdate(entry.title, fresh)
+                        progress = index + 1 to entries.size
+                        continue
+                    }
                     val id =
                         entry.mangaDexId
                             ?: discovery.findOnMangaDex(entry.title)?.id?.also {

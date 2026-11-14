@@ -83,6 +83,10 @@ data class LibraryEntry(
     val tracks: Map<String, Track> = emptyMap(),
     /** Scanlation groups whose chapters are hidden for this title. */
     val excludedGroups: Set<String> = emptySet(),
+    /** Where chapters are read from: "mangadex" or an extension ("ext:<id>"); null picks one. */
+    val readingSource: String? = null,
+    /** The title's address on each extension it was found on, by source id. */
+    val sourceLinks: Map<String, String> = emptyMap(),
 ) {
     val key: String
         get() = keyOf(title)

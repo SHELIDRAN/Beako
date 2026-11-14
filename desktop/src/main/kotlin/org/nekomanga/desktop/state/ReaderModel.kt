@@ -63,6 +63,8 @@ class ReaderModel(
     private val saveMode: (ReadingMode) -> Unit = {},
     private val autoWebtoon: () -> Boolean = { true },
     private val splitWidePages: () -> Boolean = { false },
+    /** Pages from wherever the chapter lives; MangaDex when not given. */
+    private val pageSource: (suspend (Chapter) -> PageList)? = null,
 ) {
     var index by mutableStateOf(startIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0)))
         private set
@@ -249,7 +251,7 @@ class ReaderModel(
                 val list =
                     localPages(target)?.let { files ->
                         PageList(files.map { LOCAL_PAGE + it.absolutePath })
-                    } ?: mangaDex.pages(target.id, dataSaver())
+                    } ?: pageSource?.invoke(target) ?: mangaDex.pages(target.id, dataSaver())
                 pages = Loadable.Ready(list)
                 val last = (list.urls.size - 1).coerceAtLeast(0)
                 val start =

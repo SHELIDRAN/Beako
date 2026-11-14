@@ -75,6 +75,7 @@ fun MoreScreen(
     downloadsFolder: File,
     accounts: (@Composable () -> Unit)? = null,
     backup: (@Composable () -> Unit)? = null,
+    sources: (@Composable () -> Unit)? = null,
 ) {
     val settings by settingsStore.settings.collectAsState()
     val data by library.data.collectAsState()
@@ -308,6 +309,7 @@ fun MoreScreen(
                 GlassIconButton(Icons.Outlined.Close, "Cancel download", { downloads.cancel(job) })
             }
         }
+        if (sources != null) item("sources") { sources() }
         item("keyboard") { KeyboardSection(settingsStore) }
         if (backup != null) item("backup") { backup() }
         item("about") {

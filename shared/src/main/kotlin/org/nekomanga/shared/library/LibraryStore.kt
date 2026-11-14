@@ -100,6 +100,14 @@ class LibraryStore(
         data.copy(entries = data.entries.map { it.copy(tracks = it.tracks - service) })
     }
 
+    fun setReadingSource(title: Title, sourceId: String) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) { it.copy(readingSource = sourceId) }
+    }
+
+    fun setSourceLinks(title: Title, links: Map<String, String>) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) { it.copy(sourceLinks = it.sourceLinks + links) }
+    }
+
     fun setExcludedGroups(title: Title, groups: Set<String>) = update { data ->
         data.withEntry(LibraryEntry.keyOf(title)) { it.copy(excludedGroups = groups) }
     }

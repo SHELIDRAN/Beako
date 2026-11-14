@@ -31,6 +31,7 @@ import org.nekomanga.desktop.screens.BackupSection
 import org.nekomanga.desktop.screens.BrowseScreen
 import org.nekomanga.desktop.screens.ComickReleasesShelf
 import org.nekomanga.desktop.screens.DetailsScreen
+import org.nekomanga.desktop.screens.ExtensionsSection
 import org.nekomanga.desktop.screens.HistoryScreen
 import org.nekomanga.desktop.screens.LibraryScreen
 import org.nekomanga.desktop.screens.MoreScreen
@@ -86,6 +87,7 @@ fun main() {
         Window(
             onCloseRequest = {
                 container.library.flush()
+                container.extensions.closeAll()
                 exitApplication()
             },
             title = APP_NAME,
@@ -233,6 +235,7 @@ private fun AppScreen(state: AppState, destination: Destination) {
                     )
                 },
                 backup = { BackupSection(state.backups, state.container.settings) },
+                sources = { ExtensionsSection(state.extensions) },
             )
     }
 }
