@@ -343,7 +343,16 @@ private fun accountSlots(state: AppState): List<AccountSlot> {
 
 /** Logs covers and pages that fail to load (HTTP errors, undecodable images) to beako.log. */
 private object ImageFailureLog : coil3.EventListener() {
+    // Each address once per session: a broken cover is shown, and failed, again and again.
+    private val logged =
+        java.util.Collections.newSetFromMap(
+            java.util.concurrent.ConcurrentHashMap<String, Boolean>(),
+        )
+
     override fun onError(request: coil3.request.ImageRequest, result: coil3.request.ErrorResult) {
-        DiagnosticLog.error("Image failed to load: ${request.data}", result.throwable)
+        val address = request.data.toString()
+        if (logged.size < 2_000 && logged.add(address)) {
+            DiagnosticLog.error("Image failed to load: $address", result.throwable)
+        }
     }
 }
