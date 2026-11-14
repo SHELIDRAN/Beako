@@ -80,8 +80,14 @@ class LoopbackReceiver(
                 when {
                     uri.path == path && fragmentBridge && uri.rawQuery.isNullOrEmpty() ->
                         Triple(200, FRAGMENT_PAGE.replace("{{path}}", "$path/fragment"), null)
-                    uri.path == path || (fragmentBridge && uri.path == "$path/fragment") ->
-                        Triple(200, DONE_PAGE, Callback(parseQuery(uri.rawQuery)))
+                    uri.path == path || (fragmentBridge && uri.path == "$path/fragment") -> {
+                        val params = parseQuery(uri.rawQuery)
+                        // Prefetches and stray hits carry no OAuth answer: keep waiting for the
+                        // real one.
+                        if (params.keys.none { it in ANSWER_KEYS })
+                            Triple(400, "Not a sign-in response", null)
+                        else Triple(200, DONE_PAGE, Callback(params))
+                    }
                     else -> Triple(404, "Not found", null)
                 }
             val bytes = page.toByteArray(Charsets.UTF_8)
@@ -104,6 +110,8 @@ class LoopbackReceiver(
     }
 
     private companion object {
+        val ANSWER_KEYS = setOf("state", "code", "error", "access_token")
+
         const val DONE_PAGE =
             "<!doctype html><meta charset=utf-8><title>Beako</title>" +
                 "<body style='font-family:system-ui;background:#0b0c0e;color:#f5f5f6;display:grid;place-items:center;height:90vh'>" +

@@ -101,13 +101,7 @@ class DetailsModel(
     /** The highest chapter number read, for a tracker's progress; null when none is numbered. */
     fun readProgress(): String? {
         val read = entry()?.readChapterIds.orEmpty()
-        return readingOrder()
-            .filter { it.id in read }
-            .mapNotNull { chapter ->
-                chapter.number?.toDoubleOrNull()?.let { it to chapter.number }
-            }
-            .maxByOrNull { it.first }
-            ?.second
+        return readingOrder().filter { it.id in read }.highestNumber()
     }
 
     /** [chapters] oldest first, the order the reader moves through them. */

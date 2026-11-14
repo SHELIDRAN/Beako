@@ -35,8 +35,11 @@ interface Tracker {
     val service: String
     val displayName: String
 
-    /** The signed-in account, or null. */
+    /** The signed-in account's profile, or null until it loads. */
     val account: StateFlow<Account?>
+
+    /** True while sign-in secrets are stored, even if the profile hasn't loaded (e.g. offline). */
+    val isConnected: Boolean
 
     /** Finds the tracker's id for [title]: by shared ids first, else a title search. */
     suspend fun find(title: Title): TrackerMatch?

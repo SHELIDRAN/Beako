@@ -55,6 +55,9 @@ class AniListTracker(
     val connected: Boolean
         get() = vault.get(TOKEN_KEY) != null
 
+    override val isConnected: Boolean
+        get() = connected
+
     /** Signs in with the AniList API client [clientId], whose redirect URL is [REDIRECT_URI]. */
     suspend fun signIn(clientId: String, openBrowser: (String) -> Unit) {
         require(clientId.isNotBlank()) { "Enter your AniList client ID first." }

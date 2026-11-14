@@ -56,6 +56,7 @@ class TitleTracking(
     }
 
     fun pick(service: String, match: TrackerMatch) {
+        searchJob?.cancel()
         work(service) { tracker -> link(tracker, match) }
     }
 
@@ -65,6 +66,7 @@ class TitleTracking(
     }
 
     fun closePicker(service: String) {
+        searchJob?.cancel()
         ui[service] = TrackUi()
     }
 
@@ -115,6 +117,9 @@ class TitleTracking(
                 throw e
             } catch (e: ApiError) {
                 ui[service] = TrackUi(error = e.message, matches = matches)
+            } catch (e: Exception) {
+                ui[service] =
+                    TrackUi(error = "Something went wrong: ${e.message}", matches = matches)
             }
         }
     }

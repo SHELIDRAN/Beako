@@ -36,6 +36,9 @@ class ComickTracker(private val connection: ComickAccount) : Tracker {
     private val _account = MutableStateFlow<Account?>(null)
     override val account: StateFlow<Account?> = _account.asStateFlow()
 
+    override val isConnected: Boolean
+        get() = connection.connected.value
+
     /** Loads the connected account's name and avatar; clears it when not connected. */
     suspend fun refreshAccount() {
         if (!connection.connected.value) {

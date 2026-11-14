@@ -44,7 +44,7 @@ class TrackerSync(private val library: LibraryStore) {
         val updated = mutableListOf<Track>()
         for (tracker in trackers) {
             val local = entry.tracks[tracker.service] ?: continue
-            if (tracker.account.value == null || !isAhead(chapterNumber, local.progress)) continue
+            if (!tracker.isConnected || !isAhead(chapterNumber, local.progress)) continue
             // Re-read the remote first, so progress made elsewhere is never lowered.
             val remote = tracker.get(local.remoteId)
             if (remote != null && !isAhead(chapterNumber, remote.progress)) {

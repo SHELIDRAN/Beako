@@ -140,6 +140,7 @@ class AccountsModel(
         run(service, "Disconnecting…", done = { "Disconnected" }) {
             when (service) {
                 Service.COMICK -> {
+                    releasesJob?.cancel()
                     comick.disconnect()
                     library.removeAllTracks(Trackers.COMICK)
                     comickReleases = null
@@ -170,8 +171,13 @@ class AccountsModel(
                 Service.ANILIST -> importTracked(aniList)
                 Service.MANGADEX -> {
                     val follows = mangaDex.follows()
+                    val known = library.data.value.entries.mapNotNull { it.mangaDexId }.toSet()
                     follows.forEach { title ->
-                        if (!library.contains(title)) library.add(title, mangaDexId = title.id)
+                        // Skip titles already in the library from any source (matched by MangaDex
+                        // id).
+                        if (!library.contains(title) && title.id !in known) {
+                            library.add(title, mangaDexId = title.id)
+                        }
                     }
                     follows.size
                 }
@@ -193,9 +199,15 @@ class AccountsModel(
         library.entry(title)?.let {
             return it.title
         }
+        val names =
+            (listOf(title.title) + title.altTitles)
+                .map(::normalise)
+                .filter { it.isNotEmpty() }
+                .toSet()
         return library.data.value.entries
             .firstOrNull { entry ->
                 entry.tracks[service]?.remoteId == remoteId ||
+                    normalise(entry.title.title) in names ||
                     (service == Trackers.COMICK &&
                         entry.title.source == Sources.COMICK &&
                         entry.title.id == remoteId)
@@ -211,14 +223,11 @@ class AccountsModel(
     fun chaptersRead(title: Title, chapters: List<Chapter>) {
         val current = settings.current
         if (current.incognito || chapters.isEmpty()) return
-        val highest =
-            chapters
-                .mapNotNull { chapter ->
-                    chapter.number?.toDoubleOrNull()?.let { it to chapter.number }
-                }
-                .maxByOrNull { it.first }
-                ?.second
+        val highest = chapters.highestNumber()
         scope.launch {
+            // The profile may not have loaded at start-up (offline); try again now.
+            if (comick.isConnected && comick.account.value == null)
+                quietly { comick.refreshAccount() }
             val problems = mutableListOf<String>()
             if (current.autoTrack && highest != null) {
                 try {
@@ -284,6 +293,8 @@ class AccountsModel(
                 }
         }
     }
+
+    private fun normalise(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
 
     private companion object {
         const val RELEASES_TTL = 30 * 60_000L
