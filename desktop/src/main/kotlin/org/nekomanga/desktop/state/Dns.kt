@@ -19,7 +19,7 @@ enum class DohProvider(val label: String, val url: String, val bootstrap: List<S
 
 /** The DNS setting's special values; anything else names a [DohProvider]. */
 object DnsMode {
-    /** DNS over HTTPS first, Windows DNS when that's unreachable (the default). */
+    /** Windows DNS and DNS over HTTPS together; connections race the addresses (the default). */
     const val AUTOMATIC = ""
     const val SYSTEM = "SYSTEM"
 }
@@ -55,24 +55,48 @@ class SwitchableDns(
         DohProvider.of(setting)?.let {
             return resolver(it).lookup(hostname)
         }
-        if (setting == DnsMode.SYSTEM || now() < dohDownUntil) return system.lookup(hostname)
+        if (setting == DnsMode.SYSTEM) return system.lookup(hostname)
         cache[hostname]?.let { (at, addresses) -> if (now() - at < CACHE_MILLIS) return addresses }
+
+        // Both sources, merged: the connection then races every address (OkHttp's fast fallback)
+        // and keeps the first that answers. A network that poisons Windows DNS, and one where
+        // DNS-over-HTTPS answers don't connect (0.1.2 QA: even MangaDex timed out), both work.
+        val fromSystem = runCatching { system.lookup(hostname) }
+        val fromDoh = if (now() < dohDownUntil) null else lookupOverHttps(hostname)
+        val merged = (fromDoh.orEmpty() + fromSystem.getOrNull().orEmpty()).distinct()
+        if (merged.isEmpty())
+            throw fromSystem.exceptionOrNull() ?: java.net.UnknownHostException(hostname)
+        if (logged.add(hostname)) {
+            org.nekomanga.shared.diagnostics.DiagnosticLog.info(
+                "DNS for $hostname: Windows ${fromSystem.getOrNull()?.map { it.hostAddress } ?: "failed"}, " +
+                    "over HTTPS ${fromDoh?.map { it.hostAddress } ?: "unavailable"}",
+            )
+        }
+        if (cache.size > 500) cache.clear()
+        cache[hostname] = now() to merged
+        return merged
+    }
+
+    /**
+     * DNS over HTTPS (Cloudflare, then Google); null when neither answers, and then skipped for a
+     * while.
+     */
+    private fun lookupOverHttps(hostname: String): List<InetAddress>? {
         for (provider in AUTOMATIC_ORDER) {
             val found = runCatching { resolver(provider).lookup(hostname) }.getOrNull()
-            if (!found.isNullOrEmpty()) {
-                if (cache.size > 500) cache.clear()
-                cache[hostname] = now() to found
-                return found
-            }
+            if (!found.isNullOrEmpty()) return found
         }
-        // DNS over HTTPS didn't answer (blocked, offline): use the system's and stop trying for a
-        // while.
         dohDownUntil = now() + DOWN_MILLIS
         org.nekomanga.shared.diagnostics.DiagnosticLog.info(
-            "DNS over HTTPS didn’t answer for $hostname; using Windows DNS for the next 10 minutes",
+            "DNS over HTTPS didn’t answer for $hostname; using Windows DNS alone for the next 10 minutes",
         )
-        return system.lookup(hostname)
+        return null
     }
+
+    private val logged =
+        java.util.Collections.newSetFromMap(
+            java.util.concurrent.ConcurrentHashMap<String, Boolean>(),
+        )
 
     private fun resolver(choice: DohProvider): Dns = resolvers.getOrPut(choice) { doh(choice) }
 

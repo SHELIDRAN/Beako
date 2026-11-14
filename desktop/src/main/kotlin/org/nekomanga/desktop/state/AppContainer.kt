@@ -56,6 +56,8 @@ class AppContainer(
         bootstrap
             .newBuilder()
             .dns(SwitchableDns({ settings.current.dnsOverHttps }, bootstrap))
+            // Race every address a name resolves to and keep the first that connects.
+            .fastFallback(true)
             .addInterceptor { chain ->
                 val request = chain.request()
                 chain.proceed(
