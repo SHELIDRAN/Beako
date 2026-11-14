@@ -1,29 +1,22 @@
 Beako is a manga reader for Windows, based on the [Neko](https://github.com/nekomangaorg/Neko) Android app (Apache-2.0).
 
-## Beako 0.1.0 — first preview
+## Beako 0.1.1 — fixes from the first preview
 
-**Install:** download `Beako-0.1.0-windows-x64.msi` below and run it. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
+**Install:** download `Beako-0.1.1-windows-x64.msi` below and run it; it upgrades 0.1.0 in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
 
-### Discover
-- Browse comick.dev's charts (Most Followed New, Most Recent Popular, with 7 / 30 / 90 day switches) and search with Comick's tag filters, where included tags are all required.
-- When Comick can't answer a keyword search, Beako searches MangaDex instead and says so.
-- Title pages with "More like this", a scanlation group filter and an **Available on** list of the places you can read the title.
+### Fixed
+- **Comick and AniList sign-in crashed** in the installed app ("com/sun/net/httpserver/HttpServer"). The installer now includes the full Java runtime, and every release is self-tested as an installed app before it's published. (The installer is larger as a result.)
+- **About half the covers were blank** on Browse and title pages: covers whose original is a PNG asked Comick for an image that doesn't exist.
+- **Installed sources failed silently** when they search with spaces in the address (for example Comix): addresses are now encoded the way a browser does it. Sources that read `apiUrl` or call `client.get(url)` with no headers work too.
 
-### Read
-- MangaDex is built in. You can also install **Mangayomi-format JavaScript sources** from repositories you add (More → Sources; wotaku.wiki lists them). Beako ships no sources: they're third-party code, run in a sandbox that can only load public web pages.
-- If the chosen source lacks a chapter, Beako fills the gap from another source that has it.
-- Webtoon and page-by-page modes, automatic webtoon detection, split double-page spreads, fit options, full screen, and rebindable keys.
-- Downloads for offline reading.
+### New
+- **Choose where to read on every title page.** The "Reading from…" / "Not available on any source" button opens a source picker: MangaDex and each installed source with what was found (matched, no match, or the source's error), and a search by hand on any of them, prefilled with the title and its other names (romaji, original title), to pick the right one when automatic matching misses.
+- **AniList is one click:** More → Accounts and tracking → AniList → Connect. No need to create your own API client any more.
+- **A diagnostic log** for reporting problems: `%APPDATA%\Beako\beako.log` records source errors, images that fail to load and crashes. It never contains passwords or sign-in tokens.
+- Reopening a title page no longer searches every installed source again.
 
-### Library and tracking
-- Library with categories, grouping and sorting; reading history; Latest updates with Windows notifications.
-- Sign in to **Comick** and **AniList** (trackers) and **MangaDex**; progress is sent as you finish chapters and never lowered.
-- **Discord Rich Presence** (More → Discord): shows what you're reading through the Discord app, hidden in incognito. Until Beako's Discord app is registered, paste an application ID there.
-- Backups (daily, automatic), including restoring a backup from Neko on Android.
-- Five dark colour schemes, glass strength and interface size settings.
-
-### Not in this version
-- Dart-based Mangayomi sources (most sources in the big repositories) can't run yet; JavaScript ones can.
-- Sign-in flows were tested against recorded responses, not yet against the live Comick and MangaDex sites: please report anything that goes wrong.
+### Still to come
+- Dart-based Mangayomi sources (most sources in the big repositories); JavaScript ones work.
+- Discord Rich Presence works if you paste a Discord application ID in More → Discord; a built-in one is coming.
 
 Beako uses comick.dev only for discovery and tracking: it never reads chapters or images from Comick. Not affiliated with Comick, MangaDex, Mangayomi or Neko. The extension bridge is adapted from [Mangayomi](https://github.com/kodjodevf/mangayomi) (Apache-2.0).
