@@ -17,13 +17,13 @@ Beako is a manga reader for Windows, based on the [Neko](https://github.com/neko
 
 ### Library and tracking
 - Library with categories, grouping and sorting; reading history; Latest updates with Windows notifications.
-- Sign in to **Comick** (tracker) and **MangaDex**; progress is sent as you finish chapters and never lowered.
+- Sign in to **Comick** and **AniList** (trackers) and **MangaDex**; progress is sent as you finish chapters and never lowered. For AniList, create your own API client on anilist.co for now (More → Accounts explains how).
+- **Discord Rich Presence** (More → Discord): shows what you're reading through the Discord app, hidden in incognito. Until Beako's Discord app is registered, paste an application ID there.
 - Backups (daily, automatic), including restoring a backup from Neko on Android.
 - Five dark colour schemes, glass strength and interface size settings.
 
 ### Not in this version
 - Dart-based Mangayomi sources (most sources in the big repositories) can't run yet; JavaScript ones can.
-- AniList tracking and Discord Rich Presence are coming next.
 - Sign-in flows were tested against recorded responses, not yet against the live Comick and MangaDex sites: please report anything that goes wrong.
 
 Beako uses comick.dev only for discovery and tracking: it never reads chapters or images from Comick. Not affiliated with Comick, MangaDex, Mangayomi or Neko. The extension bridge is adapted from [Mangayomi](https://github.com/kodjodevf/mangayomi) (Apache-2.0).
