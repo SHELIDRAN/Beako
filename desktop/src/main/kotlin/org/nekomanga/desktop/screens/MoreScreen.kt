@@ -267,6 +267,7 @@ fun MoreScreen(
                 GlassIconButton(Icons.Outlined.Close, "Cancel download", { downloads.cancel(job) })
             }
         }
+        item("keyboard") { KeyboardSection(settingsStore) }
         if (backup != null) item("backup") { backup() }
         item("about") {
             Section("About") {

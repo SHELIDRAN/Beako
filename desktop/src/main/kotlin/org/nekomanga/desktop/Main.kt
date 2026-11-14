@@ -38,6 +38,7 @@ import org.nekomanga.desktop.screens.SearchScreen
 import org.nekomanga.desktop.screens.UpdatesScreen
 import org.nekomanga.desktop.state.AppContainer
 import org.nekomanga.desktop.state.AppState
+import org.nekomanga.desktop.state.KeyBindings
 import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.Page
 import org.nekomanga.desktop.state.UpdateChecker
@@ -254,6 +255,7 @@ private fun AppPage(state: AppState, page: Page) {
                 onClose = { state.navigator.back() },
                 prefs = settings.reader,
                 onPrefs = { prefs -> state.container.settings.update { it.copy(reader = prefs) } },
+                keys = remember(settings.keyBindings) { KeyBindings(settings.keyBindings) },
             )
         }
     }
