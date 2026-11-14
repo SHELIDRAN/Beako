@@ -18,7 +18,13 @@ import org.nekomanga.shared.net.items
 import org.nekomanga.shared.net.str
 
 /** A genre, theme, format or content descriptor from Comick's genre list. */
-data class ComickGenre(val slug: String, val name: String, val group: String, val count: Int?)
+data class ComickGenre(
+    val slug: String,
+    val name: String,
+    val group: String,
+    val count: Int?,
+    val id: Int? = null,
+)
 
 /** One of Comick's community tags, with how many titles carry it. */
 data class ComickTag(val slug: String, val name: String, val count: Int)
@@ -95,6 +101,7 @@ class ComickApi(
                 name = g.str("name") ?: return@mapNotNull null,
                 group = g.str("group").orEmpty().lowercase(),
                 count = g.int("comic_count"),
+                id = g.int("id"),
             )
         }
 
@@ -181,6 +188,10 @@ class ComickApi(
                 follows = v.int("user_follow_count") ?: v.int("follow_count"),
                 chapterCount = v.int("last_chapter") ?: v.int("chapter_count"),
                 lastUploadedAt = v.str("uploaded_at"),
+                comickGenreIds =
+                    v["genres"].items().mapNotNull {
+                        (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
+                    },
                 externalIds =
                     ExternalIds(
                         anilist = ext.str("anilist"),

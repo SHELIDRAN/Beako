@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import org.nekomanga.shared.comick.ComickApi
 import org.nekomanga.shared.comick.ComickFilters
@@ -87,5 +88,43 @@ class DiscoveryTest {
 
         val unknown = Title(source = Sources.COMICK, id = "hid", title = "Something Else")
         assertNull(discovery(offline).findOnMangaDex(unknown))
+    }
+
+    @Test
+    fun similarTitlesShareTheRarestGenresAndLeaveOutTheTitleItself() = runTest {
+        val genres =
+            """[{"id":1,"name":"Action","slug":"action","comic_count":40000,"group":"Genre"},
+               {"id":2,"name":"Regression","slug":"regression","comic_count":900,"group":"Theme"},
+               {"id":3,"name":"Long Strip","slug":"long-strip","comic_count":20000,"group":"Format"},
+               {"id":4,"name":"Murim","slug":"murim","comic_count":300,"group":"Theme"}]"""
+        val http = FakeHttp { url ->
+            if (url.contains("/genre/")) json(genres)
+            else json("""[{"hid":"self","title":"Sample"},{"hid":"other","title":"Another"}]""")
+        }
+        val title = Title(Sources.COMICK, "self", "Sample", comickGenreIds = listOf(1, 2, 3, 4))
+
+        val similar = discovery(http).similar(title)
+
+        assertEquals(listOf("other"), similar.map { it.id })
+        // Rarest story genres first; formats like Long Strip are never used.
+        val search = http.urls.first { it.contains("/search/") }
+        assertTrue(search.contains("genres=murim") && search.contains("genres=regression"))
+        assertTrue(!search.contains("long-strip"))
+    }
+
+    @Test
+    fun similarMatchesMangaDexTagsByName() = runTest {
+        val http = FakeHttp { url ->
+            if (url.contains("/genre/"))
+                json(
+                    """[{"id":9,"name":"Isekai","slug":"isekai","comic_count":5000,"group":"Theme"}]""",
+                )
+            else json("[]")
+        }
+        discovery(http).similar(Title(Sources.MANGADEX, "md", "X", tags = listOf("Isekai")))
+        assertTrue(http.urls.any { it.contains("genres=isekai") })
+        // Nothing usable: no search at all.
+        val none = FakeHttp { json("[]") }
+        assertTrue(discovery(none).similar(Title(Sources.MANGADEX, "md", "X")).isEmpty())
     }
 }

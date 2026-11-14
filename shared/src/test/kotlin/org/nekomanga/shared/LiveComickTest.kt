@@ -45,6 +45,19 @@ class LiveComickTest {
             val genres = api.genres()
             println("LIVE tags=${tags.size} top=${tags.take(3)} genres=${genres.size}")
             assertTrue(tags.size > 100 && genres.isNotEmpty())
+            println("LIVE genre groups: ${genres.map { it.group }.distinct()}")
+            assertTrue(search.first().comickGenreIds.isNotEmpty())
+            val similar =
+                org.nekomanga.shared.discovery
+                    .Discovery(
+                        api,
+                        org.nekomanga.shared.mangadex.MangaDexApi(
+                            OkHttpFetcher(OkHttpClient(), beakoUserAgent("test")),
+                        ),
+                    )
+                    .similar(search.first())
+            println("LIVE similar to ${search.first().title}: ${similar.take(5).map { it.title }}")
+            assertTrue(similar.isNotEmpty())
 
             for (chart in ComickChart.entries) {
                 val titles = api.chart(chart, days = 7)

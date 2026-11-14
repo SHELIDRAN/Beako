@@ -39,6 +39,38 @@ class DetailsModel(
         private set
 
     private var mangaDexId: String? = library.entry(title)?.mangaDexId
+
+    /** Scanlation groups hidden on this page and in the reader. Saved for library titles. */
+    var excludedGroups by mutableStateOf(library.entry(title)?.excludedGroups.orEmpty())
+        private set
+
+    /** Popular titles sharing this one's genres; null until loaded. */
+    var similar by mutableStateOf<Loadable<List<Title>>>(Loadable.Loading)
+        private set
+
+    /** Every group that has chapters here, most chapters first. */
+    fun groups(): List<String> =
+        allChapters()
+            .mapNotNull { it.group }
+            .groupingBy { it }
+            .eachCount()
+            .entries
+            .sortedByDescending { it.value }
+            .map { it.key }
+
+    fun setGroupHidden(group: String, hidden: Boolean) {
+        excludedGroups = if (hidden) excludedGroups + group else excludedGroups - group
+        if (library.contains(title)) library.setExcludedGroups(title, excludedGroups)
+    }
+
+    /**
+     * Chapters from groups that aren't hidden, newest first. Chapters with no group always show.
+     */
+    fun visibleChapters(): List<Chapter> =
+        allChapters().filter { it.group == null || it.group !in excludedGroups }
+
+    private fun allChapters(): List<Chapter> = (chapters as? Loadable.Ready)?.value.orEmpty()
+
     private var started = false
 
     fun start() {
@@ -61,6 +93,7 @@ class DetailsModel(
 
     fun addToLibrary(categories: List<String> = emptyList()) {
         library.add(title, categories, mangaDexId)
+        if (excludedGroups.isNotEmpty()) library.setExcludedGroups(title, excludedGroups)
         // Record what exists now, so the first update check doesn't report every chapter as new.
         (chapters as? Loadable.Ready)?.value?.let {
             library.recordCheck(LibraryEntry.keyOf(title), it)
@@ -105,7 +138,7 @@ class DetailsModel(
     }
 
     /** [chapters] oldest first, the order the reader moves through them. */
-    fun readingOrder(): List<Chapter> = (chapters as? Loadable.Ready)?.value.orEmpty().reversed()
+    fun readingOrder(): List<Chapter> = visibleChapters().reversed()
 
     /** Where "Continue" should open: the saved chapter, else the first unread one. */
     fun continueIndex(): Int? {
@@ -122,7 +155,20 @@ class DetailsModel(
         return if (unread >= 0) unread else null
     }
 
+    private fun loadSimilar() {
+        similar = Loadable.Loading
+        scope.launch {
+            similar =
+                try {
+                    Loadable.Ready(discovery.similar(title))
+                } catch (e: ApiError) {
+                    Loadable.Failed(e.message.orEmpty())
+                }
+        }
+    }
+
     private fun load() {
+        if (similar !is Loadable.Ready) loadSimilar()
         chapters = Loadable.Loading
         scope.launch {
             chapters =

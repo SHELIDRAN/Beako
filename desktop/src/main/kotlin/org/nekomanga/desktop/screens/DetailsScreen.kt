@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.LibraryAdd
 import androidx.compose.material.icons.outlined.LibraryAddCheck
 import androidx.compose.material3.DropdownMenu
@@ -57,6 +58,7 @@ import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.SearchField
+import org.nekomanga.desktop.components.Shelf
 import org.nekomanga.desktop.components.Skeleton
 import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.formatCount
@@ -69,6 +71,7 @@ import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.download.DownloadState
 import org.nekomanga.shared.model.Chapter
+import org.nekomanga.shared.model.Title
 
 /** A title's page: cover and details, where it can be read, and its chapters. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -79,6 +82,7 @@ fun DetailsScreen(
     /** Opens the reader on [index] of the chapters in reading order, at [page]. */
     onRead: (chapters: List<Chapter>, index: Int, page: Int) -> Unit,
     tracking: TitleTracking? = null,
+    onOpenTitle: (Title) -> Unit = {},
 ) {
     LaunchedEffect(model) { model.start() }
     val libraryData by model.libraryData.collectAsState()
@@ -88,7 +92,9 @@ fun DetailsScreen(
     val title = model.title
     var expanded by remember { mutableStateOf(false) }
     val chapters = model.chapters
-    val readingOrder = remember(chapters) { model.readingOrder() }
+    val excluded = model.excludedGroups
+    val readingOrder = remember(chapters, excluded) { model.readingOrder() }
+    val visible = remember(chapters, excluded) { model.visibleChapters() }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -194,13 +200,23 @@ fun DetailsScreen(
                         if (tracking != null) TrackingPanel(tracking, entry)
                     }
                 }
-                val count = (chapters as? Loadable.Ready)?.value?.size
-                Text(
-                    if (count != null && count > 0) "Chapters · $count" else "Chapters",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = BeakoColors.Text,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
-                )
+                val total = (chapters as? Loadable.Ready)?.value?.size ?: 0
+                Row(
+                    Modifier.padding(top = 8.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        when {
+                            total == 0 -> "Chapters"
+                            visible.size < total -> "Chapters · ${visible.size} of $total"
+                            else -> "Chapters · $total"
+                        },
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = BeakoColors.Text,
+                    )
+                    GroupFilter(model, remember(chapters) { model.groups() }, excluded)
+                }
             }
         }
         when (chapters) {
@@ -213,7 +229,14 @@ fun DetailsScreen(
                     }
                 }
             is Loadable.Ready ->
-                if (chapters.value.isEmpty()) {
+                if (chapters.value.isNotEmpty() && visible.isEmpty()) {
+                    item("filtered") {
+                        StateMessage(
+                            "Every chapter is hidden",
+                            "All of this title’s chapters come from groups you’ve hidden. Show a group to see its chapters.",
+                        )
+                    }
+                } else if (chapters.value.isEmpty()) {
                     item("none") {
                         StateMessage(
                             "No source has this title yet",
@@ -221,7 +244,7 @@ fun DetailsScreen(
                         )
                     }
                 } else {
-                    items(chapters.value, key = { it.id }) { chapter ->
+                    items(visible, key = { it.id }) { chapter ->
                         val read = entry != null && chapter.id in entry.readChapterIds
                         val isNew = entry?.newChapters?.any { it.chapter.id == chapter.id } == true
                         val page = entry?.progress?.takeIf { it.chapterId == chapter.id }?.page
@@ -286,6 +309,47 @@ fun DetailsScreen(
                         }
                     }
                 }
+        }
+        item("similar") {
+            val similar = model.similar
+            if (similar !is Loadable.Ready || similar.value.isNotEmpty()) {
+                Shelf(
+                    "More like this",
+                    similar,
+                    onOpenTitle,
+                    Modifier.padding(top = 28.dp),
+                    inset = 0.dp,
+                )
+            }
+        }
+    }
+}
+
+/** Shows or hides chapters by scanlation group. Hidden only when there's a single group. */
+@Composable
+private fun GroupFilter(model: DetailsModel, groups: List<String>, excluded: Set<String>) {
+    if (groups.size < 2 && excluded.isEmpty()) return
+    var open by remember { mutableStateOf(false) }
+    Box {
+        GlassButton(
+            if (excluded.isEmpty()) "All groups" else "${excluded.size} hidden",
+            onClick = { open = true },
+            icon = Icons.Outlined.FilterList,
+        )
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            Text(
+                "Show chapters from",
+                style = MaterialTheme.typography.labelMedium,
+                color = BeakoColors.TextMuted,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+            (groups + excluded.filter { it !in groups }).forEach { group ->
+                val shown = group !in excluded
+                DropdownMenuItem(
+                    text = { Text((if (shown) "✓  " else "     ") + group) },
+                    onClick = { model.setGroupHidden(group, hidden = shown) },
+                )
+            }
         }
     }
 }

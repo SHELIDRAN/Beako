@@ -237,6 +237,7 @@ private fun AppPage(state: AppState, page: Page) {
                     state.navigator.open(Page.Reader(page.title, chapters, index, start))
                 },
                 tracking = state.tracking(page.title),
+                onOpenTitle = { state.navigator.open(Page.Details(it)) },
             )
         is Page.Reader -> {
             val settings by state.container.settings.settings.collectAsState()
