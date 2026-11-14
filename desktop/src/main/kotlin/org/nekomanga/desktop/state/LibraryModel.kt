@@ -11,6 +11,7 @@ enum class GroupBy(val label: String) {
     NONE("None"),
     STATUS("Reading status"),
     UNREAD("Unread"),
+    DOWNLOADED("Downloaded"),
     PUBLICATION("Publication status"),
     TYPE("Type"),
     CATEGORY("Category"),
@@ -27,7 +28,14 @@ enum class LibrarySort(val label: String) {
 data class LibraryGroup(val name: String, val entries: List<LibraryEntry>)
 
 /** Library screen state: search, category filter, grouping and sort over the stored library. */
-class LibraryModel(val store: LibraryStore) {
+class LibraryModel(
+    val store: LibraryStore,
+    /** Titles ("source:id") with downloaded chapters. */
+    private val downloadedKeys: () -> Set<String> = { emptySet() },
+) {
+    /** Shows only titles with downloaded chapters (the "Downloaded only" mode). */
+    var downloadedOnly by mutableStateOf(false)
+
     var query by mutableStateOf("")
     var categoryFilter by mutableStateOf<Set<String>>(emptySet())
     var groupBy by mutableStateOf(GroupBy.NONE)
@@ -35,13 +43,23 @@ class LibraryModel(val store: LibraryStore) {
     var descending by mutableStateOf(true)
 
     fun groups(entries: List<LibraryEntry>): List<LibraryGroup> {
-        val visible = entries.filter(::matches).sortedWith(comparator())
+        val downloaded =
+            if (downloadedOnly || groupBy == GroupBy.DOWNLOADED) downloadedKeys() else emptySet()
+        val visible =
+            entries
+                .filter(::matches)
+                .filter { !downloadedOnly || it.key in downloaded }
+                .sortedWith(comparator())
         return when (groupBy) {
             GroupBy.NONE -> listOf(LibraryGroup("", visible))
             GroupBy.STATUS -> visible.groupBy { it.status.label }.toGroups()
             GroupBy.UNREAD ->
                 visible
                     .groupBy { if (it.unreadCount > 0) "Has unread chapters" else "Caught up" }
+                    .toGroups()
+            GroupBy.DOWNLOADED ->
+                visible
+                    .groupBy { if (it.key in downloaded) "Downloaded" else "Not downloaded" }
                     .toGroups()
             GroupBy.PUBLICATION ->
                 visible.groupBy { it.title.status?.label ?: "Unknown" }.toGroups()

@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.nekomanga.shared.discovery.Discovery
+import org.nekomanga.shared.download.DownloadManager
 import org.nekomanga.shared.library.LibraryEntry
 import org.nekomanga.shared.library.LibraryStore
 import org.nekomanga.shared.mangadex.MangaDexApi
@@ -22,6 +23,7 @@ class DetailsModel(
     private val discovery: Discovery,
     private val mangaDex: MangaDexApi,
     private val library: LibraryStore,
+    val downloads: DownloadManager,
     val title: Title,
 ) {
     /** Chapters newest first, as the list shows them. */
@@ -69,6 +71,18 @@ class DetailsModel(
 
     fun setRead(chapters: Collection<Chapter>, read: Boolean) {
         if (library.contains(title)) library.setRead(title, chapters.map { it.id }, read)
+    }
+
+    fun download(chapters: List<Chapter>) = downloads.enqueue(title, chapters)
+
+    fun deleteDownload(chapter: Chapter) = downloads.delete(title, chapter)
+
+    fun isDownloaded(chapter: Chapter) = downloads.isDownloaded(title, chapter)
+
+    /** Unread chapters in reading order, for "Download unread". */
+    fun unreadChapters(): List<Chapter> {
+        val read = entry()?.readChapterIds.orEmpty()
+        return readingOrder().filter { it.id !in read && it.externalUrl == null }
     }
 
     /** Marks this chapter and every earlier one as read. */

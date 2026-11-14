@@ -3,6 +3,8 @@ package org.nekomanga.desktop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.ImageBitmap
@@ -26,6 +28,7 @@ import org.nekomanga.desktop.screens.BrowseScreen
 import org.nekomanga.desktop.screens.DetailsScreen
 import org.nekomanga.desktop.screens.HistoryScreen
 import org.nekomanga.desktop.screens.LibraryScreen
+import org.nekomanga.desktop.screens.MoreScreen
 import org.nekomanga.desktop.screens.ReaderScreen
 import org.nekomanga.desktop.screens.SearchScreen
 import org.nekomanga.desktop.screens.UpdatesScreen
@@ -35,6 +38,8 @@ import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.Page
 import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.WindowControl
+import org.nekomanga.desktop.theme.BeakoAppearance
+import org.nekomanga.desktop.theme.SidebarMode
 
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
 const val APP_ICON = "neko-icon.png"
@@ -88,7 +93,16 @@ fun main() {
             // read:<query> starts on that page, using the first MangaDex match.
             LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
             CompositionLocalProvider(LocalWindowControl provides windowControl) {
+                val settings by container.settings.settings.collectAsState()
                 BeakoApp(
+                    appearance =
+                        BeakoAppearance(
+                            reduceMotion = settings.reduceMotion,
+                            reduceTransparency = settings.reduceTransparency,
+                            sidebarMode =
+                                runCatching { SidebarMode.valueOf(settings.sidebarMode) }
+                                    .getOrDefault(SidebarMode.AUTO_COLLAPSE),
+                        ),
                     start = startScreen(System.getenv("BEAKO_OPEN")),
                     navigator = state.navigator,
                     page = { AppPage(state, it) },
@@ -142,7 +156,11 @@ private fun AppScreen(state: AppState, destination: Destination) {
             )
         Destination.LIBRARY ->
             LibraryScreen(
-                state.libraryScreen,
+                state.libraryScreen.also {
+                    it.downloadedOnly =
+                        state.container.settings.settings.collectAsState().value.downloadedOnly
+                },
+                downloadChanges = state.container.downloads.changes.collectAsState().value,
                 onOpen = { state.navigator.open(Page.Details(it)) },
                 onSearchSources = { state.navigator.open(Page.Search(it)) },
                 onBrowse = { state.navigator.show(Destination.BROWSE) },
@@ -160,7 +178,13 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 onResume = { state.navigator.open(Page.Details(it.title)) },
                 onBrowse = { state.navigator.show(Destination.BROWSE) },
             )
-        else -> PlaceholderScreen(destination)
+        Destination.MORE ->
+            MoreScreen(
+                state.container.settings,
+                state.container.library,
+                state.container.downloads,
+                state.container.dirs.downloads,
+            )
     }
 }
 

@@ -12,7 +12,11 @@ class AppState(
     val navigator = Navigator()
     val browse = BrowseModel(scope, container.comick, container.mangaDex)
     val search = SearchModel(scope, container.discovery, container.comick)
-    val libraryScreen = LibraryModel(container.library)
+    val libraryScreen =
+        LibraryModel(
+            container.library,
+            downloadedKeys = { container.downloads.downloadedTitleKeys() },
+        )
     val updates =
         UpdateChecker(
             scope,
@@ -28,7 +32,14 @@ class AppState(
     /** One model per title, kept so coming back from the reader doesn't reload the page. */
     fun details(title: Title): DetailsModel =
         details.getOrPut("${title.source}:${title.id}") {
-            DetailsModel(scope, container.discovery, container.mangaDex, container.library, title)
+            DetailsModel(
+                scope,
+                container.discovery,
+                container.mangaDex,
+                container.library,
+                container.downloads,
+                title,
+            )
         }
 
     fun reader(page: Page.Reader): ReaderModel {
@@ -42,6 +53,9 @@ class AppState(
                 page.index,
                 container.library,
                 page.page,
+                incognito = { container.settings.current.incognito },
+                localPages = { chapter -> container.downloads.localPages(page.title, chapter) },
+                dataSaver = { container.settings.current.dataSaver },
             )
         reader = page to model
         return model

@@ -51,6 +51,9 @@ class ReaderModel(
     startPage: Int = 0,
     /** When true, nothing is saved to progress or history. */
     private val incognito: () -> Boolean = { false },
+    /** Downloaded page files of a chapter, read instead of the network when present. */
+    private val localPages: (Chapter) -> List<java.io.File>? = { null },
+    private val dataSaver: () -> Boolean = { false },
 ) {
     var index by mutableStateOf(startIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0)))
         private set
@@ -152,7 +155,10 @@ class ReaderModel(
         }
         job = scope.launch {
             try {
-                val list = mangaDex.pages(target.id)
+                val list =
+                    localPages(target)?.let { files ->
+                        PageList(files.map { LOCAL_PAGE + it.absolutePath })
+                    } ?: mangaDex.pages(target.id, dataSaver())
                 pages = Loadable.Ready(list)
                 val last = (list.urls.size - 1).coerceAtLeast(0)
                 val start =
@@ -170,6 +176,13 @@ class ReaderModel(
         }
     }
 }
+
+/** Marks a page "URL" that is really a downloaded file's path. */
+const val LOCAL_PAGE = "beako-file:"
+
+/** The image to load for a page: a [java.io.File] for downloaded pages, else the URL. */
+fun pageModel(url: String): Any =
+    if (url.startsWith(LOCAL_PAGE)) java.io.File(url.removePrefix(LOCAL_PAGE)) else url
 
 /** "Chapter 12", "Vol. 2 Chapter 12 · Title", or the title alone for unnumbered chapters. */
 fun Chapter.displayName(): String {
