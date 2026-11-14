@@ -53,7 +53,15 @@ import org.nekomanga.desktop.theme.SidebarMode
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
 const val APP_ICON = "neko-icon.png"
 
-fun main() {
+fun main(args: Array<String>) {
+    // `Beako.exe --self-test <report>`: checks the bundled runtime and exits (used by CI).
+    if (args.firstOrNull() == "--self-test") {
+        kotlin.system.exitProcess(
+            org.nekomanga.desktop.platform.SelfTest.runAndReport(
+                args.getOrNull(1)?.let { java.io.File(it) },
+            ),
+        )
+    }
     val container = AppContainer()
     // Covers and pages load through the app's own HTTP client, so they carry Beako's User-Agent.
     SingletonImageLoader.setSafe { context ->

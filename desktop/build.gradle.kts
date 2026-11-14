@@ -43,6 +43,10 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            // Bundle the whole Java runtime. The automatic module list left out jdk.httpserver
+            // (sign-in crashed in 0.1.0) and anything only extensions use; CI's packaged
+            // `--self-test` checks the result.
+            includeAllModules = true
             packageName = "Beako"
             packageVersion = providers.gradleProperty("beakoVersion").get()
             description = "Manga reader for Windows, based on Neko"
