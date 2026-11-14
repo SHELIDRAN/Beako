@@ -41,6 +41,31 @@ class PageHeaders(private val max: Int = 5_000) {
     fun forUrl(url: String): Map<String, String> = headers[url].orEmpty()
 }
 
+/**
+ * Per-title search results on each installed source, so reopening a title page doesn't search every
+ * source again. A match is kept for the session; "not found" for [missTtlMillis], since sources add
+ * titles. Bounded to [max] titles.
+ */
+internal class SearchCache(
+    private val missTtlMillis: Long = 6 * 60 * 60 * 1000L,
+    private val max: Int = 2_000,
+    private val now: () -> Long = System::currentTimeMillis,
+) {
+    class Entry(val match: SourceMatch?, val at: Long)
+
+    private val entries = ConcurrentHashMap<String, Entry>()
+
+    fun get(titleKey: String, sourceId: String): Entry? {
+        val entry = entries["$titleKey|$sourceId"] ?: return null
+        return entry.takeIf { it.match != null || now() - it.at < missTtlMillis }
+    }
+
+    fun put(titleKey: String, sourceId: String, match: SourceMatch?) {
+        if (entries.size >= max) entries.clear()
+        entries["$titleKey|$sourceId"] = Entry(match, now())
+    }
+}
+
 /** Chapters and pages from MangaDex or an installed extension, by the chapter's source. */
 class ReadingSources(
     private val mangaDex: MangaDexApi,
@@ -108,36 +133,51 @@ class ReadingSources(
                 .toSet()
         val queries =
             (listOf(title.title) + title.altTitles).filter { it.isNotBlank() }.distinct().take(2)
-        return coroutineScope {
-            extensions.usable
-                .filter { sourceIdOf(it.info.id) !in skip }
+        val titleKey = "${title.source}:${title.id}"
+        val candidates = extensions.usable.filter { sourceIdOf(it.info.id) !in skip }
+        // Sources already searched for this title answer from the cache.
+        val cached = candidates.mapNotNull { searches.get(titleKey, sourceIdOf(it.info.id)) }
+        val remembered = cached.mapNotNull { it.match }
+        val toSearch = candidates.filter { searches.get(titleKey, sourceIdOf(it.info.id)) == null }
+        val fresh = coroutineScope {
+            toSearch
                 .map { installed ->
                     async {
-                        withTimeoutOrNull(perSourceMillis) {
-                            runCatching {
-                                val source = extensions.source(installed.info.id)
-                                queries.firstNotNullOfOrNull { query ->
-                                    source.search(query).titles.firstOrNull {
-                                        normalise(it.name) in names
+                        val sourceId = sourceIdOf(installed.info.id)
+                        val outcome =
+                            withTimeoutOrNull(perSourceMillis) {
+                                runCatching {
+                                    val source = extensions.source(installed.info.id)
+                                    queries.firstNotNullOfOrNull { query ->
+                                        source.search(query).titles.firstOrNull {
+                                            normalise(it.name) in names
+                                        }
                                     }
                                 }
+                                    .map { found ->
+                                        found?.let {
+                                            SourceMatch(
+                                                sourceId,
+                                                installed.info.name,
+                                                it.url,
+                                                installed.info.isUnoriginal,
+                                            )
+                                        }
+                                    }
                             }
-                                .getOrNull()
-                                ?.let {
-                                    SourceMatch(
-                                        sourceIdOf(installed.info.id),
-                                        installed.info.name,
-                                        it.url,
-                                        installed.info.isUnoriginal,
-                                    )
-                                }
+                        // Only definite answers are cached: a failure or timeout is tried again.
+                        if (outcome != null && outcome.isSuccess) {
+                            searches.put(titleKey, sourceId, outcome.getOrNull())
                         }
+                        outcome?.getOrNull()
                     }
                 }
                 .mapNotNull { it.await() }
         }
-            .sortedBy { it.unoriginal }
+        return (remembered + fresh).sortedBy { it.unoriginal }
     }
+
+    private val searches = SearchCache()
 
     companion object {
         const val PREFIX = "ext:"

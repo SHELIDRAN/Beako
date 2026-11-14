@@ -66,3 +66,42 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 - comick.dev is allowed only as a catalog and tracker (search, tags, popular/trending, library sync through its official developer API and OAuth). **Never read chapters or page images from Comick** (owner's decision, Nov 13 2026): don't call its chapter-list, chapter-detail or `get_images` endpoints for reading, and never offer Comick in the "Available on" dropdown. Never use Comick lookalike domains or any site claiming to host Comick chapters; they're reported unsafe. AniList and MangaDex stay as secondary sources of tags and popularity.
 - Ship no extensions or extension repositories; users add their own. Load extensions with the least access possible and say clearly that they are third-party code.
 - Respect MangaDex and AniList API rate limits.
+
+## Architecture and engineering rules (owner, Nov 14 2026)
+
+### 1. Repository map
+- `shared/src/main/kotlin/org/nekomanga/shared/extensions/`: JS extension runtime (`JsSource`), HTTP wrapper (`ExtensionHttp`), repository/install manager (`ExtensionManager`) and multi-source resolver (`ReadingSources`).
+- `net` package: sealed `ApiError` hierarchy (including `ApiError.SourceFailed`).
+- `desktop/src/main/kotlin/org/nekomanga/desktop/state/`: desktop UI state and wiring (`AppContainer`, `DetailsModel`).
+- `desktop/src/test/kotlin/org/nekomanga/desktop/`: desktop unit and UI tests (`DetailsModelTest`, etc.).
+
+### 2. Build, format and test commands
+- **Always format before building or committing:** `./gradlew -PdesktopOnly ktfmtFormat -q`
+- **Full desktop build and test (constrained worker mode):** `./gradlew -PdesktopOnly build --console=plain --max-workers=1`
+- **Run a single test class:**
+  - `./gradlew -PdesktopOnly :desktop:test --tests "org.nekomanga.desktop.<TestClassName>" --max-workers=1`
+  - `./gradlew -PdesktopOnly :shared:test --tests "org.nekomanga.shared.<TestClassName>" --max-workers=1`
+- **Completion gate:** never declare a task complete until `ktfmtFormat` has run and the JUnit XML reports in `desktop/build/test-results/test/` (and `shared/build/test-results/test/` if `shared` changed) confirm the new tests ran and were not skipped.
+
+### 3. Kotlin and coroutine testing rules (strict)
+- **No `Unit?` test signatures:** JUnit silently skips `@Test` functions whose inferred return type is `Unit?` (common when an expression-body test ends with a `?.` safe call). Prefer block bodies (`fun myTest() { runTest { ... } }`) or annotate `: Unit` explicitly.
+- **Virtual vs. real time:** `runTest` uses a virtual clock that fires timeouts instantly while background threads (such as `JsSource` execution) run in wall-clock time. When testing real extension execution or I/O dispatchers, poll with `kotlinx.coroutines.withTimeout` on a real dispatcher instead of relying on virtual delay.
+- **Verify execution in XML:** after running Gradle tests, check `TEST-*.xml` that the `tests` count went up and `skipped` did not.
+
+### 4. Extension sandbox and security boundaries (high priority)
+The JS extension runtime executes untrusted third-party scripts and is the highest-risk surface in the app:
+- **Host policy enforcement:** every outbound request (script downloads in `ExtensionManager`, API calls in `ExtensionHttp`, and chapter/cover image loads in `AppContainer` / the image loader) MUST be validated against the extension host policy before connecting. Never pass raw extension URLs to an unrestricted image loader.
+- **Execution timeouts and cancellation:** synchronous JS execution (`JsSource`) must enforce strict timeouts/interrupts so infinite loops can't hang worker threads. Closing or unloading a busy source must cancel pending work without blocking the caller or the UI thread.
+- **Bounded responses:** all HTTP responses read for extensions (`ExtensionHttp`) must enforce a strict maximum size to prevent out-of-memory crashes from malicious or broken servers.
+- **Error mapping:** convert extension `IOException` and sandbox failures into `ApiError.SourceFailed` inside `ReadingSources`, so upstream error handling covers extensions uniformly.
+
+### 5. Multi-source and storage conventions
+- **Windows path safety:** Windows enforces a 260-character `MAX_PATH`. Any chapter ID or URL longer than 40 characters MUST be hashed deterministically when naming download folders; shorter IDs (such as 36-character MangaDex UUIDs) stay unchanged.
+- **Source switching and gap filling:**
+  - Cache per-title source search results in `ReadingSources`, so reopening a title page doesn't re-query every installed extension.
+  - Switching the active source must not trigger false "new chapter" notifications or leave stale "from <source>" labels on chapter rows.
+  - Missing upload times from extensions fall back to unknown (null / empty), never `0L` (1970-01-01).
+
+### 6. Git and release workflow
+- Work in small, verifiable checkpoints: implement → format → run targeted tests → commit.
+- Never commit client secrets to source code. Desktop sign-in flows (AniList, Discord RPC) embed only public client/application IDs and use PKCE or local redirect flows where applicable.

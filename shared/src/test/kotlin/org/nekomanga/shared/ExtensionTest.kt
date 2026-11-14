@@ -280,4 +280,62 @@ class ExtensionTest {
         assertTrue(fresh.isEmpty(), "a new source's chapters aren't all new")
         assertEquals("ext:1", store.entry(title)!!.readingSource)
     }
+
+    @Test
+    fun reopeningATitleDoesNotSearchEverySourceAgain() {
+        runBlocking {
+            val dir = java.nio.file.Files.createTempDirectory("beako-cache").toFile()
+            val index =
+                """[{"name":"Sample","id":1,"lang":"en","baseUrl":"https://sample.test",
+                    "sourceCodeUrl":"https://repo.test/sample.js","sourceCodeLanguage":1}]"""
+            val http = FakeHttp { url ->
+                if (url.endsWith("index.json")) json(index) else json(code)
+            }
+            val site = Site()
+            val manager = org.nekomanga.shared.extensions.ExtensionManager(dir, http, site)
+            manager.install(
+                manager.addRepository("https://repo.test/index.json").single(),
+                "https://repo.test/index.json",
+            )
+            val sources =
+                org.nekomanga.shared.extensions.ReadingSources(
+                    org.nekomanga.shared.mangadex.MangaDexApi(http),
+                    manager,
+                )
+            val found =
+                org.nekomanga.shared.model.Title(
+                    org.nekomanga.shared.model.Sources.COMICK,
+                    "a",
+                    "Solo Tower",
+                )
+            val missing =
+                org.nekomanga.shared.model.Title(
+                    org.nekomanga.shared.model.Sources.COMICK,
+                    "b",
+                    "Nowhere",
+                )
+
+            assertEquals(1, sources.find(found).size)
+            sources.find(missing)
+            val searches = site.requests.count { it.url.contains("/search") }
+
+            assertEquals(1, sources.find(found).size, "a match is kept")
+            assertTrue(sources.find(missing).isEmpty(), "and so is a miss")
+            assertEquals(searches, site.requests.count { it.url.contains("/search") })
+            manager.closeAll()
+        }
+    }
+
+    @Test
+    fun missesExpireSoTitlesAddedLaterAreFound() {
+        var now = 0L
+        val cache =
+            org.nekomanga.shared.extensions.SearchCache(missTtlMillis = 1_000, now = { now })
+        val match = org.nekomanga.shared.extensions.SourceMatch("ext:1", "Sample", "/t")
+        cache.put("t", "ext:1", match)
+        cache.put("u", "ext:1", null)
+        now = 5_000
+        assertEquals(match, cache.get("t", "ext:1")?.match)
+        assertNull(cache.get("u", "ext:1"))
+    }
 }
