@@ -23,7 +23,9 @@ import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import org.jetbrains.skia.Image
+import org.nekomanga.desktop.components.AccountSlot
 import org.nekomanga.desktop.components.Destination
+import org.nekomanga.desktop.screens.AccountsSection
 import org.nekomanga.desktop.screens.BrowseScreen
 import org.nekomanga.desktop.screens.DetailsScreen
 import org.nekomanga.desktop.screens.HistoryScreen
@@ -87,17 +89,24 @@ fun main() {
         ) {
             val scope = rememberCoroutineScope()
             val state = remember {
-                AppState(container, scope) { updates ->
-                    trayState.sendNotification(
-                        Notification(
-                            APP_NAME,
-                            UpdateChecker.summary(updates),
-                            Notification.Type.Info,
-                        ),
-                    )
-                }
+                AppState(
+                    container,
+                    scope,
+                    onUpdates = { updates ->
+                        trayState.sendNotification(
+                            Notification(
+                                APP_NAME,
+                                UpdateChecker.summary(updates),
+                                Notification.Type.Info,
+                            ),
+                        )
+                    },
+                )
             }
-            LaunchedEffect(state) { state.updates.start() }
+            LaunchedEffect(state) {
+                state.accounts.restore()
+                state.updates.start()
+            }
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
             // read:<query> starts on that page, using the first MangaDex match.
             LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
@@ -116,6 +125,8 @@ fun main() {
                     navigator = state.navigator,
                     page = { AppPage(state, it) },
                     screen = { AppScreen(state, it) },
+                    accounts = accountSlots(state),
+                    onAccountClick = { state.navigator.show(Destination.MORE) },
                 )
             }
         }
@@ -193,6 +204,13 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.container.library,
                 state.container.downloads,
                 state.container.dirs.downloads,
+                accounts = {
+                    AccountsSection(
+                        state.accounts,
+                        state.container.settings,
+                        state.container.vault.persistent,
+                    )
+                },
             )
     }
 }
@@ -214,6 +232,7 @@ private fun AppPage(state: AppState, page: Page) {
                 onRead = { chapters, index, start ->
                     state.navigator.open(Page.Reader(page.title, chapters, index, start))
                 },
+                tracking = state.tracking(page.title),
             )
         is Page.Reader -> ReaderScreen(state.reader(page), onClose = { state.navigator.back() })
     }
@@ -227,4 +246,17 @@ fun loadAppIcon(): ImageBitmap {
             }
             .use { it.readBytes() }
     return Image.makeFromEncoded(bytes).toComposeImageBitmap()
+}
+
+/** The sidebar's account avatars: Comick and MangaDex always, AniList once connected. */
+@Composable
+private fun accountSlots(state: AppState): List<AccountSlot> {
+    val comick by state.accounts.comick.account.collectAsState()
+    val aniList by state.accounts.aniList.account.collectAsState()
+    val mangaDex by state.accounts.mangaDex.username.collectAsState()
+    return listOfNotNull(
+        AccountSlot("Comick", comick?.name, comick?.avatarUrl),
+        AccountSlot("MangaDex", mangaDex),
+        aniList?.let { AccountSlot("AniList", it.name, it.avatarUrl) },
+    )
 }

@@ -6,6 +6,8 @@ import kotlinx.serialization.Serializable
 object Sources {
     const val COMICK = "comick"
     const val MANGADEX = "mangadex"
+    /** Titles imported from an AniList list. */
+    const val ANILIST = "anilist"
 }
 
 /** IDs on other trackers, used to recognise the same title across services. */

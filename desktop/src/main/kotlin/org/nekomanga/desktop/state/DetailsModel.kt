@@ -27,6 +27,8 @@ class DetailsModel(
     val title: Title,
     /** Chapter languages to list, as MangaDex codes. */
     private val languages: () -> List<String> = { listOf("en") },
+    /** Called when chapters are marked read here, to sync trackers. */
+    private val onChaptersRead: (List<Chapter>) -> Unit = {},
 ) {
     /** Chapters newest first, as the list shows them. */
     var chapters by mutableStateOf<Loadable<List<Chapter>>>(Loadable.Loading)
@@ -72,7 +74,9 @@ class DetailsModel(
     fun addCategory(name: String) = library.addCategory(name)
 
     fun setRead(chapters: Collection<Chapter>, read: Boolean) {
-        if (library.contains(title)) library.setRead(title, chapters.map { it.id }, read)
+        if (!library.contains(title)) return
+        library.setRead(title, chapters.map { it.id }, read)
+        if (read) onChaptersRead(chapters.toList())
     }
 
     fun download(chapters: List<Chapter>) = downloads.enqueue(title, chapters)
@@ -92,6 +96,18 @@ class DetailsModel(
         val order = readingOrder()
         val upTo = order.indexOfFirst { it.id == chapter.id }
         if (upTo >= 0) setRead(order.subList(0, upTo + 1), true)
+    }
+
+    /** The highest chapter number read, for a tracker's progress; null when none is numbered. */
+    fun readProgress(): String? {
+        val read = entry()?.readChapterIds.orEmpty()
+        return readingOrder()
+            .filter { it.id in read }
+            .mapNotNull { chapter ->
+                chapter.number?.toDoubleOrNull()?.let { it to chapter.number }
+            }
+            .maxByOrNull { it.first }
+            ?.second
     }
 
     /** [chapters] oldest first, the order the reader moves through them. */

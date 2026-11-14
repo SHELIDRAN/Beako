@@ -63,6 +63,7 @@ import org.nekomanga.desktop.components.formatCount
 import org.nekomanga.desktop.components.formatScore
 import org.nekomanga.desktop.state.DetailsModel
 import org.nekomanga.desktop.state.Loadable
+import org.nekomanga.desktop.state.TitleTracking
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.glass
@@ -77,6 +78,7 @@ fun DetailsScreen(
     onBack: () -> Unit,
     /** Opens the reader on [index] of the chapters in reading order, at [page]. */
     onRead: (chapters: List<Chapter>, index: Int, page: Int) -> Unit,
+    tracking: TitleTracking? = null,
 ) {
     LaunchedEffect(model) { model.start() }
     val libraryData by model.libraryData.collectAsState()
@@ -189,6 +191,7 @@ fun DetailsScreen(
                             )
                             AvailableOn(model)
                         }
+                        if (tracking != null) TrackingPanel(tracking, entry)
                     }
                 }
                 val count = (chapters as? Loadable.Ready)?.value?.size

@@ -110,8 +110,16 @@ sealed class ApiError(val service: String, message: String, cause: Throwable? = 
     class ServerError(service: String, val code: Int) :
         ApiError(service, "$service had a server error ($code)")
 
-    class Rejected(service: String, val code: Int, detail: String) :
+    class Rejected(service: String, val code: Int, detail: String, val errorCode: String? = null) :
         ApiError(service, "$service refused the request ($code)" + detail)
+
+    /** The sign-in is missing, expired or revoked (401), or lacks permission (403). */
+    class Unauthorized(service: String, val code: Int, val errorCode: String? = null) :
+        ApiError(
+            service,
+            if (code == 403) "$service didn’t allow this; reconnect your account"
+            else "Your $service sign-in has expired; reconnect your account",
+        )
 
     class Unreadable(service: String, cause: Throwable) :
         ApiError(service, "$service sent a response Beako couldn't read", cause)

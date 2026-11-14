@@ -57,6 +57,7 @@ fun MoreScreen(
     library: LibraryStore,
     downloads: DownloadManager,
     downloadsFolder: File,
+    accounts: (@Composable () -> Unit)? = null,
 ) {
     val settings by settingsStore.settings.collectAsState()
     val data by library.data.collectAsState()
@@ -82,6 +83,7 @@ fun MoreScreen(
                 StatTile("${data.categories.size}", "Categories")
             }
         }
+        if (accounts != null) item("accounts") { accounts() }
         item("modes") {
             Section("Modes") {
                 ToggleRow(
@@ -273,7 +275,7 @@ private fun StatTile(value: String, label: String) {
 }
 
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
+internal fun Section(title: String, content: @Composable () -> Unit) {
     Column(
         Modifier.fillMaxWidth()
             .glass(RoundedCornerShape(20.dp), tint = BeakoColors.Rim)
@@ -286,7 +288,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun ToggleRow(
+internal fun ToggleRow(
     title: String,
     detail: String,
     checked: Boolean,

@@ -39,6 +39,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import org.nekomanga.desktop.components.AccountSlot
+import org.nekomanga.desktop.components.DefaultAccountSlots
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.Sidebar
@@ -60,6 +62,8 @@ fun BeakoApp(
     navigator: Navigator = remember { Navigator() },
     page: @Composable (Page) -> Unit = {},
     screen: @Composable (Destination) -> Unit = { PlaceholderScreen(it) },
+    accounts: List<AccountSlot> = DefaultAccountSlots,
+    onAccountClick: (String) -> Unit = {},
 ) {
     var destination by remember { mutableStateOf(start) }
     navigator.requestedDestination?.let {
@@ -110,6 +114,8 @@ fun BeakoApp(
             if (!immersive) {
                 CompositionLocalProvider(LocalHazeState provides haze) {
                     Sidebar(
+                        accounts = accounts,
+                        onAccountClick = onAccountClick,
                         selected = destination,
                         onSelect = {
                             navigator.clear()

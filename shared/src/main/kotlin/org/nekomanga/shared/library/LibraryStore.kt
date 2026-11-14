@@ -85,6 +85,21 @@ class LibraryStore(
         )
     }
 
+    fun setTrack(title: Title, track: Track) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) {
+            it.copy(tracks = it.tracks + (track.service to track))
+        }
+    }
+
+    fun removeTrack(title: Title, service: String) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) { it.copy(tracks = it.tracks - service) }
+    }
+
+    /** Removes a tracker's records from every title (on disconnect). */
+    fun removeAllTracks(service: String) = update { data ->
+        data.copy(entries = data.entries.map { it.copy(tracks = it.tracks - service) })
+    }
+
     fun setMangaDexId(title: Title, mangaDexId: String) = update { data ->
         data.withEntry(LibraryEntry.keyOf(title)) { it.copy(mangaDexId = mangaDexId) }
     }
