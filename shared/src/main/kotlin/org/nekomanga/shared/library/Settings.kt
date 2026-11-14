@@ -30,7 +30,10 @@ data class Settings(
      * "NOT_STARTED".
      */
     val updateSkip: Set<String> = emptySet(),
-    /** DNS-over-HTTPS provider ("CLOUDFLARE", "GOOGLE", "QUAD9"), or "" for the system's DNS. */
+    /**
+     * "" automatic (DNS over HTTPS, then the system's), "SYSTEM", or a provider ("CLOUDFLARE",
+     * "GOOGLE", "QUAD9").
+     */
     val dnsOverHttps: String = "",
     /** Download MangaDex's smaller, compressed images. */
     val dataSaver: Boolean = false,

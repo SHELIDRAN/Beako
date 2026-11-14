@@ -17,42 +17,86 @@ enum class DohProvider(val label: String, val url: String, val bootstrap: List<S
     }
 }
 
+/** The DNS setting's special values; anything else names a [DohProvider]. */
+object DnsMode {
+    /** DNS over HTTPS first, Windows DNS when that's unreachable (the default). */
+    const val AUTOMATIC = ""
+    const val SYSTEM = "SYSTEM"
+}
+
 /**
- * Resolves names with the DNS-over-HTTPS provider chosen in settings, or the system's DNS when none
- * is. Reads the setting on every lookup, so changing it applies without a restart.
+ * Resolves names as the DNS setting says: [DnsMode.AUTOMATIC] (DNS over HTTPS through Cloudflare,
+ * then Google, falling back to the system's DNS when neither answers), [DnsMode.SYSTEM], or one
+ * provider. Reads the setting on every lookup, so a change applies without a restart.
+ *
+ * Automatic is the default because some networks block sites by answering their DNS lookups with an
+ * address that never answers ("Connect timed out" in 0.1.1 QA), which browsers' secure DNS gets
+ * around. Answers are cached briefly, and when DNS over HTTPS itself is unreachable it's skipped
+ * for a while so lookups don't keep waiting on it.
  */
-class SwitchableDns(private val provider: () -> String, private val bootstrapClient: OkHttpClient) :
-    Dns {
-    private val resolvers = mutableMapOf<DohProvider, Dns>()
+class SwitchableDns(
+    private val mode: () -> String,
+    private val system: Dns = Dns.SYSTEM,
+    private val now: () -> Long = System::currentTimeMillis,
+    private val doh: (DohProvider) -> Dns,
+) : Dns {
+    constructor(
+        mode: () -> String,
+        bootstrapClient: OkHttpClient,
+    ) : this(mode, Dns.SYSTEM, System::currentTimeMillis, dohFactory(bootstrapClient))
+
+    private val resolvers = java.util.concurrent.ConcurrentHashMap<DohProvider, Dns>()
+    private val cache =
+        java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<InetAddress>>>()
+    @Volatile private var dohDownUntil = 0L
 
     override fun lookup(hostname: String): List<InetAddress> {
-        val choice = DohProvider.of(provider())
-        if (choice != null) return resolver(choice).lookup(hostname)
-        return try {
-            Dns.SYSTEM.lookup(hostname)
-        } catch (e: java.net.UnknownHostException) {
-            // Networks often block sites by refusing to resolve them: retry over HTTPS before
-            // failing.
-            val found = runCatching {
-                resolver(DohProvider.CLOUDFLARE).lookup(hostname)
-            }
-                .getOrNull()
-            if (found.isNullOrEmpty()) throw e
-            org.nekomanga.shared.diagnostics.DiagnosticLog.info(
-                "The system DNS couldn’t resolve $hostname; resolved it with DNS over HTTPS instead",
-            )
-            found
+        val setting = mode()
+        DohProvider.of(setting)?.let {
+            return resolver(it).lookup(hostname)
         }
+        if (setting == DnsMode.SYSTEM || now() < dohDownUntil) return system.lookup(hostname)
+        cache[hostname]?.let { (at, addresses) -> if (now() - at < CACHE_MILLIS) return addresses }
+        for (provider in AUTOMATIC_ORDER) {
+            val found = runCatching { resolver(provider).lookup(hostname) }.getOrNull()
+            if (!found.isNullOrEmpty()) {
+                if (cache.size > 500) cache.clear()
+                cache[hostname] = now() to found
+                return found
+            }
+        }
+        // DNS over HTTPS didn't answer (blocked, offline): use the system's and stop trying for a
+        // while.
+        dohDownUntil = now() + DOWN_MILLIS
+        org.nekomanga.shared.diagnostics.DiagnosticLog.info(
+            "DNS over HTTPS didn’t answer for $hostname; using Windows DNS for the next 10 minutes",
+        )
+        return system.lookup(hostname)
     }
 
-    @Synchronized
-    private fun resolver(choice: DohProvider): Dns =
-        resolvers.getOrPut(choice) {
-            DnsOverHttps.Builder()
-                .client(bootstrapClient)
-                .url(choice.url.toHttpUrl())
-                .bootstrapDnsHosts(choice.bootstrap.map { InetAddress.getByName(it) })
-                .includeIPv6(true)
-                .build()
+    private fun resolver(choice: DohProvider): Dns = resolvers.getOrPut(choice) { doh(choice) }
+
+    companion object {
+        private val AUTOMATIC_ORDER = listOf(DohProvider.CLOUDFLARE, DohProvider.GOOGLE)
+        private const val CACHE_MILLIS = 5 * 60_000L
+        private const val DOWN_MILLIS = 10 * 60_000L
+
+        private fun dohFactory(bootstrapClient: OkHttpClient): (DohProvider) -> Dns {
+            // Short timeouts, so a blocked provider falls back quickly.
+            val client =
+                bootstrapClient
+                    .newBuilder()
+                    .connectTimeout(4, java.util.concurrent.TimeUnit.SECONDS)
+                    .callTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+            return { choice ->
+                DnsOverHttps.Builder()
+                    .client(client)
+                    .url(choice.url.toHttpUrl())
+                    .bootstrapDnsHosts(choice.bootstrap.map { InetAddress.getByName(it) })
+                    .includeIPv6(true)
+                    .build()
+            }
         }
+    }
 }

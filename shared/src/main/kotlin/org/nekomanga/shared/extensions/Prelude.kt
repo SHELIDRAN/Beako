@@ -99,4 +99,6 @@ class MProvider {
     getSourcePreferences() { return []; }
 }
 async function jsonStringify(fn) { return JSON.stringify(await fn()); }
+// A source without getFilterList (Mangafire) searches with no filters, as in Mangayomi.
+function __filters() { try { return extention.getFilterList() || []; } catch (e) { return []; } }
 """
