@@ -209,7 +209,8 @@ class JsSource(
         put("name", info.name)
         put("lang", info.lang)
         put("baseUrl", info.baseUrl)
-        put("apiUrl", info.apiUrl)
+        // Some scripts read apiUrl for everything; most indexes leave it empty.
+        put("apiUrl", info.apiUrl.ifBlank { info.baseUrl })
         put("iconUrl", info.iconUrl)
         put("dateFormat", info.dateFormat)
         put("dateFormatLocale", info.dateFormatLocale)

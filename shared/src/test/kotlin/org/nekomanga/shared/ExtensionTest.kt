@@ -338,4 +338,48 @@ class ExtensionTest {
         assertEquals(match, cache.get("t", "ext:1")?.match)
         assertNull(cache.get("u", "ext:1"))
     }
+
+    @Test
+    fun urlsWithRawSpacesAreEncodedLikeABrowserWould() {
+        val n = org.nekomanga.shared.extensions.ExtensionHttp::normaliseUrl
+        assertEquals(
+            "https://comix.test/search?q=solo%20leveling",
+            n("https://comix.test/search?q=solo leveling"),
+        )
+        assertEquals("https://a.test/s?q=a|b%22c", n("https://a.test/s?q=a|b\"c"))
+        HostPolicy.check(n("https://a.test/s?q=a|b\"c")!!)
+        // Already-encoded addresses don't change.
+        assertEquals("https://a.test/s?q=solo%20leveling", n("https://a.test/s?q=solo%20leveling"))
+        assertNull(n("file:///C:/x"))
+        assertNull(n("not a url"))
+        // The normalised address passes the host check that java.net.URI used to reject.
+        HostPolicy.check(n("https://comix.test/search?q=solo leveling")!!)
+    }
+
+    @Test
+    fun scriptsSeeApiUrlAndCanCallGetWithOnlyAUrl() {
+        runBlocking {
+            val code =
+                """
+                class DefaultExtension extends MProvider {
+                  async getPopular(page) {
+                    const res = await new Client().get(this.source.apiUrl + "/popular");
+                    return { list: [{ name: res.body, link: this.source.apiUrl }], hasNextPage: false };
+                  }
+                }
+                """
+            val seen = mutableListOf<ExtensionRequest>()
+            val transport = ExtensionTransport { request ->
+                seen += request
+                ExtensionResponse(200, "ok", emptyMap(), request.url)
+            }
+            JsSource(info, code, transport).use { source ->
+                val page = source.popular(1)
+                // apiUrl falls back to baseUrl when the index leaves it empty.
+                assertEquals("https://sample.test", page.titles.single().url)
+                assertEquals("https://sample.test/popular", seen.single().url)
+                assertTrue(seen.single().headers.isEmpty())
+            }
+        }
+    }
 }

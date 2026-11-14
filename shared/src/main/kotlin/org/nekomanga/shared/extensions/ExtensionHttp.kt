@@ -18,6 +18,7 @@ import okhttp3.CookieJar
 import okhttp3.Dns
 import okhttp3.FormBody
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -75,13 +76,16 @@ class ExtensionHttp(base: OkHttpClient, private val userAgent: String) : Extensi
             .build()
 
     override suspend fun send(request: ExtensionRequest): ExtensionResponse {
+        // Scripts often build URLs without encodeURIComponent ("?q=solo leveling").
+        val url =
+            normaliseUrl(request.url) ?: throw IOException("Not a web address: ${request.url}")
         try {
-            HostPolicy.check(request.url)
+            HostPolicy.check(url)
         } catch (e: HostPolicy.Blocked) {
             throw IOException(e.message)
         }
         limiter.acquire()
-        val builder = Request.Builder().url(request.url)
+        val builder = Request.Builder().url(url)
         request.headers.forEach { (name, value) -> runCatching { builder.header(name, value) } }
         if (request.headers.keys.none { it.equals("User-Agent", ignoreCase = true) }) {
             builder.header("User-Agent", userAgent)
@@ -156,6 +160,27 @@ class ExtensionHttp(base: OkHttpClient, private val userAgent: String) : Extensi
     }
 
     companion object {
+        /**
+         * [url] with spaces and other characters a URL can't hold percent-encoded, as browsers do;
+         * already-encoded parts stay as they are. Null when it isn't an http(s) address.
+         */
+        fun normaliseUrl(url: String): String? {
+            val trimmed = url.trim()
+            trimmed.toHttpUrlOrNull()?.let {
+                return it.toString()
+            }
+            val escaped = buildString {
+                for (c in trimmed) {
+                    when {
+                        c == ' ' -> append("%20")
+                        c.code < 0x20 || c in "\"<>\\^`{|}" -> append("%%%02X".format(c.code))
+                        else -> append(c)
+                    }
+                }
+            }
+            return escaped.toHttpUrlOrNull()?.toString()
+        }
+
         /** Larger answers fail inside the source instead of exhausting the app's memory. */
         const val MAX_BODY = 32L * 1024 * 1024
 
