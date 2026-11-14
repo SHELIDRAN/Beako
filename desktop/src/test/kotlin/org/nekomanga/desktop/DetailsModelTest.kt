@@ -141,4 +141,78 @@ class DetailsModelTest {
             manager.closeAll()
             scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         }
+
+    @Test
+    fun chaptersMissingFromTheChosenSourceAreFilledFromAnother() =
+        kotlinx.coroutines.runBlocking<Unit> {
+            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+            val dir = Files.createTempDirectory("beako").toFile()
+            val code = javaClass.getResource("/fixtures/sample-extension.js")!!.readText()
+            val site =
+                org.nekomanga.shared.extensions.ExtensionTransport { request ->
+                    val html =
+                        when {
+                            request.url.contains("/search") ->
+                                """<div class="item"><a href="/title/1"><h3>Solo Tower</h3></a></div>"""
+                            request.url.endsWith("/title/1") ->
+                                """<h1>Solo Tower</h1><ul><li class="chapter"><a href="/c/999">Chapter 999</a></li></ul>"""
+                            else -> ""
+                        }
+                    org.nekomanga.shared.extensions.ExtensionResponse(
+                        200,
+                        html,
+                        emptyMap(),
+                        request.url,
+                    )
+                }
+            val http = HttpFetcher { url ->
+                when {
+                    url.endsWith("index.json") ->
+                        HttpResponse(
+                            200,
+                            "application/json",
+                            """[{"name":"Sample","id":1,"lang":"en","sourceCodeUrl":"https://repo.test/s.js","sourceCodeLanguage":1}]""",
+                        )
+                    url.endsWith("s.js") -> HttpResponse(200, "text/javascript", code)
+                    url.contains("/feed") -> HttpResponse(200, "application/json", feed)
+                    else -> HttpResponse(200, "application/json", "[]")
+                }
+            }
+            val manager =
+                org.nekomanga.shared.extensions.ExtensionManager(File(dir, "ext"), http, site)
+            manager.install(
+                manager.addRepository("https://repo.test/index.json").single(),
+                "https://repo.test/index.json",
+            )
+            val mangaDex = MangaDexApi(http)
+            val title = Title(Sources.MANGADEX, "m", "Solo Tower")
+            val model =
+                DetailsModel(
+                    scope,
+                    Discovery(ComickApi(http), mangaDex),
+                    mangaDex,
+                    LibraryStore(File(dir, "library.json")),
+                    DownloadManager(
+                        dir,
+                        scope,
+                        { error("unused") },
+                        ImageFetcher { error("unused") },
+                    ),
+                    title,
+                    readingSources =
+                        org.nekomanga.shared.extensions.ReadingSources(mangaDex, manager),
+                )
+            model.start()
+            kotlinx.coroutines.withTimeout(15_000) {
+                while (model.visibleChapters().none { it.number == "999" }) kotlinx.coroutines
+                    .delay(20)
+            }
+
+            assertEquals(Sources.MANGADEX, model.selectedSource)
+            assertEquals(6, model.visibleChapters().size)
+            assertEquals("999", model.visibleChapters().first().number)
+            assertEquals("Sample", model.filledFrom["/c/999"])
+            manager.closeAll()
+            scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+        }
 }
