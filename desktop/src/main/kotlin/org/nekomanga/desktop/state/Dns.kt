@@ -26,8 +26,23 @@ class SwitchableDns(private val provider: () -> String, private val bootstrapCli
     private val resolvers = mutableMapOf<DohProvider, Dns>()
 
     override fun lookup(hostname: String): List<InetAddress> {
-        val choice = DohProvider.of(provider()) ?: return Dns.SYSTEM.lookup(hostname)
-        return resolver(choice).lookup(hostname)
+        val choice = DohProvider.of(provider())
+        if (choice != null) return resolver(choice).lookup(hostname)
+        return try {
+            Dns.SYSTEM.lookup(hostname)
+        } catch (e: java.net.UnknownHostException) {
+            // Networks often block sites by refusing to resolve them: retry over HTTPS before
+            // failing.
+            val found = runCatching {
+                resolver(DohProvider.CLOUDFLARE).lookup(hostname)
+            }
+                .getOrNull()
+            if (found.isNullOrEmpty()) throw e
+            org.nekomanga.shared.diagnostics.DiagnosticLog.info(
+                "The system DNS couldn’t resolve $hostname; resolved it with DNS over HTTPS instead",
+            )
+            found
+        }
     }
 
     @Synchronized

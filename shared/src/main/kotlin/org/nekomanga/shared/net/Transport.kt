@@ -123,6 +123,8 @@ suspend fun HttpTransport.sendJson(service: String, request: HttpRequest): JsonE
         try {
             send(request)
         } catch (e: IOException) {
+            // HttpRequest.toString() is "METHOD url": never headers or bodies, which hold tokens.
+            logFailure(service, request.toString(), e)
             throw ApiError.Unreachable(service, e)
         }
     if (response.code == 401 || response.code == 403) {
