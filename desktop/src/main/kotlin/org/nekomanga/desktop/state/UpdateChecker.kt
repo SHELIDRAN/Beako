@@ -20,7 +20,7 @@ data class TitleUpdate(val title: Title, val chapters: List<Chapter>)
 
 /**
  * Checks every library title for new chapters, one title at a time so MangaDex's rate limits hold.
- * Runs shortly after launch and then every [intervalMillis] while the app is open (this replaces
+ * Runs shortly after launch and then every [intervalHours] while the app is open (this replaces
  * Android's WorkManager job); [onFound] is told about each run's new chapters, for a notification.
  */
 class UpdateChecker(
@@ -28,7 +28,10 @@ class UpdateChecker(
     private val library: LibraryStore,
     private val mangaDex: MangaDexApi,
     private val discovery: Discovery,
-    private val intervalMillis: Long = 6 * 60 * 60 * 1000L,
+    /** Hours between checks; 0 turns the automatic checks off. */
+    private val intervalHours: () -> Int = { 6 },
+    /** Chapter languages to check, as MangaDex codes. */
+    private val languages: () -> List<String> = { listOf("en") },
     private val firstDelayMillis: Long = 15_000L,
     private val onFound: (List<TitleUpdate>) -> Unit = {},
 ) {
@@ -55,15 +58,18 @@ class UpdateChecker(
         schedule = scope.launch {
             delay(firstDelayMillis)
             while (isActive) {
-                runNow()?.join()
-                delay(intervalMillis)
+                val hours = intervalHours()
+                if (hours > 0) runNow()?.join()
+                // With checks off, look again later in case the setting changes.
+                delay(hours.coerceAtLeast(1) * 60 * 60 * 1000L)
             }
         }
     }
 
     /** Starts a check unless one is running; returns its job. */
     fun runNow(): Job? {
-        if (running) return job
+        // The job, not the running flag, guards: the flag is only set once the check starts.
+        if (job?.isActive == true) return job
         job = scope.launch { check() }
         return job
     }
@@ -83,7 +89,8 @@ class UpdateChecker(
                                 library.setMangaDexId(entry.title, it)
                             }
                     if (id != null) {
-                        val fresh = library.recordCheck(entry.key, mangaDex.allChapters(id))
+                        val fresh =
+                            library.recordCheck(entry.key, mangaDex.allChapters(id, languages()))
                         if (fresh.isNotEmpty()) found += TitleUpdate(entry.title, fresh)
                     }
                 } catch (e: ApiError) {

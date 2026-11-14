@@ -25,12 +25,14 @@ data class Settings(
     val languages: List<String> = listOf("en"),
 )
 
-/** App settings in a small JSON file, saved on every change. */
+/** App settings in a small JSON file, saved atomically on every change. */
 class SettingsStore(private val file: File) {
     private val state =
         MutableStateFlow(
-            runCatching { BeakoJson.decodeFromString(Settings.serializer(), file.readText()) }
-                .getOrDefault(Settings()),
+            runCatching {
+                readWithRetry(file)?.let { BeakoJson.decodeFromString(Settings.serializer(), it) }
+            }
+                .getOrNull() ?: Settings(),
         )
 
     val settings: StateFlow<Settings> = state.asStateFlow()
@@ -43,15 +45,10 @@ class SettingsStore(private val file: File) {
         val next = change(state.value)
         if (next == state.value) return
         state.value = next
-        runCatching {
-            file.parentFile?.mkdirs()
-            val temp = File(file.parentFile, file.name + ".tmp")
-            temp.writeText(BeakoJson.encodeToString(Settings.serializer(), next))
-            temp.renameTo(file) ||
-                run {
-                    file.delete()
-                    temp.renameTo(file)
-                }
+        try {
+            writeAtomically(file, BeakoJson.encodeToString(Settings.serializer(), next))
+        } catch (e: java.io.IOException) {
+            // The setting applies for this session; the next change tries to save again.
         }
     }
 }
