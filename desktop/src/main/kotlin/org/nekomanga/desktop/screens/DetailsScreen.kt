@@ -1,11 +1,14 @@
 package org.nekomanga.desktop.screens
 
+import androidx.compose.foundation.ContextMenuArea
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,11 +27,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.LibraryAdd
+import androidx.compose.material.icons.outlined.LibraryAddCheck
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,6 +55,7 @@ import org.nekomanga.desktop.components.Chip
 import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.components.Skeleton
 import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.formatCount
@@ -63,10 +73,12 @@ import org.nekomanga.shared.model.Chapter
 fun DetailsScreen(
     model: DetailsModel,
     onBack: () -> Unit,
-    /** Opens the reader on [index] of the chapters in reading order. */
-    onRead: (chapters: List<Chapter>, index: Int) -> Unit,
+    /** Opens the reader on [index] of the chapters in reading order, at [page]. */
+    onRead: (chapters: List<Chapter>, index: Int, page: Int) -> Unit,
 ) {
     LaunchedEffect(model) { model.start() }
+    val libraryData by model.libraryData.collectAsState()
+    val entry = remember(libraryData) { model.entry() }
     val title = model.title
     var expanded by remember { mutableStateOf(false) }
     val chapters = model.chapters
@@ -138,13 +150,32 @@ fun DetailsScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             if (readingOrder.isNotEmpty()) {
+                                val resume = remember(entry, readingOrder) { model.continueIndex() }
+                                val saved = entry?.progress
                                 GlassButton(
-                                    "Start reading",
-                                    onClick = { onRead(readingOrder, 0) },
+                                    if (resume == null) "Start reading"
+                                    else "Continue ${readingOrder[resume].displayName()}",
+                                    onClick = {
+                                        val index = resume ?: 0
+                                        val page =
+                                            if (
+                                                saved != null &&
+                                                    readingOrder[index].id == saved.chapterId
+                                            )
+                                                saved.page
+                                            else 0
+                                        onRead(readingOrder, index, page)
+                                    },
                                     icon = Icons.AutoMirrored.Outlined.MenuBook,
                                     primary = true,
                                 )
                             }
+                            LibraryButton(
+                                model,
+                                inLibrary = entry != null,
+                                categories = entry?.categories.orEmpty(),
+                                allCategories = libraryData.categories,
+                            )
                             AvailableOn(model)
                         }
                     }
@@ -177,8 +208,35 @@ fun DetailsScreen(
                     }
                 } else {
                     items(chapters.value, key = { it.id }) { chapter ->
-                        ChapterRow(chapter) {
-                            onRead(readingOrder, readingOrder.indexOfFirst { it.id == chapter.id })
+                        val read = entry != null && chapter.id in entry.readChapterIds
+                        val isNew = entry?.newChapters?.any { it.chapter.id == chapter.id } == true
+                        val page = entry?.progress?.takeIf { it.chapterId == chapter.id }?.page
+                        ContextMenuArea(
+                            items = {
+                                if (entry == null) emptyList()
+                                else
+                                    listOf(
+                                        if (read)
+                                            ContextMenuItem("Mark as unread") {
+                                                model.setRead(listOf(chapter), false)
+                                            }
+                                        else
+                                            ContextMenuItem("Mark as read") {
+                                                model.setRead(listOf(chapter), true)
+                                            },
+                                        ContextMenuItem("Mark this and earlier as read") {
+                                            model.markReadUpTo(chapter)
+                                        },
+                                    )
+                            },
+                        ) {
+                            ChapterRow(chapter, read = read, isNew = isNew, page = page) {
+                                onRead(
+                                    readingOrder,
+                                    readingOrder.indexOfFirst { it.id == chapter.id },
+                                    page ?: 0,
+                                )
+                            }
                         }
                     }
                 }
@@ -205,8 +263,86 @@ private fun AvailableOn(model: DetailsModel) {
     )
 }
 
+/** Add to library, or, when it's there, a menu to change its categories or remove it. */
 @Composable
-private fun ChapterRow(chapter: Chapter, onClick: () -> Unit) {
+private fun LibraryButton(
+    model: DetailsModel,
+    inLibrary: Boolean,
+    categories: List<String>,
+    allCategories: List<String>,
+) {
+    var open by remember { mutableStateOf(false) }
+    var newCategory by remember { mutableStateOf("") }
+    Box {
+        GlassButton(
+            if (inLibrary) "In library" else "Add to library",
+            onClick = {
+                if (inLibrary) open = true
+                else {
+                    model.addToLibrary()
+                    open = true
+                }
+            },
+            icon = if (inLibrary) Icons.Outlined.LibraryAddCheck else Icons.Outlined.LibraryAdd,
+        )
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            Text(
+                "Categories (optional)",
+                style = MaterialTheme.typography.labelMedium,
+                color = BeakoColors.TextMuted,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+            allCategories.forEach { name ->
+                val on = name in categories
+                DropdownMenuItem(
+                    text = { Text((if (on) "✓  " else "     ") + name) },
+                    onClick = {
+                        model.setCategories(if (on) categories - name else categories + name)
+                    },
+                )
+            }
+            Row(
+                Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SearchField(
+                    newCategory,
+                    { newCategory = it },
+                    "New category",
+                    Modifier.width(200.dp),
+                )
+                GlassButton(
+                    "Add",
+                    onClick = {
+                        val name = newCategory.trim()
+                        if (name.isNotEmpty()) {
+                            model.addCategory(name)
+                            model.setCategories(categories + name)
+                            newCategory = ""
+                        }
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Remove from library", color = BeakoColors.Danger) },
+                onClick = {
+                    model.removeFromLibrary()
+                    open = false
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChapterRow(
+    chapter: Chapter,
+    read: Boolean,
+    isNew: Boolean,
+    page: Int?,
+    onClick: () -> Unit,
+) {
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     val name = chapter.displayName()
@@ -222,15 +358,26 @@ private fun ChapterRow(chapter: Chapter, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (isNew) Chip("New")
+                Text(
+                    name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (read) BeakoColors.TextMuted else BeakoColors.Text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
-                name,
-                style = MaterialTheme.typography.titleMedium,
-                color = BeakoColors.Text,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                listOfNotNull(chapter.group, chapter.publishedAt.take(10)).joinToString("  •  "),
+                listOfNotNull(
+                        chapter.group,
+                        chapter.publishedAt.take(10),
+                        if (read) "Read" else page?.let { "Page ${it + 1}" },
+                    )
+                    .joinToString("  •  "),
                 style = MaterialTheme.typography.bodySmall,
                 color = BeakoColors.TextMuted,
             )

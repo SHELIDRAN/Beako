@@ -1,0 +1,225 @@
+package org.nekomanga.shared.library
+
+import java.io.File
+import java.io.IOException
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.SerializationException
+import org.nekomanga.shared.model.Chapter
+import org.nekomanga.shared.model.Title
+import org.nekomanga.shared.net.BeakoJson
+
+/**
+ * The local library: saved titles, categories, read chapters, progress and history, kept in one
+ * JSON file. Every change is written straight away with an atomic replace, so a crash can't leave a
+ * half-written file. A damaged file is kept as `library.json.broken` and the library starts empty.
+ */
+class LibraryStore(
+    private val file: File,
+    private val now: () -> Long = System::currentTimeMillis,
+) {
+    private val state = MutableStateFlow(load())
+
+    val data: StateFlow<LibraryData> = state.asStateFlow()
+
+    val entries: List<LibraryEntry>
+        get() = state.value.entries
+
+    fun entry(title: Title): LibraryEntry? = entry(LibraryEntry.keyOf(title))
+
+    fun entry(key: String): LibraryEntry? = state.value.entries.firstOrNull { it.key == key }
+
+    fun contains(title: Title): Boolean = entry(title) != null
+
+    fun add(title: Title, categories: List<String> = emptyList(), mangaDexId: String? = null) =
+        update { data ->
+            if (data.entries.any { it.key == LibraryEntry.keyOf(title) }) data
+            else
+                data.copy(
+                    entries =
+                        data.entries +
+                            LibraryEntry(
+                                title,
+                                mangaDexId,
+                                categories.distinct(),
+                                addedAt = now(),
+                            ),
+                    categories = (data.categories + categories).distinct(),
+                )
+        }
+
+    fun remove(title: Title) = update { data ->
+        data.copy(entries = data.entries.filterNot { it.key == LibraryEntry.keyOf(title) })
+    }
+
+    fun setCategories(title: Title, categories: List<String>) = update { data ->
+        data
+            .withEntry(LibraryEntry.keyOf(title)) { it.copy(categories = categories.distinct()) }
+            .copy(categories = (data.categories + categories).distinct())
+    }
+
+    fun addCategory(name: String) = update { data ->
+        val clean = name.trim()
+        if (clean.isEmpty() || clean in data.categories) data
+        else data.copy(categories = data.categories + clean)
+    }
+
+    /** Removes a category and takes it off every title. */
+    fun deleteCategory(name: String) = update { data ->
+        data.copy(
+            categories = data.categories - name,
+            entries = data.entries.map { it.copy(categories = it.categories - name) },
+        )
+    }
+
+    fun setMangaDexId(title: Title, mangaDexId: String) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) { it.copy(mangaDexId = mangaDexId) }
+    }
+
+    /**
+     * Records the reader's position and adds it to history. Titles outside the library still get a
+     * history entry, so history shows everything read.
+     */
+    fun recordProgress(title: Title, chapter: Chapter, page: Int, incognito: Boolean = false) {
+        if (incognito) return
+        val time = now()
+        update { data ->
+            val history =
+                listOf(HistoryEntry(title, chapter, page, time)) +
+                    data.history.filterNot {
+                        LibraryEntry.keyOf(it.title) == LibraryEntry.keyOf(title)
+                    }
+            data
+                .withEntry(LibraryEntry.keyOf(title)) {
+                    it.copy(
+                        progress = Progress(chapter.id, chapter.number, page, time),
+                        newChapters = it.newChapters.filterNot { n -> n.chapter.id == chapter.id },
+                    )
+                }
+                .copy(history = history.take(MAX_HISTORY))
+        }
+    }
+
+    fun setRead(title: Title, chapterIds: Collection<String>, read: Boolean) = update { data ->
+        data.withEntry(LibraryEntry.keyOf(title)) {
+            it.copy(
+                readChapterIds =
+                    if (read) it.readChapterIds + chapterIds
+                    else it.readChapterIds - chapterIds.toSet(),
+                newChapters =
+                    if (read) it.newChapters.filterNot { n -> n.chapter.id in chapterIds }
+                    else it.newChapters,
+            )
+        }
+    }
+
+    fun removeFromHistory(title: Title) = update { data ->
+        data.copy(
+            history =
+                data.history.filterNot {
+                    LibraryEntry.keyOf(it.title) == LibraryEntry.keyOf(title)
+                },
+        )
+    }
+
+    fun clearHistory() = update { it.copy(history = emptyList()) }
+
+    /**
+     * Stores the result of an update check. Chapters not seen before become new chapters, except on
+     * the first check, which only records what exists. Returns the chapters that are new.
+     */
+    fun recordCheck(key: String, chapters: List<Chapter>): List<Chapter> {
+        var found = emptyList<Chapter>()
+        val time = now()
+        update { data ->
+            data.withEntry(key) { entry ->
+                val firstCheck = entry.lastCheckedAt == null
+                val fresh =
+                    if (firstCheck) emptyList()
+                    else
+                        chapters.filter {
+                            it.id !in entry.knownChapterIds && it.id !in entry.readChapterIds
+                        }
+                found = fresh
+                entry.copy(
+                    knownChapterIds = chapters.mapTo(mutableSetOf()) { it.id },
+                    chapterCount = chapters.size,
+                    newChapters =
+                        (fresh.map { NewChapter(it, time) } + entry.newChapters).take(MAX_NEW),
+                    lastCheckedAt = time,
+                )
+            }
+        }
+        return found
+    }
+
+    private fun LibraryData.withEntry(key: String, change: (LibraryEntry) -> LibraryEntry) =
+        copy(entries = entries.map { if (it.key == key) change(it) else it })
+
+    @Synchronized
+    private fun update(change: (LibraryData) -> LibraryData) {
+        val before = state.value
+        val after = change(before)
+        if (after == before) return
+        state.value = after
+        save(after)
+    }
+
+    private fun load(): LibraryData {
+        if (!file.exists()) return LibraryData()
+        return try {
+            BeakoJson.decodeFromString(LibraryData.serializer(), file.readText())
+        } catch (e: SerializationException) {
+            keepBroken()
+            LibraryData()
+        } catch (e: IllegalArgumentException) {
+            keepBroken()
+            LibraryData()
+        }
+    }
+
+    private fun keepBroken() {
+        runCatching {
+            Files.copy(
+                file.toPath(),
+                File(file.parentFile, file.name + ".broken").toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        }
+    }
+
+    private fun save(data: LibraryData) {
+        try {
+            file.parentFile?.mkdirs()
+            val temp = File(file.parentFile, file.name + ".tmp")
+            temp.writeText(BeakoJson.encodeToString(LibraryData.serializer(), data))
+            try {
+                Files.move(
+                    temp.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (e: AtomicMoveNotSupportedException) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (e: IOException) {
+            // The in-memory library stays correct; the next change tries to save again.
+            lastSaveError = e
+        }
+    }
+
+    /** The last failed save, if any, for the UI to report. */
+    @Volatile
+    var lastSaveError: IOException? = null
+        private set
+
+    companion object {
+        const val MAX_HISTORY = 500
+        const val MAX_NEW = 200
+    }
+}

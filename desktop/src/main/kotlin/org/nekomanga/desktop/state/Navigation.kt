@@ -20,7 +20,12 @@ sealed interface Page {
     data class Details(val title: Title) : Page
 
     /** [chapters] are in reading order; [index] is the one to open. */
-    data class Reader(val title: Title, val chapters: List<Chapter>, val index: Int) : Page
+    data class Reader(
+        val title: Title,
+        val chapters: List<Chapter>,
+        val index: Int,
+        val page: Int = 0,
+    ) : Page
 }
 
 class Navigator {

@@ -20,6 +20,8 @@ import org.jetbrains.skia.Image
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.screens.BrowseScreen
 import org.nekomanga.desktop.screens.DetailsScreen
+import org.nekomanga.desktop.screens.HistoryScreen
+import org.nekomanga.desktop.screens.LibraryScreen
 import org.nekomanga.desktop.screens.ReaderScreen
 import org.nekomanga.desktop.screens.SearchScreen
 import org.nekomanga.desktop.state.AppContainer
@@ -57,6 +59,7 @@ fun main() {
             LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
             CompositionLocalProvider(LocalWindowControl provides windowControl) {
                 BeakoApp(
+                    start = startScreen(System.getenv("BEAKO_OPEN")),
                     navigator = state.navigator,
                     page = { AppPage(state, it) },
                     screen = { AppScreen(state, it) },
@@ -66,8 +69,18 @@ fun main() {
     }
 }
 
+/** `BEAKO_OPEN=screen:library` (or updates, browse, history, more) starts on that screen. */
+private fun startScreen(request: String?): Destination =
+    request
+        ?.removePrefix("screen:")
+        ?.takeIf { request.startsWith("screen:") }
+        ?.let { name ->
+            Destination.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+        } ?: Destination.BROWSE
+
 private suspend fun openForDevelopment(state: AppState, request: String?) {
     val (kind, query) = request?.split(":", limit = 2)?.takeIf { it.size == 2 } ?: return
+    if (kind == "screen") return
     if (kind == "search") {
         state.navigator.open(Page.Search(query))
         return
@@ -97,6 +110,19 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 onSearch = { state.navigator.open(Page.Search()) },
                 onOpen = { state.navigator.open(Page.Details(it)) },
             )
+        Destination.LIBRARY ->
+            LibraryScreen(
+                state.libraryScreen,
+                onOpen = { state.navigator.open(Page.Details(it)) },
+                onSearchSources = { state.navigator.open(Page.Search(it)) },
+                onBrowse = { state.navigator.open(Page.Search()) },
+            )
+        Destination.HISTORY ->
+            HistoryScreen(
+                state.container.library,
+                onResume = { state.navigator.open(Page.Details(it.title)) },
+                onBrowse = { state.navigator.open(Page.Search()) },
+            )
         else -> PlaceholderScreen(destination)
     }
 }
@@ -115,8 +141,8 @@ private fun AppPage(state: AppState, page: Page) {
             DetailsScreen(
                 state.details(page.title),
                 onBack = { state.navigator.back() },
-                onRead = { chapters, index ->
-                    state.navigator.open(Page.Reader(page.title, chapters, index))
+                onRead = { chapters, index, start ->
+                    state.navigator.open(Page.Reader(page.title, chapters, index, start))
                 },
             )
         is Page.Reader -> ReaderScreen(state.reader(page), onClose = { state.navigator.back() })

@@ -1,5 +1,7 @@
 package org.nekomanga.shared.model
 
+import kotlinx.serialization.Serializable
+
 /** Where a title or chapter came from. Extension sources add their own ids later. */
 object Sources {
     const val COMICK = "comick"
@@ -7,6 +9,7 @@ object Sources {
 }
 
 /** IDs on other trackers, used to recognise the same title across services. */
+@Serializable
 data class ExternalIds(
     val anilist: String? = null,
     val myAnimeList: String? = null,
@@ -23,6 +26,7 @@ data class ExternalIds(
     private fun sameId(a: String?, b: String?) = !a.isNullOrBlank() && a == b
 }
 
+@Serializable
 enum class ComicType(val label: String) {
     MANGA("Manga"),
     MANHWA("Manhwa"),
@@ -49,6 +53,7 @@ enum class ComicType(val label: String) {
     }
 }
 
+@Serializable
 enum class PublicationStatus(val label: String) {
     ONGOING("Ongoing"),
     COMPLETED("Completed"),
@@ -56,6 +61,7 @@ enum class PublicationStatus(val label: String) {
     HIATUS("Hiatus"),
 }
 
+@Serializable
 data class Title(
     val source: String,
     /** The source's own id: a Comick HID or a MangaDex UUID. */
@@ -83,6 +89,7 @@ data class Title(
     val externalIds: ExternalIds = ExternalIds(),
 )
 
+@Serializable
 data class Chapter(
     val source: String,
     val id: String,
