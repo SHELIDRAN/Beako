@@ -268,4 +268,36 @@ class ReaderModelTest {
         model.mode = ReadingMode.WEBTOON
         assertTrue(!model.isSplit(1))
     }
+
+    @Test
+    fun aLastPageSpreadCountsAsReadOnlyOnItsSecondHalf() = runTest {
+        val store = library()
+        val model =
+            ReaderModel(
+                backgroundScope,
+                MangaDexApi(threePages),
+                manga,
+                listOf(chapter("1"), chapter("2")),
+                0,
+                store,
+                splitWidePages = { true },
+            )
+        model.start()
+        runCurrent()
+        model.reportAspect(2, 0.7f)
+        model.turn(true)
+        model.turn(true)
+        assertEquals(2 to 0, model.page to model.half)
+        assertTrue(store.entry(manga)!!.readChapterIds.isEmpty())
+        model.turn(true)
+        assertEquals(setOf("c1"), store.entry(manga)!!.readChapterIds)
+
+        // Back from chapter 2 lands on chapter 1's last spread, second half.
+        model.nextChapter()
+        runCurrent()
+        model.turn(false)
+        runCurrent()
+        model.reportAspect(2, 0.7f)
+        assertEquals(2 to 1, model.page to model.half)
+    }
 }

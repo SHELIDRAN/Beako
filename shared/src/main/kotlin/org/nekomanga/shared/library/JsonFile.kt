@@ -10,10 +10,16 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 /** Writes [text] to [file] through a temporary file and an atomic replace. */
-fun writeAtomically(file: File, text: String) {
+fun writeAtomically(file: File, text: String) =
+    writeAtomically(file, text.toByteArray(Charsets.UTF_8))
+
+/**
+ * Writes [bytes] to a temporary file and moves it over [file], atomically where the disk allows.
+ */
+fun writeAtomically(file: File, bytes: ByteArray) {
     file.parentFile?.mkdirs()
     val temp = File(file.parentFile, file.name + ".tmp")
-    temp.writeText(text)
+    temp.writeBytes(bytes)
     try {
         Files.move(
             temp.toPath(),

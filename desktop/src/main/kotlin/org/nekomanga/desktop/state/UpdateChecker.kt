@@ -93,7 +93,10 @@ class UpdateChecker(
                             }
                     if (id != null) {
                         val fresh =
-                            library.recordCheck(entry.key, mangaDex.allChapters(id, languages()))
+                            library.recordCheck(
+                                entry.key,
+                                entry.visible(mangaDex.allChapters(id, languages())),
+                            )
                         if (fresh.isNotEmpty()) found += TitleUpdate(entry.title, fresh)
                     }
                 } catch (e: ApiError) {

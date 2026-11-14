@@ -87,6 +87,11 @@ data class LibraryEntry(
     val key: String
         get() = keyOf(title)
 
+    /** [chapters] without those from hidden groups. */
+    fun visible(chapters: List<Chapter>): List<Chapter> =
+        if (excludedGroups.isEmpty()) chapters
+        else chapters.filter { it.group == null || it.group !in excludedGroups }
+
     val unreadCount: Int
         get() = (chapterCount - readChapterIds.size).coerceAtLeast(0)
 

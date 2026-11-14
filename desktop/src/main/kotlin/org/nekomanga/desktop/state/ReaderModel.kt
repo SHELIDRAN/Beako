@@ -102,6 +102,7 @@ class ReaderModel(
         private set
 
     private val halfState = mutableStateOf(0)
+    private var endHalfPending = false
 
     /** With split wide pages: 0 shows the half read first, 1 the other half. */
     val half: Int
@@ -124,6 +125,11 @@ class ReaderModel(
     fun reportAspect(index: Int, aspect: Float) {
         if (aspect <= 0f) return
         aspects[index] = aspect
+        // Paging back into a chapter that ends on a spread lands on the spread's second half.
+        if (endHalfPending && index == page && isSplit(index)) {
+            endHalfPending = false
+            halfState.value = 1
+        }
         if (modeChosen || mode == ReadingMode.WEBTOON || !autoWebtoon()) return
         if (aspects.values.count { it >= STRIP_ASPECT } >= 2) {
             modeState.value = ReadingMode.WEBTOON
@@ -174,7 +180,10 @@ class ReaderModel(
     fun turn(forward: Boolean) {
         if (pages !is Loadable.Ready) return
         when {
-            forward && isSplit(page) && half == 0 -> halfState.value = 1
+            forward && isSplit(page) && half == 0 -> {
+                halfState.value = 1
+                record()
+            }
             !forward && isSplit(page) && half == 1 -> halfState.value = 0
             forward && page < pageCount - 1 -> {
                 halfState.value = 0
@@ -200,7 +209,9 @@ class ReaderModel(
         if (count == 0) return
         val current = page.coerceIn(0, count - 1)
         store.recordProgress(title, chapter, current, incognito())
-        if (markRead && current == count - 1) markRead(chapter)
+        // A last-page spread counts once its second half is shown.
+        val finished = current == count - 1 && !(isSplit(current) && half == 0)
+        if (markRead && finished) markRead(chapter)
     }
 
     private fun markRead(done: Chapter) {
@@ -249,6 +260,7 @@ class ReaderModel(
                     }
                 resumePage = 0
                 pageState.value = start
+                endHalfPending = openAtEnd
                 record(markRead = false)
             } catch (e: ApiError) {
                 pages = Loadable.Failed(e.message.orEmpty())

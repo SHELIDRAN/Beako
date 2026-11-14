@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import org.nekomanga.shared.library.LibraryData
 import org.nekomanga.shared.library.Settings
+import org.nekomanga.shared.library.writeAtomically
 import org.nekomanga.shared.net.BeakoJson
 
 /**
@@ -41,15 +42,7 @@ object Backups {
             java.io.ByteArrayOutputStream().also { out ->
                 GZIPOutputStream(out).use { it.write(json.toByteArray(Charsets.UTF_8)) }
             }
-        file.parentFile?.mkdirs()
-        val temp = File(file.parentFile, file.name + ".tmp")
-        temp.writeBytes(bytes.toByteArray())
-        java.nio.file.Files.move(
-            temp.toPath(),
-            file.toPath(),
-            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
-        )
+        writeAtomically(file, bytes.toByteArray())
     }
 
     /**
@@ -63,18 +56,22 @@ object Backups {
         val raw = file.readBytes()
         val bytes =
             if (isGzip(raw)) GZIPInputStream(raw.inputStream()).use { it.readBytes() } else raw
-        val text = bytes.decodeToString().trimStart()
-        if (text.startsWith("{")) {
+        // Beako backups are JSON objects; a Neko protobuf can't start with '{' (its first byte is a
+        // field tag), but try it anyway if the JSON doesn't parse.
+        if (bytes.isNotEmpty() && bytes[0] == '{'.code.toByte()) {
             val backup =
                 try {
-                    BeakoJson.decodeFromString(BeakoBackup.serializer(), text)
+                    BeakoJson.decodeFromString(BeakoBackup.serializer(), bytes.decodeToString())
                 } catch (e: SerializationException) {
-                    throw IOException("This isn’t a Beako backup Beako can read.", e)
+                    null
                 } catch (e: IllegalArgumentException) {
-                    throw IOException("This isn’t a Beako backup Beako can read.", e)
+                    null
                 }
-            if (backup.format != BeakoBackup.FORMAT) throw IOException("This isn’t a Beako backup.")
-            return backup.library to backup.settings
+            if (backup != null) {
+                if (backup.format != BeakoBackup.FORMAT)
+                    throw IOException("This isn’t a Beako backup.")
+                return backup.library to backup.settings
+            }
         }
         return NekoBackup.toLibrary(NekoBackup.decode(bytes)) to null
     }

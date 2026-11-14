@@ -24,6 +24,8 @@ class KeyBindingsTest {
     @Test
     fun bindingAKeyMovesItFromItsOldAction() {
         val overrides = KeyBindings.bind(emptyMap(), ReaderAction.NEXT_CHAPTER, KeyEvent.VK_SPACE)
+        // Only the two changed actions are saved.
+        assertEquals(setOf("NEXT_CHAPTER", "NEXT_PAGE"), overrides.keys)
         val keys = KeyBindings(overrides)
         assertEquals(ReaderAction.NEXT_CHAPTER, keys.actionFor(KeyEvent.VK_SPACE))
         assertEquals(
@@ -37,5 +39,6 @@ class KeyBindingsTest {
             KeyBindings.bind(emptyMap(), ReaderAction.LEFT, KeyEvent.VK_ESCAPE)
         }
         assertEquals("Space", KeyBindings.name(KeyEvent.VK_SPACE))
+        assertEquals(" (])", KeyBindings(emptyMap()).hint(ReaderAction.NEXT_CHAPTER))
     }
 }

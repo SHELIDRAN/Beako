@@ -22,6 +22,10 @@ enum class ReaderAction(val label: String, val defaults: List<Int>) {
 
 /** The reader's key map: saved overrides on top of the defaults. */
 class KeyBindings(overrides: Map<String, List<Int>>) {
+    /** The first key of [action], for labels such as "Next chapter (])". */
+    fun hint(action: ReaderAction): String =
+        map[action]?.firstOrNull()?.let { " (${name(it)})" }.orEmpty()
+
     val map: Map<ReaderAction, List<Int>> =
         ReaderAction.entries.associateWith { action -> overrides[action.name] ?: action.defaults }
 
@@ -47,7 +51,7 @@ class KeyBindings(overrides: Map<String, List<Int>>) {
                 .mapValues { (other, keys) ->
                     if (other == action) (keys + keyCode).distinct() else keys - keyCode
                 }
-                .mapKeys { it.key.name }
+                .changedOnly()
         }
 
         fun unbind(
@@ -61,6 +65,20 @@ class KeyBindings(overrides: Map<String, List<Int>>) {
                 .mapKeys { it.key.name }
 
         /** "Space", "Page Down", "]". */
-        fun name(keyCode: Int): String = KeyEvent.getKeyText(keyCode)
+        fun name(keyCode: Int): String =
+            when (keyCode) {
+                KeyEvent.VK_OPEN_BRACKET -> "["
+                KeyEvent.VK_CLOSE_BRACKET -> "]"
+                else -> KeyEvent.getKeyText(keyCode)
+            }
+
+        /**
+         * Only actions whose keys differ from the defaults are saved, so new defaults still apply.
+         */
+        private fun Map<ReaderAction, List<Int>>.changedOnly(): Map<String, List<Int>> =
+            filter { (action, keys) ->
+                keys != action.defaults
+            }
+            .mapKeys { it.key.name }
     }
 }

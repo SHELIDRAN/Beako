@@ -80,7 +80,7 @@ class ReaderScreenTest {
         onNodeWithText("2 of 3").assertIsDisplayed()
 
         // The settings panel shows the paged-mode options.
-        onNodeWithContentDescription("Reader settings").performClick()
+        onNodeWithContentDescription("Reader settings (O)").performClick()
         waitForIdle()
         onNodeWithText("Page fit").assertIsDisplayed()
         onNodeWithText("Split wide pages").assertIsDisplayed()
