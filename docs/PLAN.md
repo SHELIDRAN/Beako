@@ -229,6 +229,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
    - App shell: navigation rail, motion spec (fade-through tabs and sub-pages, hover states, skeleton loading), settings home with search, Appearance settings (theme, palettes, interface scale, customize navigation, glass and motion toggles).
    - Test pass at 125% and 150% Windows display scaling (Compose Desktop has known blurry-text reports at 125%).
 3. **Phase 2 — Library and offline**
+   - **Status (Nov 14, 2026):** built — library (JSON store instead of Room, behind one class so it can be swapped), categories, search incl. alt titles/tags, group by and sort, read marks and progress, history, update checks every 6 h with Windows notifications, Latest updates screen, downloads with a queue and offline reading, More screen with Downloaded only, Incognito, appearance and data-saver settings. Still open: the "New in your Comick library" shelf (needs Phase 3 sign-in), importing the Rust prototype's `library.json`, a setting for the update interval.
    - Local database, library with categories, read progress, history.
    - Download queue and offline reading; library update check with Windows notifications.
    - More screen: stat tiles, Downloaded only, Incognito mode, Statistics, Calendar of upcoming chapters.
