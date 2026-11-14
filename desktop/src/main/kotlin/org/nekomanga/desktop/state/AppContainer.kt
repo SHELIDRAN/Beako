@@ -130,6 +130,12 @@ class AppContainer(
     val aniList = AniListTracker(transport, vault)
     val mangaDexAccount = MangaDexAccount(transport, vault)
 
+    /** Discord Rich Presence through the local Discord app. */
+    val discord =
+        org.nekomanga.desktop.platform.DiscordPresence(
+            { settings.current.discordAppId.ifBlank { DISCORD_APP_ID } },
+        )
+
     /** Runs work that outlives any one screen, such as downloads. */
     val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -173,3 +179,6 @@ class AppContainer(
 
 /** Marks requests for extension page images, so redirects get the sandbox's checks too. */
 private object ExtensionPage
+
+/** Beako's Discord application id (public); empty until the app is registered. */
+const val DISCORD_APP_ID = ""
