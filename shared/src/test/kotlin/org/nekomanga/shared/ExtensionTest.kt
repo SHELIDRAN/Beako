@@ -382,4 +382,46 @@ class ExtensionTest {
             }
         }
     }
+
+    @Test
+    fun aFailingSourceIsReportedAndLoggedNotHidden() {
+        runBlocking {
+            val dir = java.nio.file.Files.createTempDirectory("beako-fail").toFile()
+            org.nekomanga.shared.diagnostics.DiagnosticLog.start(dir)
+            val broken =
+                "class DefaultExtension extends MProvider { async search() { throw new Error('blocked by the site'); } }"
+            val index =
+                """[{"name":"Broken","id":7,"lang":"en","sourceCodeUrl":"https://repo.test/b.js","sourceCodeLanguage":1}]"""
+            val http = FakeHttp { url ->
+                if (url.endsWith("index.json")) json(index) else json(broken)
+            }
+            val manager = org.nekomanga.shared.extensions.ExtensionManager(dir, http, Site())
+            manager.install(
+                manager.addRepository("https://repo.test/index.json").single(),
+                "https://repo.test/index.json",
+            )
+            val sources =
+                org.nekomanga.shared.extensions.ReadingSources(
+                    org.nekomanga.shared.mangadex.MangaDexApi(http),
+                    manager,
+                )
+            val title =
+                org.nekomanga.shared.model.Title(
+                    org.nekomanga.shared.model.Sources.COMICK,
+                    "x",
+                    "Solo Tower",
+                )
+
+            val check = sources.check(title).single()
+            assertNull(check.match)
+            assertTrue(check.error!!.contains("blocked by the site"), check.error)
+            val log = java.io.File(dir, "beako.log").readText()
+            assertTrue(log.contains("Source Broken (id 7) failed"), log)
+            // A manual search reports the failure as a SourceFailed error.
+            assertFailsWith<org.nekomanga.shared.net.ApiError.SourceFailed> {
+                sources.search("ext:7", "solo")
+            }
+            manager.closeAll()
+        }
+    }
 }

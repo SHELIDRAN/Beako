@@ -369,45 +369,14 @@ private fun AvailableOn(model: DetailsModel) {
             model.chapters is Loadable.Loading || model.searchingSources -> "Looking for sources…"
             else -> "Not available on any source"
         }
-    Box {
-        GlassButton(
-            text + if (model.searchingSources && selected != null) " · searching…" else "",
-            onClick = { if (model.availableOn.size > 1 || model.searchingSources) open = true },
-            icon = if (model.availableOn.size > 1) Icons.Outlined.ExpandMore else null,
-        )
-        DropdownMenu(open, onDismissRequest = { open = false }) {
-            Text(
-                "Available on",
-                style = MaterialTheme.typography.labelMedium,
-                color = BeakoColors.TextMuted,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-            )
-            model.availableOn.forEach { match ->
-                val on = match.sourceId == model.selectedSource
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            (if (on) "✓  " else "     ") +
-                                match.name +
-                                if (match.unoriginal) " (copy of another site)" else "",
-                        )
-                    },
-                    onClick = {
-                        model.selectSource(match.sourceId)
-                        open = false
-                    },
-                )
-            }
-            if (model.searchingSources) {
-                Text(
-                    "Still searching your installed sources…",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = BeakoColors.TextMuted,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                )
-            }
-        }
-    }
+    val failures = model.sourceChecks.count { it.error != null }
+    // Always opens the picker: pick another source, or search one by hand when matching missed.
+    GlassButton(
+        text + (if (failures > 0) " · $failures failed" else ""),
+        onClick = { open = true },
+        icon = Icons.Outlined.ExpandMore,
+    )
+    if (open) SourcePicker(model, onClose = { open = false })
 }
 
 /** Add to library, or, when it's there, a menu to change its categories or remove it. */

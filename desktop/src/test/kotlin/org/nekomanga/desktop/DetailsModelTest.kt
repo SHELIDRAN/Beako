@@ -215,4 +215,82 @@ class DetailsModelTest {
             manager.closeAll()
             scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         }
+
+    @Test
+    fun aSourceCanBePickedByHandWhenAutomaticMatchingMisses() {
+        kotlinx.coroutines.runBlocking {
+            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default)
+            val dir = Files.createTempDirectory("beako").toFile()
+            val code = javaClass.getResource("/fixtures/sample-extension.js")!!.readText()
+            val http = HttpFetcher { url ->
+                when {
+                    url.endsWith("index.json") ->
+                        HttpResponse(
+                            200,
+                            "application/json",
+                            """[{"name":"Sample","id":1,"lang":"en","sourceCodeUrl":"https://repo.test/s.js","sourceCodeLanguage":1}]""",
+                        )
+                    url.endsWith("s.js") -> HttpResponse(200, "text/javascript", code)
+                    else ->
+                        HttpResponse(
+                            200,
+                            "application/json",
+                            """{"result":"ok","data":[],"total":0,"limit":10,"offset":0}""",
+                        )
+                }
+            }
+            val manager =
+                org.nekomanga.shared.extensions.ExtensionManager(File(dir, "ext"), http, site)
+            manager.install(
+                manager.addRepository("https://repo.test/index.json").single(),
+                "https://repo.test/index.json",
+            )
+            val mangaDex = MangaDexApi(http)
+            // Its English name differs from the source's, so automatic matching finds nothing.
+            val title = Title(Sources.COMICK, "hid", "The Northern Grand Duke's Crazy Son-in-Law")
+            val library = LibraryStore(File(dir, "library.json")).apply { add(title) }
+            val model =
+                DetailsModel(
+                    scope,
+                    Discovery(ComickApi(http), mangaDex),
+                    mangaDex,
+                    library,
+                    DownloadManager(
+                        dir,
+                        scope,
+                        { error("unused") },
+                        ImageFetcher { error("unused") },
+                    ),
+                    title,
+                    readingSources =
+                        org.nekomanga.shared.extensions.ReadingSources(mangaDex, manager),
+                )
+            model.start()
+            kotlinx.coroutines.withTimeout(15_000) {
+                while (model.sourceChecks.isEmpty()) kotlinx.coroutines.delay(20)
+            }
+            assertTrue(model.availableOn.isEmpty())
+            assertEquals(listOf("ext:1" to "Sample"), model.installedSources)
+            assertTrue(model.mangaDexChecked)
+
+            model.pickerSearch("ext:1", "Solo Tower")
+            kotlinx.coroutines.withTimeout(15_000) {
+                while (model.pickerResults !is org.nekomanga.desktop.state.Loadable.Ready) kotlinx
+                    .coroutines
+                    .delay(20)
+            }
+            val result =
+                (model.pickerResults as org.nekomanga.desktop.state.Loadable.Ready).value.first()
+            model.bind("ext:1", "Sample", result)
+            kotlinx.coroutines.withTimeout(15_000) {
+                while (model.readingOrder().isEmpty()) kotlinx.coroutines.delay(20)
+            }
+
+            assertEquals("ext:1", model.selectedSource)
+            assertEquals(listOf("1", "2"), model.readingOrder().map { it.number })
+            assertEquals("/title/1", library.entry(title)!!.sourceLinks["ext:1"])
+            manager.closeAll()
+            scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        }
+    }
 }
