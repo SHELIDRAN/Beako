@@ -10,6 +10,7 @@ coil = "3.6.3"
 icons = "1.7.3"
 coroutines = "1.11.0"
 jna = "5.19.1"
+quickjs = "1.0.18"
 
 [libraries]
 material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "material3" }
@@ -19,6 +20,7 @@ haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+quickjs = { module = "io.github.dokar3:quickjs-kt-jvm", version.ref = "quickjs" }
 coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 
 [plugins]
