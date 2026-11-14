@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
@@ -74,8 +75,10 @@ import org.nekomanga.desktop.components.DropletSegmented
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.StateMessage
+import org.nekomanga.desktop.state.KeyBindings
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.LocalWindowControl
+import org.nekomanga.desktop.state.ReaderAction
 import org.nekomanga.desktop.state.ReaderModel
 import org.nekomanga.desktop.state.ReadingMode
 import org.nekomanga.desktop.state.displayName
@@ -92,8 +95,9 @@ private const val DefaultAspect = 1.45f
  * The reader. Webtoon mode scrolls a long strip and hides the controls while scrolling down,
  * showing them again on scrolling up. Paged modes turn with clicks, the wheel or the keyboard.
  *
- * Keys: ← → Space PageUp PageDown turn or scroll, `[` `]` change chapter, F or F11 toggle full
- * screen, Esc leaves full screen first and then closes the reader.
+ * Keys (rebindable in More → Keyboard shortcuts): ← → Space PageUp PageDown turn or scroll, `[` `]`
+ * change chapter, F or F11 toggle full screen, O opens reader settings. Esc closes panels, leaves
+ * full screen and then closes the reader.
  */
 @Composable
 fun ReaderScreen(
@@ -101,6 +105,7 @@ fun ReaderScreen(
     onClose: () -> Unit,
     prefs: ReaderPrefs = ReaderPrefs(),
     onPrefs: (ReaderPrefs) -> Unit = {},
+    keys: KeyBindings = KeyBindings(emptyMap()),
 ) {
     LaunchedEffect(model) { model.start() }
     val window = LocalWindowControl.current
@@ -130,25 +135,24 @@ fun ReaderScreen(
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 val rtl = model.mode == ReadingMode.RIGHT_TO_LEFT
                 val paged = model.mode.isPaged
-                when (event.key) {
-                    Key.Escape ->
-                        when {
-                            settingsOpen -> settingsOpen = false
-                            window?.isFullscreen == true -> window.setFullscreen(false)
-                            else -> close()
-                        }
-                    Key.F,
-                    Key.F11 -> window?.toggleFullscreen()
-                    Key.LeftBracket -> model.previousChapter()
-                    Key.RightBracket -> model.nextChapter()
-                    Key.DirectionRight -> if (paged) model.turn(forward = !rtl) else scroll(0.85f)
-                    Key.DirectionLeft -> if (paged) model.turn(forward = rtl) else scroll(-0.85f)
-                    Key.Spacebar,
-                    Key.PageDown,
-                    Key.DirectionDown -> if (paged) model.turn(true) else scroll(0.85f)
-                    Key.PageUp,
-                    Key.DirectionUp -> if (paged) model.turn(false) else scroll(-0.85f)
-                    else -> return@onPreviewKeyEvent false
+                if (event.key == Key.Escape) {
+                    when {
+                        settingsOpen -> settingsOpen = false
+                        window?.isFullscreen == true -> window.setFullscreen(false)
+                        else -> close()
+                    }
+                    return@onPreviewKeyEvent true
+                }
+                when (keys.actionFor(event.key.nativeKeyCode)) {
+                    ReaderAction.FULL_SCREEN -> window?.toggleFullscreen()
+                    ReaderAction.PREVIOUS_CHAPTER -> model.previousChapter()
+                    ReaderAction.NEXT_CHAPTER -> model.nextChapter()
+                    ReaderAction.RIGHT -> if (paged) model.turn(forward = !rtl) else scroll(0.85f)
+                    ReaderAction.LEFT -> if (paged) model.turn(forward = rtl) else scroll(-0.85f)
+                    ReaderAction.NEXT_PAGE -> if (paged) model.turn(true) else scroll(0.85f)
+                    ReaderAction.PREVIOUS_PAGE -> if (paged) model.turn(false) else scroll(-0.85f)
+                    ReaderAction.SETTINGS -> settingsOpen = !settingsOpen
+                    null -> return@onPreviewKeyEvent false
                 }
                 true
             },

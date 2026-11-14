@@ -39,6 +39,8 @@ data class Settings(
     /** Push reading progress to linked trackers as chapters are finished. */
     val autoTrack: Boolean = true,
     val reader: ReaderPrefs = ReaderPrefs(),
+    /** Reader key overrides: action name to AWT key codes. Missing actions use the defaults. */
+    val keyBindings: Map<String, List<Int>> = emptyMap(),
     /** Write a backup once a day, keeping a week of them. */
     val autoBackup: Boolean = true,
 )
