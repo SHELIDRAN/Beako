@@ -17,6 +17,12 @@ data class Settings(
     val reduceTransparency: Boolean = false,
     /** "AUTO_COLLAPSE", "ALWAYS_EXPANDED" or "ICONS_ONLY". */
     val sidebarMode: String = "AUTO_COLLAPSE",
+    /** Colour scheme name ("NEUTRAL", "MIDNIGHT", "WARM", "FOREST", "OLED"). */
+    val palette: String = "NEUTRAL",
+    /** Glass blur and tint strength, 0.5–1.5. */
+    val glassStrength: Float = 1f,
+    /** Interface size, 0.8–1.5. */
+    val uiScale: Float = 1f,
     /** Hours between library update checks; 0 turns them off. */
     val updateIntervalHours: Int = 6,
     /** Download MangaDex's smaller, compressed images. */

@@ -40,6 +40,7 @@ private val RimBrush = Brush.verticalGradient(listOf(BeakoColors.RimBright, Beak
 fun Modifier.glass(shape: Shape, tint: Color = BeakoColors.GlassTint, blur: Dp = 24.dp): Modifier {
     val appearance = LocalAppearance.current
     val haze = LocalHazeState.current
+    val strength = appearance.glassStrength.coerceIn(0.5f, 1.5f)
     val fill =
         when {
             appearance.reduceTransparency -> Modifier.background(BeakoColors.GlassSolid)
@@ -49,8 +50,13 @@ fun Modifier.glass(shape: Shape, tint: Color = BeakoColors.GlassTint, blur: Dp =
                     style =
                         HazeStyle(
                             backgroundColor = BeakoColors.Ground,
-                            tints = listOf(HazeTint(tint)),
-                            blurRadius = blur,
+                            tints =
+                                listOf(
+                                    HazeTint(
+                                        tint.copy(alpha = (tint.alpha * strength).coerceIn(0f, 1f)),
+                                    ),
+                                ),
+                            blurRadius = blur * strength,
                             noiseFactor = 0f,
                         ),
                 )
