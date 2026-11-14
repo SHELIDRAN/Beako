@@ -54,7 +54,18 @@ jobs:
         run: ./gradlew -PdesktopOnly build --console=plain
 
       - name: Package the installer
-        run: ./gradlew -PdesktopOnly :desktop:packageMsi --console=plain
+        run: ./gradlew -PdesktopOnly :desktop:createDistributable :desktop:packageMsi --console=plain
+
+      # The installer bundles its own Java runtime. Run the packaged app's self-test so a module
+      # missing from that runtime fails the build instead of crashing on users' PCs (0.1.0).
+      - name: Self-test the packaged app
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Recurse -Filter Beako.exe desktop/build/compose/binaries/main/app | Select-Object -First 1
+          $report = Join-Path $env:RUNNER_TEMP "self-test.txt"
+          $p = Start-Process -FilePath $exe.FullName -ArgumentList "--self-test", $report -Wait -PassThru
+          if (Test-Path $report) { Get-Content $report }
+          if ($p.ExitCode -ne 0) { throw "Packaged self-test failed (exit $($p.ExitCode))" }
 
       - name: Upload the installer
         uses: actions/upload-artifact@v4
