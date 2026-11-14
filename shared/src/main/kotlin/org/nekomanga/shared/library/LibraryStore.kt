@@ -2,7 +2,6 @@ package org.nekomanga.shared.library
 
 import java.io.File
 import java.io.IOException
-import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,13 +14,23 @@ import org.nekomanga.shared.net.BeakoJson
 
 /**
  * The local library: saved titles, categories, read chapters, progress and history, kept in one
- * JSON file. Every change is written straight away with an atomic replace, so a crash can't leave a
- * half-written file. A damaged file is kept as `library.json.broken` and the library starts empty.
+ * JSON file. Changes apply in memory at once and are saved in the background (quick changes such as
+ * page turns are combined into one write), always with an atomic replace so a crash can't leave a
+ * half-written file. Call [flush] before the app exits.
+ *
+ * A damaged file is kept as `library.json.broken` and the library starts empty. A file that can't
+ * be read at all (still locked after retries) is never overwritten: the store stays read-only for
+ * the session and reports [loadError].
  */
 class LibraryStore(
     private val file: File,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
+    /** Set when the library file couldn't be read; changes then aren't saved. */
+    var loadError: IOException? = null
+        private set
+
+    private val writer = DebouncedWriter(file)
     private val state = MutableStateFlow(load())
 
     val data: StateFlow<LibraryData> = state.asStateFlow()
@@ -170,9 +179,15 @@ class LibraryStore(
     }
 
     private fun load(): LibraryData {
-        if (!file.exists()) return LibraryData()
+        val text =
+            try {
+                readWithRetry(file) ?: return LibraryData()
+            } catch (e: IOException) {
+                loadError = e
+                return LibraryData()
+            }
         return try {
-            BeakoJson.decodeFromString(LibraryData.serializer(), file.readText())
+            BeakoJson.decodeFromString(LibraryData.serializer(), text)
         } catch (e: SerializationException) {
             keepBroken()
             LibraryData()
@@ -193,30 +208,16 @@ class LibraryStore(
     }
 
     private fun save(data: LibraryData) {
-        try {
-            file.parentFile?.mkdirs()
-            val temp = File(file.parentFile, file.name + ".tmp")
-            temp.writeText(BeakoJson.encodeToString(LibraryData.serializer(), data))
-            try {
-                Files.move(
-                    temp.toPath(),
-                    file.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE,
-                )
-            } catch (e: AtomicMoveNotSupportedException) {
-                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            }
-        } catch (e: IOException) {
-            // The in-memory library stays correct; the next change tries to save again.
-            lastSaveError = e
-        }
+        if (loadError != null) return
+        writer.write(BeakoJson.encodeToString(LibraryData.serializer(), data))
     }
 
+    /** Writes any pending change now. */
+    fun flush() = writer.flush()
+
     /** The last failed save, if any, for the UI to report. */
-    @Volatile
-    var lastSaveError: IOException? = null
-        private set
+    val lastSaveError: IOException?
+        get() = writer.lastError
 
     companion object {
         const val MAX_HISTORY = 500

@@ -23,6 +23,8 @@ class AppState(
             container.library,
             container.mangaDex,
             container.discovery,
+            intervalHours = { container.settings.current.updateIntervalHours },
+            languages = { container.settings.current.languages },
             onFound = onUpdates,
         )
 
@@ -39,6 +41,7 @@ class AppState(
                 container.library,
                 container.downloads,
                 title,
+                languages = { container.settings.current.languages },
             )
         }
 

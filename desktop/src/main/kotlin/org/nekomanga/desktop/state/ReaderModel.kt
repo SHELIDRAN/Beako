@@ -125,18 +125,27 @@ class ReaderModel(
         }
     }
 
-    private fun record() {
+    /**
+     * Saves the position. A chapter counts as read when the reader reaches its last page by
+     * reading, not when it opens there (paging back into the previous chapter).
+     */
+    private fun record(markRead: Boolean = true) {
         val store = library ?: return
         val count = pageCount
         if (count == 0) return
         val current = page.coerceIn(0, count - 1)
         store.recordProgress(title, chapter, current, incognito())
-        if (current == count - 1 && store.contains(title) && !incognito()) {
-            store.setRead(title, listOf(chapter.id), true)
-        }
+        if (markRead && current == count - 1) markRead(chapter)
+    }
+
+    private fun markRead(done: Chapter) {
+        val store = library ?: return
+        if (store.contains(title) && !incognito()) store.setRead(title, listOf(done.id), true)
     }
 
     private fun open(newIndex: Int, atEnd: Boolean) {
+        // Moving on to the next chapter means this one is finished, even a one-page chapter.
+        if (newIndex > index && pages is Loadable.Ready) markRead(chapter)
         index = newIndex
         openAtEnd = atEnd
         resumePage = 0
@@ -169,7 +178,7 @@ class ReaderModel(
                     }
                 resumePage = 0
                 pageState.value = start
-                record()
+                record(markRead = false)
             } catch (e: ApiError) {
                 pages = Loadable.Failed(e.message.orEmpty())
             }

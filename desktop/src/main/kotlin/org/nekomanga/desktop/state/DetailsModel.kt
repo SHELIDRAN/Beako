@@ -25,6 +25,8 @@ class DetailsModel(
     private val library: LibraryStore,
     val downloads: DownloadManager,
     val title: Title,
+    /** Chapter languages to list, as MangaDex codes. */
+    private val languages: () -> List<String> = { listOf("en") },
 ) {
     /** Chapters newest first, as the list shows them. */
     var chapters by mutableStateOf<Loadable<List<Chapter>>>(Loadable.Loading)
@@ -125,7 +127,7 @@ class DetailsModel(
                             if (library.contains(title)) library.setMangaDexId(title, id)
                         }
                         availableOn = listOf(MangaDexApi.SERVICE)
-                        val list = mangaDex.allChapters(id)
+                        val list = mangaDex.allChapters(id, languages())
                         library.entry(title)?.let { library.recordCheck(it.key, list) }
                         Loadable.Ready(list)
                     }

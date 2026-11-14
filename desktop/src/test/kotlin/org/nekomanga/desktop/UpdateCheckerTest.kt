@@ -80,4 +80,30 @@ class UpdateCheckerTest {
             UpdateChecker.summary(listOf(one, two)),
         )
     }
+
+    @Test
+    fun twoQuickRequestsRunOneCheck() = runTest {
+        val store = LibraryStore(File(Files.createTempDirectory("beako").toFile(), "library.json"))
+        store.add(Title(Sources.COMICK, "hid", "Sample"), mangaDexId = "md1")
+        var requests = 0
+        val counting = HttpFetcher { url ->
+            requests++
+            feed.get(url)
+        }
+        val mangaDex = MangaDexApi(counting)
+        val checker =
+            UpdateChecker(
+                backgroundScope,
+                store,
+                mangaDex,
+                Discovery(ComickApi(counting), mangaDex),
+            )
+
+        val first = checker.runNow()
+        val second = checker.runNow()
+        runCurrent()
+
+        assertTrue(first === second)
+        assertEquals(1, requests)
+    }
 }

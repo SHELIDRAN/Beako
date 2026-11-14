@@ -107,4 +107,62 @@ class DownloadManagerTest {
         val reopened = SettingsStore(file).current
         assertEquals(Settings(incognito = true, updateIntervalHours = 12), reopened)
     }
+
+    @Test
+    fun downloadsStayFoundWhenTheTitleIsRenamed() = runTest {
+        val manager = DownloadManager(root, backgroundScope, pages, ImageFetcher { ByteArray(1) })
+        manager.enqueue(title, listOf(chapter(1)))
+        runCurrent()
+
+        val renamed = title.copy(title = "A completely different display name")
+        assertTrue(manager.isDownloaded(renamed, chapter(1).copy(group = "New group")))
+        assertEquals(setOf("comick:hid"), manager.downloadedTitleKeys())
+    }
+
+    @Test
+    fun longNamesKeepTheirIdSoTitlesNeverShareAFolder() = runTest {
+        val manager = DownloadManager(root, backgroundScope, pages, ImageFetcher { ByteArray(1) })
+        val long = "x".repeat(300)
+        val first = Title(Sources.COMICK, "one", long)
+        val second = Title(Sources.COMICK, "two", long)
+        manager.enqueue(first, listOf(chapter(1)))
+        manager.enqueue(second, listOf(chapter(1)))
+        runCurrent()
+
+        val folders = root.listFiles()!!.map { it.name }.sorted()
+        assertEquals(2, folders.size)
+        assertTrue(folders.all { it.length <= 120 && it.endsWith("]") })
+    }
+
+    @Test
+    fun aChapterQueuedAfterTheQueueEmptiedStillDownloads() = runTest {
+        val manager = DownloadManager(root, backgroundScope, pages, ImageFetcher { ByteArray(1) })
+        manager.enqueue(title, listOf(chapter(1)))
+        runCurrent()
+        manager.enqueue(title, listOf(chapter(2)))
+        runCurrent()
+        assertTrue(manager.isDownloaded(title, chapter(2)))
+        assertTrue(manager.queue.value.isEmpty())
+    }
+
+    @Test
+    fun pauseAndResumeFinishTheChapterOnce() = runTest {
+        var fetches = 0
+        val manager =
+            DownloadManager(
+                root,
+                backgroundScope,
+                pages,
+                ImageFetcher {
+                    fetches++
+                    ByteArray(1)
+                },
+            )
+        manager.enqueue(title, listOf(chapter(1)))
+        manager.pause()
+        manager.resume()
+        runCurrent()
+        assertTrue(manager.isDownloaded(title, chapter(1)))
+        assertEquals(2, fetches)
+    }
 }

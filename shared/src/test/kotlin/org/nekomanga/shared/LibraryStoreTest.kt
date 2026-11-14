@@ -36,7 +36,10 @@ class LibraryStoreTest {
 
     @Test
     fun addedTitlesAndCategoriesSurviveARestart() {
-        store().add(title, categories = listOf("Romance", "Romance"), mangaDexId = "md1")
+        store().apply {
+            add(title, categories = listOf("Romance", "Romance"), mangaDexId = "md1")
+            flush()
+        }
 
         val reopened = store()
         val entry = assertNotNull(reopened.entry(title))
@@ -108,6 +111,28 @@ class LibraryStoreTest {
         assertTrue(store.entries.isEmpty())
         assertTrue(File(dir, "library.json.broken").exists())
         store.add(title)
+        store.flush()
         assertFalse(file.readText().contains("not json"))
+    }
+
+    @Test
+    fun manyQuickChangesBecomeOneBackgroundWrite() {
+        val store = store()
+        store.add(title)
+        repeat(50) { store.recordProgress(title, chapter(1), page = it) }
+        store.flush()
+        val reopened = store()
+        assertEquals(49, reopened.entry(title)!!.progress!!.page)
+    }
+
+    @Test
+    fun aLibraryThatCantBeReadIsNeverOverwritten() {
+        // A directory where the file should be makes reading fail like a locked file.
+        file.mkdirs()
+        val store = store()
+        assertNotNull(store.loadError)
+        store.add(title)
+        store.flush()
+        assertTrue(file.isDirectory)
     }
 }

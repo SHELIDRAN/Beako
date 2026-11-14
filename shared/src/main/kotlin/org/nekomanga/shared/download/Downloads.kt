@@ -6,7 +6,9 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -87,8 +89,7 @@ class DownloadManager(
 
     fun pause() {
         paused = true
-        worker?.cancel()
-        worker = null
+        synchronized(lock) { worker?.cancel() }
         state.update { queue ->
             queue.map {
                 if (it.state == DownloadState.DOWNLOADING) it.copy(state = DownloadState.QUEUED)
@@ -114,8 +115,7 @@ class DownloadManager(
             state.value.firstOrNull { it.key == job.key }?.state == DownloadState.DOWNLOADING
         state.update { queue -> queue.filterNot { it.key == job.key } }
         if (wasRunning) {
-            worker?.cancel()
-            worker = null
+            synchronized(lock) { worker?.cancel() }
             startWorker()
         }
     }
@@ -158,14 +158,42 @@ class DownloadManager(
         finished.update { it + 1 }
     }
 
+    private val lock = Any()
+
+    /**
+     * Starts a worker unless one is running. The new worker first waits for any cancelled one to
+     * finish, so two workers never touch the same chapter folder.
+     */
     private fun startWorker() {
-        if (paused || worker?.isActive == true) return
-        worker = scope.launch { work() }
+        synchronized(lock) {
+            if (paused || worker?.isActive == true) return
+            val previous = worker
+            val job = scope.launch(start = CoroutineStart.LAZY) { work(previous) }
+            worker = job
+            job.start()
+        }
     }
 
-    private suspend fun work() {
+    /** The next queued chapter, or null after marking this worker finished, under one lock. */
+    private fun nextOrStop(self: Job?): DownloadJob? =
+        synchronized(lock) {
+            state.value.firstOrNull { it.state == DownloadState.QUEUED }
+                ?: run {
+                    if (worker === self) worker = null
+                    null
+                }
+        }
+
+    private suspend fun work(previous: Job?) {
+        previous?.join()
+        val self = currentCoroutineContext()[Job]
         while (true) {
-            val next = state.value.firstOrNull { it.state == DownloadState.QUEUED } ?: return
+            val next = nextOrStop(self) ?: return
+            if (isDownloaded(next.title, next.chapter)) {
+                // A cancelled worker may have finished it while stopping.
+                state.update { queue -> queue.filterNot { it.key == next.key } }
+                continue
+            }
             set(next.key) { it.copy(state = DownloadState.DOWNLOADING, done = 0) }
             try {
                 download(next)
@@ -219,17 +247,41 @@ class DownloadManager(
         queue.map { if (it.key == key) change(it) else it }
     }
 
-    private fun titleDir(title: Title) = File(root, safeName("${title.title} [${title.id}]"))
+    /**
+     * A title's folder, found by its "[source-id]" suffix so it stays the same when the title's
+     * display name changes; new folders are "<name> [source-id]".
+     */
+    private fun titleDir(title: Title): File {
+        val suffix = idSuffix("${title.source}-${title.id}")
+        return root.listFiles().orEmpty().firstOrNull { it.isDirectory && it.name.endsWith(suffix) }
+            ?: File(root, folderName(title.title, suffix))
+    }
 
+    /** A chapter's folder, found by its chapter-id suffix in the title's folder. */
     private fun chapterDir(title: Title, chapter: Chapter): File {
+        val parent = titleDir(title)
+        val suffix = idSuffix(chapter.id)
+        parent
+            .listFiles()
+            .orEmpty()
+            .firstOrNull { it.isDirectory && it.name.endsWith(suffix) }
+            ?.let {
+                return it
+            }
         val name =
             listOfNotNull(chapter.number?.let { "Ch $it" }, chapter.group).joinToString(" - ")
-        return File(titleDir(title), safeName("${name.ifEmpty { "Chapter" }} [${chapter.id}]"))
+        return File(parent, folderName(name.ifEmpty { "Chapter" }, suffix))
     }
 
     companion object {
         private const val MANIFEST = "chapter.json"
         private const val TITLE_KEY = ".beako-title"
+
+        private fun idSuffix(id: String) = " [${safeName(id)}]"
+
+        /** "<name> [id]", shortening only the name so the id part always survives. */
+        private fun folderName(name: String, suffix: String): String =
+            safeName(name).take(120 - suffix.length).trimEnd('.', ' ') + suffix
 
         /** A folder name Windows accepts: no reserved characters, no trailing dots or spaces. */
         fun safeName(name: String): String =

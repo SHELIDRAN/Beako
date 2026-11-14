@@ -66,12 +66,21 @@ fun main() {
                 onAction = { windowState.isMinimized = false },
             ) {
                 Item("Open $APP_NAME", onClick = { windowState.isMinimized = false })
-                Item("Quit", onClick = ::exitApplication)
+                Item(
+                    "Quit",
+                    onClick = {
+                        container.library.flush()
+                        exitApplication()
+                    },
+                )
             }
         }
         val windowControl = remember { WindowControl(windowState) }
         Window(
-            onCloseRequest = ::exitApplication,
+            onCloseRequest = {
+                container.library.flush()
+                exitApplication()
+            },
             title = APP_NAME,
             icon = icon,
             state = windowState,

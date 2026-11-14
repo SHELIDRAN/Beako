@@ -206,12 +206,20 @@ private fun WebtoonStrip(
 ) {
     // Height÷width of each loaded page, so a page keeps its size once known.
     val aspects = remember(model.index) { mutableStateMapOf<Int, Float>() }
+    // Open at the saved page (or the last page, when paging back from the next chapter) before
+    // scroll positions count as reading.
+    var positioned by remember(model.index) { mutableStateOf(false) }
+    LaunchedEffect(listState, urls) {
+        listState.scrollToItem(model.page.coerceIn(0, urls.lastIndex))
+        positioned = true
+    }
     LaunchedEffect(listState) {
         var last = 0L
         snapshotFlow {
             listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
         }
             .collect { (item, offset) ->
+                if (!positioned) return@collect
                 model.page = item.coerceAtMost(urls.lastIndex)
                 // Position along the strip; only real movement counts as a direction.
                 val position = item * 100_000L + offset

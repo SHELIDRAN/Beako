@@ -11,6 +11,7 @@ import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.ReaderModel
 import org.nekomanga.desktop.state.ReadingMode
 import org.nekomanga.desktop.state.displayName
+import org.nekomanga.shared.library.LibraryStore
 import org.nekomanga.shared.mangadex.MangaDexApi
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.ComicType
@@ -128,5 +129,79 @@ class ReaderModelTest {
             chapter("3").copy(volume = "2", title = "Dawn").displayName(),
         )
         assertEquals("Oneshot", chapter("1").copy(number = null).displayName())
+    }
+
+    private fun library(): LibraryStore =
+        LibraryStore(
+                java.io.File(
+                    java.nio.file.Files.createTempDirectory("beako").toFile(),
+                    "library.json",
+                ),
+            )
+            .apply { add(manga) }
+
+    @Test
+    fun pagingBackIntoAChapterDoesNotMarkItRead() = runTest {
+        val store = library()
+        val model =
+            ReaderModel(
+                backgroundScope,
+                MangaDexApi(threePages),
+                manga,
+                listOf(chapter("1"), chapter("2")),
+                1,
+                store,
+            )
+        model.start()
+        runCurrent()
+
+        model.turn(false)
+        runCurrent()
+
+        assertEquals(0, model.index)
+        assertEquals(2, model.page)
+        assertTrue(store.entry(manga)!!.readChapterIds.isEmpty())
+    }
+
+    @Test
+    fun readingToTheEndOrMovingOnMarksTheChapterRead() = runTest {
+        val store = library()
+        val model =
+            ReaderModel(
+                backgroundScope,
+                MangaDexApi(threePages),
+                manga,
+                listOf(chapter("1"), chapter("2"), chapter("3")),
+                0,
+                store,
+            )
+        model.start()
+        runCurrent()
+        model.page = 2
+        assertEquals(setOf("c1"), store.entry(manga)!!.readChapterIds)
+
+        // Skipping ahead from page 1 also counts the chapter as finished.
+        model.nextChapter()
+        runCurrent()
+        model.nextChapter()
+        runCurrent()
+        assertEquals(setOf("c1", "c2"), store.entry(manga)!!.readChapterIds)
+    }
+
+    @Test
+    fun resumingOpensAtTheSavedPage() = runTest {
+        val model =
+            ReaderModel(
+                backgroundScope,
+                MangaDexApi(threePages),
+                manga,
+                listOf(chapter("1")),
+                0,
+                library(),
+                startPage = 2,
+            )
+        model.start()
+        runCurrent()
+        assertEquals(2, model.page)
     }
 }
