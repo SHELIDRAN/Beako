@@ -101,7 +101,8 @@ fun main(args: Array<String>) {
                 )
             }
         }
-        val windowControl = remember { WindowControl(windowState) }
+        var awtFrame: java.awt.Frame? = null
+        val windowControl = remember { WindowControl.forWindow(windowState) { awtFrame } }
         Window(
             onCloseRequest = {
                 container.library.flush()
@@ -113,6 +114,7 @@ fun main(args: Array<String>) {
             icon = icon,
             state = windowState,
         ) {
+            awtFrame = window
             val scope = rememberCoroutineScope()
             val state = remember {
                 AppState(
