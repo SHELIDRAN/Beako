@@ -236,6 +236,7 @@ First milestone: open the app on Windows, search MangaDex and read a chapter. Ea
 4. **Phase 3 — Accounts and sync**
    - MangaDex login, follows / MDList sync, two-way read status.
    - AniList two-way sync first (fork priority), then MyAnimeList, Kitsu, MangaUpdates, MangaBaka.
+   - **Status (Nov 14, 2026):** built — Comick sign-in (PKCE, loopback callback) and tracker, MangaDex sign-in (personal API client), follows import and mark-read sync, secrets in Windows Credential Manager, sidebar avatars, More → Accounts and tracking, title-page tracker buttons (link, status, score, unlink), progress pushed as chapters are finished (never lowered). **AniList is on hold (owner's call):** the tracker code and tests are in `shared`, but the sign-in row is hidden (`ANILIST_ENABLED` in `AccountsSection.kt`) until an AniList client is registered. Still open: the "New in your Comick library" shelf; MyAnimeList, Kitsu, MangaUpdates, MangaBaka.
 5. **Phase 4 — Feature parity**
    - All reader modes and settings, scanlator filters, similar-manga recommendations.
    - Automatic webtoon detection (switch to webtoon mode for long-strip series); "split wide pages" with tests, since it has caused crashes in Mihon.

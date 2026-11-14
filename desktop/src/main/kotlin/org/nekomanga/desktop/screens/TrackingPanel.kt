@@ -42,7 +42,8 @@ fun TrackingPanel(tracking: TitleTracking, entry: LibraryEntry?) {
     val signedIn = tracking.accounts.trackers.filter { it.account.collectAsState().value != null }
     if (signedIn.isEmpty()) {
         Text(
-            "Connect Comick or AniList in More to track this title.",
+            if (ANILIST_ENABLED) "Connect Comick or AniList in More to track this title."
+            else "Connect Comick in More to track this title.",
             style = MaterialTheme.typography.bodySmall,
             color = BeakoColors.TextMuted,
         )

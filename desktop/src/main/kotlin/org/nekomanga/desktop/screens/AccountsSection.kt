@@ -81,47 +81,50 @@ fun AccountsSection(
             }
         }
 
-        HorizontalDivider(color = BeakoColors.Rim)
-        var clientId by remember { mutableStateOf(settings.aniListClientId) }
-        ServiceRow(
-            name = "AniList",
-            detail = aniList?.let { "Signed in as ${it.name}" } ?: "Track your reading on AniList.",
-            status = accounts.status[Service.ANILIST],
-            onCancel = { accounts.cancel(Service.ANILIST) },
-            form =
-                if (aniList != null) null
-                else {
-                    {
-                        Text(
-                            "AniList needs your own API client. On anilist.co go to Settings → Developer → " +
-                                "Create new client, and set its redirect URL to:",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = BeakoColors.TextMuted,
-                        )
-                        SelectionContainer {
+        // AniList is on hold (owner, Nov 14 2026): the code is ready, the row stays hidden.
+        if (ANILIST_ENABLED) {
+            HorizontalDivider(color = BeakoColors.Rim)
+            var clientId by remember { mutableStateOf(settings.aniListClientId) }
+            ServiceRow(
+                name = "AniList",
+                detail =
+                    aniList?.let { "Signed in as ${it.name}" } ?: "Track your reading on AniList.",
+                status = accounts.status[Service.ANILIST],
+                onCancel = { accounts.cancel(Service.ANILIST) },
+                form =
+                    if (aniList != null) null
+                    else {
+                        {
                             Text(
-                                AniListTracker.REDIRECT_URI,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = BeakoColors.Text,
+                                "AniList needs your own API client. On anilist.co go to Settings → Developer → " +
+                                    "Create new client, and set its redirect URL to:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = BeakoColors.TextMuted,
+                            )
+                            SelectionContainer {
+                                Text(
+                                    AniListTracker.REDIRECT_URI,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = BeakoColors.Text,
+                                )
+                            }
+                            GlassTextField(
+                                "Client ID",
+                                clientId,
+                                { clientId = it.filter(Char::isDigit) },
+                                Modifier.widthIn(max = 280.dp),
                             )
                         }
-                        GlassTextField(
-                            "Client ID",
-                            clientId,
-                            { clientId = it.filter(Char::isDigit) },
-                            Modifier.widthIn(max = 280.dp),
-                        )
-                    }
-                },
-        ) {
-            if (aniList != null) {
-                GlassButton("Import list", { accounts.import(Service.ANILIST) })
-                GlassButton("Disconnect", { accounts.disconnect(Service.ANILIST) })
-            } else {
-                GlassButton("Connect", { accounts.connectAniList(clientId) }, primary = true)
+                    },
+            ) {
+                if (aniList != null) {
+                    GlassButton("Import list", { accounts.import(Service.ANILIST) })
+                    GlassButton("Disconnect", { accounts.disconnect(Service.ANILIST) })
+                } else {
+                    GlassButton("Connect", { accounts.connectAniList(clientId) }, primary = true)
+                }
             }
         }
-
         HorizontalDivider(color = BeakoColors.Rim)
         var username by remember { mutableStateOf(settings.mangaDexUsername) }
         var password by remember { mutableStateOf("") }
@@ -196,6 +199,9 @@ fun AccountsSection(
         }
     }
 }
+
+/** Shows AniList sign-in; off until the owner registers an AniList client. */
+const val ANILIST_ENABLED = false
 
 private val FieldWidth = Modifier.widthIn(min = 200.dp, max = 280.dp)
 
