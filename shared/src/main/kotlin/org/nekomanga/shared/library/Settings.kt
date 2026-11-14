@@ -32,6 +32,28 @@ data class Settings(
     val syncReadToMangaDex: Boolean = true,
     /** Push reading progress to linked trackers as chapters are finished. */
     val autoTrack: Boolean = true,
+    val reader: ReaderPrefs = ReaderPrefs(),
+)
+
+/** How the reader lays out pages. */
+@Serializable
+data class ReaderPrefs(
+    /** Webtoon strip width, as a percentage of the window (30–100). */
+    val webtoonWidth: Int = 62,
+    /** Space between webtoon pages, in dp (0–32). */
+    val pageGap: Int = 0,
+    /** Paged modes: "SCREEN", "WIDTH", "HEIGHT" or "ORIGINAL". */
+    val fit: String = "SCREEN",
+    /** "BLACK", "GRAY" or "WHITE". */
+    val background: String = "BLACK",
+    /** Swap the left and right click zones in paged modes. */
+    val invertClickZones: Boolean = false,
+    /** Paged modes: show double-page spreads one half at a time. */
+    val splitWidePages: Boolean = false,
+    /** Switch to webtoon mode when the pages are long strips. */
+    val autoWebtoon: Boolean = true,
+    /** Reading mode chosen for a title, by library key. */
+    val titleModes: Map<String, String> = emptyMap(),
 )
 
 /** App settings in a small JSON file, saved atomically on every change. */

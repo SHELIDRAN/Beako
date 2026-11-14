@@ -1,6 +1,7 @@
 package org.nekomanga.desktop.state
 
 import kotlinx.coroutines.CoroutineScope
+import org.nekomanga.shared.library.LibraryEntry
 import org.nekomanga.shared.model.Title
 
 /** Everything that outlives a single screen: navigation and each screen's model. */
@@ -67,6 +68,7 @@ class AppState(
 
     fun reader(page: Page.Reader): ReaderModel {
         reader?.let { (current, model) -> if (current === page) return model }
+        val key = LibraryEntry.keyOf(page.title)
         val model =
             ReaderModel(
                 scope,
@@ -80,6 +82,22 @@ class AppState(
                 localPages = { chapter -> container.downloads.localPages(page.title, chapter) },
                 dataSaver = { container.settings.current.dataSaver },
                 onChapterRead = { chapter -> accounts.chaptersRead(page.title, listOf(chapter)) },
+                savedMode =
+                    container.settings.current.reader.titleModes[key]?.let { name ->
+                        ReadingMode.entries.firstOrNull { it.name == name }
+                    },
+                saveMode = { mode ->
+                    container.settings.update {
+                        it.copy(
+                            reader =
+                                it.reader.copy(
+                                    titleModes = it.reader.titleModes + (key to mode.name),
+                                ),
+                        )
+                    }
+                },
+                autoWebtoon = { container.settings.current.reader.autoWebtoon },
+                splitWidePages = { container.settings.current.reader.splitWidePages },
             )
         reader = page to model
         return model

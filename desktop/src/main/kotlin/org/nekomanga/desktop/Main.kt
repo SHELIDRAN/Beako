@@ -238,7 +238,15 @@ private fun AppPage(state: AppState, page: Page) {
                 },
                 tracking = state.tracking(page.title),
             )
-        is Page.Reader -> ReaderScreen(state.reader(page), onClose = { state.navigator.back() })
+        is Page.Reader -> {
+            val settings by state.container.settings.settings.collectAsState()
+            ReaderScreen(
+                state.reader(page),
+                onClose = { state.navigator.back() },
+                prefs = settings.reader,
+                onPrefs = { prefs -> state.container.settings.update { it.copy(reader = prefs) } },
+            )
+        }
     }
 }
 
