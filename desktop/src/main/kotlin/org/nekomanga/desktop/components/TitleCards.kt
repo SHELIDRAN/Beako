@@ -86,7 +86,14 @@ fun Cover(url: String?, modifier: Modifier = Modifier) {
  * bronze for the top three) and a small lift on hover.
  */
 @Composable
-fun TitleCard(title: Title, onClick: () -> Unit, modifier: Modifier = Modifier, rank: Int? = null) {
+fun TitleCard(
+    title: Title,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    rank: Int? = null,
+    /** A count shown in the top-right corner, e.g. unread chapters. */
+    badge: String? = null,
+) {
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     val reduceMotion = LocalAppearance.current.reduceMotion
@@ -116,6 +123,19 @@ fun TitleCard(title: Title, onClick: () -> Unit, modifier: Modifier = Modifier, 
                 .background(Brush.verticalGradient(listOf(Color(0x2EFFFFFF), Color.Transparent))),
         )
         if (rank != null) RankChip(rank, Modifier.align(Alignment.TopStart).padding(10.dp))
+        if (badge != null) {
+            Text(
+                badge,
+                style = MaterialTheme.typography.labelMedium,
+                color = BeakoColors.Ground,
+                modifier =
+                    Modifier.align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(BeakoColors.Text)
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
         CompositionLocalProvider(LocalHazeState provides haze) {
             Column(
                 Modifier.align(Alignment.BottomCenter)

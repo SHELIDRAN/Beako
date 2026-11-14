@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import org.nekomanga.shared.library.LibraryStore
 import org.nekomanga.shared.mangadex.MangaDexApi
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.ComicType
@@ -33,7 +34,11 @@ enum class ReadingMode(val label: String) {
     }
 }
 
-/** State of the reader: which chapter and page are open, and how pages are laid out. */
+/**
+ * State of the reader: which chapter and page are open, and how pages are laid out. With a
+ * [library], every page change is saved as progress and history, and reaching the last page marks
+ * the chapter read.
+ */
 class ReaderModel(
     private val scope: CoroutineScope,
     private val mangaDex: MangaDexApi,
@@ -41,6 +46,11 @@ class ReaderModel(
     /** Chapters in reading order (oldest first). */
     val chapters: List<Chapter>,
     startIndex: Int,
+    private val library: LibraryStore? = null,
+    /** Page to open the first chapter at, e.g. from saved progress. */
+    startPage: Int = 0,
+    /** When true, nothing is saved to progress or history. */
+    private val incognito: () -> Boolean = { false },
 ) {
     var index by mutableStateOf(startIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0)))
         private set
@@ -48,8 +58,17 @@ class ReaderModel(
     var pages by mutableStateOf<Loadable<PageList>>(Loadable.Loading)
         private set
 
+    private val pageState = mutableStateOf(0)
+    private var resumePage = startPage.coerceAtLeast(0)
+
     /** The page shown (paged modes) or at the top of the window (webtoon), from 0. */
-    var page by mutableStateOf(0)
+    var page: Int
+        get() = pageState.value
+        set(value) {
+            if (value == pageState.value) return
+            pageState.value = value
+            record()
+        }
 
     var mode by mutableStateOf(ReadingMode.defaultFor(title.type))
 
@@ -103,10 +122,22 @@ class ReaderModel(
         }
     }
 
+    private fun record() {
+        val store = library ?: return
+        val count = pageCount
+        if (count == 0) return
+        val current = page.coerceIn(0, count - 1)
+        store.recordProgress(title, chapter, current, incognito())
+        if (current == count - 1 && store.contains(title) && !incognito()) {
+            store.setRead(title, listOf(chapter.id), true)
+        }
+    }
+
     private fun open(newIndex: Int, atEnd: Boolean) {
         index = newIndex
         openAtEnd = atEnd
-        page = 0
+        resumePage = 0
+        pageState.value = 0
         load()
     }
 
@@ -120,14 +151,22 @@ class ReaderModel(
             return
         }
         job = scope.launch {
-            pages =
-                try {
-                    val list = mangaDex.pages(target.id)
-                    if (openAtEnd) page = (list.urls.size - 1).coerceAtLeast(0)
-                    Loadable.Ready(list)
-                } catch (e: ApiError) {
-                    Loadable.Failed(e.message.orEmpty())
-                }
+            try {
+                val list = mangaDex.pages(target.id)
+                pages = Loadable.Ready(list)
+                val last = (list.urls.size - 1).coerceAtLeast(0)
+                val start =
+                    when {
+                        openAtEnd -> last
+                        resumePage > 0 -> resumePage.coerceAtMost(last)
+                        else -> 0
+                    }
+                resumePage = 0
+                pageState.value = start
+                record()
+            } catch (e: ApiError) {
+                pages = Loadable.Failed(e.message.orEmpty())
+            }
         }
     }
 }
