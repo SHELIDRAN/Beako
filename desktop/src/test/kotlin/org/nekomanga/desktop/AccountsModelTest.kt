@@ -58,7 +58,7 @@ class AccountsModelTest {
         }
 
         private fun entry() =
-            """{"hid":"hid","title":"Sample","status":1,"rating":null,"progress":{"unit":"chapter","number":"$progress"}}"""
+            """{"hid":"hid","title":"Sample","status":1,"rating":null,"progress":{"unit":"chapter","number":"$progress"},"last_released_number":"5","last_released_at":"2026-11-13T10:00:00Z"}"""
     }
 
     private val title = Title(Sources.COMICK, "hid", "Sample")
@@ -130,6 +130,31 @@ class AccountsModelTest {
 
         assertTrue(library.entry(title)!!.tracks.isEmpty())
         assertEquals(false, model.comickAccount.connected.value)
+    }
+
+    @Test
+    fun comickReleasesListTitlesWithChaptersPastYourProgress() = runTest {
+        val fake = ComickFake()
+        val (model, _) = model(backgroundScope, fake)
+        model.loadComickReleases(now = 1_000)
+        runCurrent()
+        val ready = model.comickReleases as org.nekomanga.desktop.state.Loadable.Ready
+        assertEquals(listOf("5"), ready.value.map { it.latestNumber })
+        assertTrue(fake.requests.last().url.contains("status=1"))
+
+        // Caught up: nothing new. A fresh list isn't fetched again within the half hour.
+        fake.progress = "5"
+        model.loadComickReleases(now = 2_000)
+        runCurrent()
+        assertEquals(
+            1,
+            (model.comickReleases as org.nekomanga.desktop.state.Loadable.Ready).value.size,
+        )
+        model.loadComickReleases(force = true, now = 3_000)
+        runCurrent()
+        assertTrue(
+            (model.comickReleases as org.nekomanga.desktop.state.Loadable.Ready).value.isEmpty(),
+        )
     }
 
     @Test

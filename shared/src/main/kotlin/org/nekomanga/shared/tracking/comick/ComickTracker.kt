@@ -26,6 +26,7 @@ import org.nekomanga.shared.tracking.Account
 import org.nekomanga.shared.tracking.RemoteEntry
 import org.nekomanga.shared.tracking.Tracker
 import org.nekomanga.shared.tracking.TrackerMatch
+import org.nekomanga.shared.tracking.TrackerSync
 
 /** Comick as a tracker, through its Library API (`/integrations/v1`). */
 class ComickTracker(private val connection: ComickAccount) : Tracker {
@@ -131,12 +132,30 @@ class ComickTracker(private val connection: ComickAccount) : Tracker {
         connection.send(HttpRequest("DELETE", url("me/library/$remoteId")))
     }
 
-    override suspend fun list(): List<RemoteEntry> {
+    override suspend fun list(): List<RemoteEntry> = list(status = null)
+
+    /**
+     * Titles you're reading that have a chapter past your progress, newest release first. Built
+     * from the library list, since Comick has no endpoint for followed-title updates.
+     */
+    suspend fun newReleases(): List<RemoteEntry> =
+        list(TrackStatus.READING)
+            .filter { TrackerSync.isAhead(it.latestNumber, it.track.progress ?: "0") }
+            .sortedByDescending { it.latestAt.orEmpty() }
+
+    private suspend fun list(status: TrackStatus?): List<RemoteEntry> {
         val all = mutableListOf<RemoteEntry>()
         var cursor: String? = null
         do {
             val query =
-                buildQuery(listOfNotNull("media_type" to "manga", cursor?.let { "cursor" to it }))
+                buildQuery(
+                    listOfNotNull(
+                        "media_type" to "manga",
+                        "limit" to "100",
+                        status?.let { "status" to statusCode(it).toString() },
+                        cursor?.let { "cursor" to it },
+                    ),
+                )
             val page = connection.send(read("me/library?$query"))
             page["data"].items().forEach { e ->
                 val track = parseEntry(e) ?: return@forEach
@@ -153,7 +172,13 @@ class ComickTracker(private val connection: ComickAccount) : Tracker {
                         type = ComicType.fromOrigin(country),
                         rating = e.double("bayesian_rating"),
                     )
-                all += RemoteEntry(title, track)
+                all +=
+                    RemoteEntry(
+                        title,
+                        track,
+                        latestNumber = e.str("last_released_number"),
+                        latestAt = e.str("last_released_at"),
+                    )
             }
             cursor = page.str("next_cursor")
         } while (cursor != null && all.size < MAX_IMPORT)

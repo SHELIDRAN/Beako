@@ -19,6 +19,7 @@ import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.Sources
 import org.nekomanga.shared.model.Title
 import org.nekomanga.shared.net.ApiError
+import org.nekomanga.shared.tracking.RemoteEntry
 import org.nekomanga.shared.tracking.Tracker
 import org.nekomanga.shared.tracking.TrackerSync
 import org.nekomanga.shared.tracking.anilist.AniListTracker
@@ -62,6 +63,36 @@ class AccountsModel(
     /** The last progress push that failed, shown on the title page; null when all went through. */
     var syncProblem by mutableStateOf<String?>(null)
         private set
+
+    /** Comick library titles with chapters past your progress; null until first loaded. */
+    var comickReleases by mutableStateOf<Loadable<List<RemoteEntry>>?>(null)
+        private set
+
+    private var releasesLoadedAt = 0L
+    private var releasesJob: Job? = null
+
+    /**
+     * Loads [comickReleases]. Skipped when fresh (the whole library list is several requests),
+     * unless [force]d by a manual refresh.
+     */
+    fun loadComickReleases(force: Boolean = false, now: Long = System.currentTimeMillis()) {
+        if (!comickAccount.connected.value) {
+            comickReleases = null
+            return
+        }
+        if (releasesJob?.isActive == true) return
+        if (!force && comickReleases is Loadable.Ready && now - releasesLoadedAt < RELEASES_TTL)
+            return
+        if (comickReleases !is Loadable.Ready) comickReleases = Loadable.Loading
+        releasesJob = scope.launch {
+            comickReleases =
+                try {
+                    Loadable.Ready(comick.newReleases()).also { releasesLoadedAt = now }
+                } catch (e: ApiError) {
+                    Loadable.Failed(e.message.orEmpty())
+                }
+        }
+    }
 
     fun tracker(service: String): Tracker? = trackers.firstOrNull { it.service == service }
 
@@ -111,6 +142,7 @@ class AccountsModel(
                 Service.COMICK -> {
                     comick.disconnect()
                     library.removeAllTracks(Trackers.COMICK)
+                    comickReleases = null
                 }
                 Service.ANILIST -> {
                     aniList.disconnect()
@@ -254,6 +286,7 @@ class AccountsModel(
     }
 
     private companion object {
+        const val RELEASES_TTL = 30 * 60_000L
         const val BROWSER_HINT = "Waiting for you to finish signing in in your browser…"
     }
 

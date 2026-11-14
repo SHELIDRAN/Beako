@@ -65,6 +65,8 @@ fun UpdatesScreen(
     checker: UpdateChecker,
     onOpen: (Title) -> Unit,
     onLibrary: () -> Unit,
+    /** Optional shelf above the list, e.g. new chapters in your Comick library. */
+    shelf: (@Composable () -> Unit)? = null,
 ) {
     val data by store.data.collectAsState()
     val rows =
@@ -119,6 +121,7 @@ fun UpdatesScreen(
                 )
             }
         }
+        if (shelf != null) item("shelf") { shelf() }
         when {
             data.entries.isEmpty() ->
                 item("nolib") {
