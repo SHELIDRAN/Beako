@@ -19,6 +19,8 @@ dependencies {
     api(kotlinx.coroutines.core)
     api(kotlinx.serialization.json)
     implementation(kotlinx.serialization.protobuf)
+    implementation(cmp.quickjs)
+    implementation(libs.jsoup)
     implementation(libs.okhttp)
 
     testImplementation(kotlinx.test.junit5)
