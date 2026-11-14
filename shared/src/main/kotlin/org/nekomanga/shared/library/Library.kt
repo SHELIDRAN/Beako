@@ -81,6 +81,8 @@ data class LibraryEntry(
     val lastCheckedAt: Long? = null,
     /** Records on trackers, by service ([Trackers]). */
     val tracks: Map<String, Track> = emptyMap(),
+    /** Scanlation groups whose chapters are hidden for this title. */
+    val excludedGroups: Set<String> = emptySet(),
 ) {
     val key: String
         get() = keyOf(title)

@@ -89,6 +89,8 @@ data class Title(
     val lastUploadedAt: String? = null,
     val tags: List<String> = emptyList(),
     val externalIds: ExternalIds = ExternalIds(),
+    /** Comick genre ids (genres, themes, formats), for "More like this". */
+    val comickGenreIds: List<Int> = emptyList(),
 )
 
 @Serializable
