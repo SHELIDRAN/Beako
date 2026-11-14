@@ -43,6 +43,7 @@ import org.nekomanga.desktop.state.Page
 import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.WindowControl
 import org.nekomanga.desktop.theme.BeakoAppearance
+import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.SidebarMode
 
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
@@ -124,6 +125,9 @@ fun main() {
                             sidebarMode =
                                 runCatching { SidebarMode.valueOf(settings.sidebarMode) }
                                     .getOrDefault(SidebarMode.AUTO_COLLAPSE),
+                            palette = Palette.of(settings.palette),
+                            glassStrength = settings.glassStrength,
+                            scale = settings.uiScale,
                         ),
                     start = startScreen(System.getenv("BEAKO_OPEN")),
                     navigator = state.navigator,

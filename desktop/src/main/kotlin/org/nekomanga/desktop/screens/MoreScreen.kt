@@ -1,6 +1,10 @@
 package org.nekomanga.desktop.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -10,10 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -22,6 +29,8 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -33,7 +42,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected as semanticsSelected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.awt.Desktop
@@ -42,6 +56,7 @@ import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.download.DownloadManager
 import org.nekomanga.shared.download.DownloadState
@@ -135,6 +150,26 @@ fun MoreScreen(
                     ) { index ->
                         settingsStore.update { it.copy(sidebarMode = SidebarModes[index].first) }
                     }
+                }
+                PaletteRow(settings.palette) { name ->
+                    settingsStore.update { it.copy(palette = name) }
+                }
+                SliderRow(
+                    "Glass strength",
+                    "${(settings.glassStrength * 100).toInt()}%",
+                    settings.glassStrength,
+                    0.5f..1.5f,
+                ) { value ->
+                    settingsStore.update { it.copy(glassStrength = value) }
+                }
+                SliderRow(
+                    "Interface size",
+                    "${(settings.uiScale * 100).toInt()}%",
+                    settings.uiScale,
+                    0.8f..1.5f,
+                    steps = 6,
+                ) { value ->
+                    settingsStore.update { it.copy(uiScale = value) }
                 }
             }
         }
@@ -321,3 +356,83 @@ internal fun ToggleRow(
 
 /** For tests: the label a sidebar mode shows. */
 internal fun Settings.sidebarText() = sidebarLabel(sidebarMode)
+
+@Composable
+private fun PaletteRow(selected: String, onSelect: (String) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "Colour scheme",
+            style = MaterialTheme.typography.titleMedium,
+            color = BeakoColors.Text,
+            modifier = Modifier.width(180.dp),
+        )
+        Palette.entries.forEach { palette ->
+            val on = palette.name == selected
+            Box(
+                Modifier.size(34.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(listOf(palette.groundGlow, palette.ground)),
+                    )
+                    .border(
+                        if (on) 2.dp else 1.dp,
+                        if (on) BeakoColors.Text else BeakoColors.RimBright,
+                        CircleShape,
+                    )
+                    .clickable(role = Role.RadioButton) { onSelect(palette.name) }
+                    .semantics {
+                        contentDescription = palette.label
+                        semanticsSelected = on
+                    },
+            )
+        }
+        Text(
+            Palette.of(selected).label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = BeakoColors.TextMuted,
+        )
+    }
+}
+
+/** A slider that previews while dragging and saves when released. */
+@Composable
+private fun SliderRow(
+    title: String,
+    valueText: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int = 9,
+    onChange: (Float) -> Unit,
+) {
+    var dragging by remember(value) { mutableStateOf(value) }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleMedium,
+            color = BeakoColors.Text,
+            modifier = Modifier.width(180.dp),
+        )
+        Slider(
+            value = dragging,
+            onValueChange = { dragging = it },
+            onValueChangeFinished = { onChange((dragging * 100).toInt() / 100f) },
+            valueRange = range,
+            steps = steps,
+            colors =
+                SliderDefaults.colors(
+                    thumbColor = BeakoColors.Text,
+                    activeTrackColor = BeakoColors.Text,
+                    inactiveTrackColor = BeakoColors.Rim,
+                ),
+            modifier =
+                Modifier.widthIn(max = 320.dp).weight(1f).semantics { contentDescription = title },
+        )
+        Text(valueText, style = MaterialTheme.typography.bodyMedium, color = BeakoColors.TextMuted)
+    }
+}

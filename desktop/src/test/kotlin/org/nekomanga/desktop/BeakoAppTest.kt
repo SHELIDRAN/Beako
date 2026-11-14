@@ -16,7 +16,9 @@ import kotlin.test.assertEquals
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.components.DropletSegmented
 import org.nekomanga.desktop.theme.BeakoAppearance
+import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.BeakoTheme
+import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.SidebarMode
 
 @OptIn(ExperimentalTestApi::class)
@@ -77,5 +79,19 @@ class BeakoAppTest {
 
         assertEquals(2, selected)
         onNodeWithText("3m").assertIsSelected()
+    }
+
+    @Test
+    fun paletteAndScaleApplyAcrossTheApp() = runComposeUiTest {
+        var appearance by mutableStateOf(still.copy(palette = Palette.MIDNIGHT, scale = 1.25f))
+        setContent { BeakoApp(appearance) }
+        waitForIdle()
+        assertEquals(Palette.MIDNIGHT.ground, BeakoColors.Ground)
+        onNodeWithContentDescription("Browse").assertIsDisplayed()
+
+        appearance = appearance.copy(palette = Palette.OLED)
+        waitForIdle()
+        assertEquals(Palette.OLED.ground, BeakoColors.Ground)
+        BeakoColors.palette = Palette.NEUTRAL
     }
 }
