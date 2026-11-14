@@ -249,11 +249,13 @@ class DetailsModel(
             library.setSourceLinks(title, found.associate { it.sourceId to it.url })
         }
         val choice = pick(saved)
-        if (choice != selectedSource) {
-            selectedSource = choice
-            loadChapters()
-        } else if (choice == null) {
-            chapters = Loadable.Ready(emptyList())
+        when {
+            choice != selectedSource -> {
+                selectedSource = choice
+                loadChapters()
+            }
+            choice == null -> chapters = Loadable.Ready(emptyList())
+            found.isNotEmpty() -> fillGaps()
         }
     }
 
@@ -272,6 +274,59 @@ class DetailsModel(
                 } catch (e: ApiError) {
                     Loadable.Failed(e.message.orEmpty())
                 }
+            fillGaps()
         }
     }
+
+    /**
+     * The unified chapter list: chapters the chosen source is missing (by number) are filled in
+     * from the other sources that carry this title, so reading carries on across a gap. Sources
+     * that fail are skipped quietly.
+     */
+    private fun fillGaps() {
+        val chosen = selectedSource ?: return
+        val others = availableOn.filter { it.sourceId != chosen }
+        val base = (chapters as? Loadable.Ready)?.value ?: return
+        if (others.isEmpty() || base.isEmpty()) return
+        gapJob?.cancel()
+        gapJob = scope.launch {
+            val present = base.mapNotNull { it.number?.toDoubleOrNull() }.toMutableSet()
+            val extra = mutableListOf<Chapter>()
+            for (other in others) {
+                val list =
+                    try {
+                        if (other.sourceId == Sources.MANGADEX)
+                            mangaDex.allChapters(other.url, languages())
+                        else readingSources?.chapters(other.sourceId, other.url).orEmpty()
+                    } catch (e: ApiError) {
+                        continue
+                    }
+                for (chapter in list) {
+                    val number = chapter.number?.toDoubleOrNull() ?: continue
+                    if (present.add(number)) {
+                        extra += chapter
+                        filledFrom[chapter.id] = other.name
+                    }
+                }
+            }
+            // Only when the chosen source hasn't changed meanwhile.
+            if (
+                extra.isEmpty() ||
+                    selectedSource != chosen ||
+                    (chapters as? Loadable.Ready)?.value !== base
+            )
+                return@launch
+            chapters =
+                Loadable.Ready(
+                    (base + extra).sortedByDescending {
+                        it.number?.toDoubleOrNull() ?: Double.NEGATIVE_INFINITY
+                    },
+                )
+        }
+    }
+
+    private var gapJob: kotlinx.coroutines.Job? = null
+
+    /** Chapters filled in from another source, by chapter id, with that source's name. */
+    val filledFrom = androidx.compose.runtime.mutableStateMapOf<String, String>()
 }

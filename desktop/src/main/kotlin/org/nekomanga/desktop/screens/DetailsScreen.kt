@@ -299,6 +299,7 @@ fun DetailsScreen(
                                 isNew = isNew,
                                 page = page,
                                 download = download,
+                                from = model.filledFrom[chapter.id],
                             ) {
                                 onRead(
                                     readingOrder,
@@ -488,6 +489,8 @@ private fun ChapterRow(
     isNew: Boolean,
     page: Int?,
     download: String?,
+    /** The source a chapter was filled in from, when it isn't the chosen one. */
+    from: String? = null,
     onClick: () -> Unit,
 ) {
     val hover = remember { MutableInteractionSource() }
@@ -520,6 +523,7 @@ private fun ChapterRow(
             }
             Text(
                 listOfNotNull(
+                        from?.let { "from $it" },
                         chapter.group,
                         chapter.publishedAt.take(10),
                         if (read) "Read" else page?.let { "Page ${it + 1}" },
