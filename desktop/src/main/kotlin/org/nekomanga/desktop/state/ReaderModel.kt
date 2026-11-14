@@ -54,6 +54,8 @@ class ReaderModel(
     /** Downloaded page files of a chapter, read instead of the network when present. */
     private val localPages: (Chapter) -> List<java.io.File>? = { null },
     private val dataSaver: () -> Boolean = { false },
+    /** Called once per chapter when it is finished, to sync trackers. */
+    private val onChapterRead: (Chapter) -> Unit = {},
 ) {
     var index by mutableStateOf(startIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0)))
         private set
@@ -140,7 +142,10 @@ class ReaderModel(
 
     private fun markRead(done: Chapter) {
         val store = library ?: return
-        if (store.contains(title) && !incognito()) store.setRead(title, listOf(done.id), true)
+        if (!store.contains(title) || incognito()) return
+        store.setRead(title, listOf(done.id), true)
+        // Trackers skip chapters behind their saved progress, so re-reads cost nothing.
+        onChapterRead(done)
     }
 
     private fun open(newIndex: Int, atEnd: Boolean) {

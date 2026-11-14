@@ -23,6 +23,15 @@ data class Settings(
     val dataSaver: Boolean = false,
     /** Chapter languages, as MangaDex codes. */
     val languages: List<String> = listOf("en"),
+    /** The user's own AniList API client (its redirect URL must be Beako's callback). */
+    val aniListClientId: String = "",
+    /** MangaDex personal API client ID and username; the secret lives in the vault. */
+    val mangaDexClientId: String = "",
+    val mangaDexUsername: String = "",
+    /** Mark chapters read on MangaDex as they're read in Beako. */
+    val syncReadToMangaDex: Boolean = true,
+    /** Push reading progress to linked trackers as chapters are finished. */
+    val autoTrack: Boolean = true,
 )
 
 /** App settings in a small JSON file, saved atomically on every change. */

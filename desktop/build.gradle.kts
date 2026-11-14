@@ -26,6 +26,7 @@ dependencies {
     implementation(cmp.coil.compose)
     implementation(cmp.coil.okhttp)
     implementation(cmp.coroutines.swing)
+    implementation(cmp.jna)
     implementation(libs.okhttp)
     implementation(projects.shared)
 

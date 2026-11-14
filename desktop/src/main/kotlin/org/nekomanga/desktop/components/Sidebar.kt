@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -48,11 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.Droplet
@@ -87,6 +90,7 @@ fun Sidebar(
     selected: Destination,
     onSelect: (Destination) -> Unit,
     modifier: Modifier = Modifier,
+    accounts: List<AccountSlot> = DefaultAccountSlots,
     onAccountClick: (String) -> Unit = {},
 ) {
     val appearance = LocalAppearance.current
@@ -119,13 +123,12 @@ fun Sidebar(
             Modifier.padding(vertical = 14.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                AccountRing("Comick", onAccountClick)
-                if (expanded) AccountRing("MangaDex", onAccountClick)
-            }
-            if (!expanded) {
-                Spacer(Modifier.height(6.dp))
-                AccountRing("MangaDex", onAccountClick)
+            // Two per row when expanded, stacked when collapsed.
+            accounts.chunked(if (expanded) 2 else 1).forEachIndexed { row, slots ->
+                if (row > 0) Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    slots.forEach { AccountRing(it, onAccountClick) }
+                }
             }
             Spacer(Modifier.height(14.dp))
             Box(Modifier.fillMaxWidth().selectableGroup()) {
@@ -199,22 +202,51 @@ private fun SidebarItem(
     }
 }
 
-/** A signed-out account slot: a "+" ring that opens Connect for [service]. */
+/** An account shown at the top of the sidebar; [name] is null when signed out. */
+data class AccountSlot(val service: String, val name: String? = null, val avatarUrl: String? = null)
+
+val DefaultAccountSlots = listOf(AccountSlot("Comick"), AccountSlot("MangaDex"))
+
+/**
+ * An account slot: the avatar (or initial) when signed in, else a "+" ring. Either opens the
+ * accounts settings for that service.
+ */
 @Composable
-private fun AccountRing(service: String, onClick: (String) -> Unit) {
+private fun AccountRing(slot: AccountSlot, onClick: (String) -> Unit) {
+    val signedIn = slot.name != null
     Box(
         Modifier.size(34.dp)
             .clip(CircleShape)
             .border(1.dp, BeakoColors.RimBright, CircleShape)
-            .clickable(role = Role.Button) { onClick(service) }
-            .semantics { contentDescription = "Connect $service" },
+            .clickable(role = Role.Button) { onClick(slot.service) }
+            .semantics {
+                contentDescription =
+                    if (signedIn) "${slot.service}: signed in as ${slot.name}"
+                    else "Connect ${slot.service}"
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            Icons.Outlined.Add,
-            null,
-            tint = BeakoColors.TextMuted,
-            modifier = Modifier.size(16.dp),
-        )
+        when {
+            slot.avatarUrl != null ->
+                AsyncImage(
+                    slot.avatarUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            signedIn ->
+                Text(
+                    slot.name.orEmpty().take(1).uppercase(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = BeakoColors.Text,
+                )
+            else ->
+                Icon(
+                    Icons.Outlined.Add,
+                    null,
+                    tint = BeakoColors.TextMuted,
+                    modifier = Modifier.size(16.dp),
+                )
+        }
     }
 }

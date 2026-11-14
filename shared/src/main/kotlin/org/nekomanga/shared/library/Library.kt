@@ -31,6 +31,36 @@ data class NewChapter(
     val foundAt: Long,
 )
 
+/** Services that track reading progress. */
+object Trackers {
+    const val COMICK = "comick"
+    const val ANILIST = "anilist"
+}
+
+/** Beako's reading statuses, mapped to each tracker's own. */
+@Serializable
+enum class TrackStatus(val label: String) {
+    READING("Reading"),
+    COMPLETED("Completed"),
+    ON_HOLD("On hold"),
+    DROPPED("Dropped"),
+    PLAN_TO_READ("Plan to read"),
+}
+
+/** A library title's record on a tracker. */
+@Serializable
+data class Track(
+    val service: String,
+    /** The tracker's id for the title: a Comick HID or an AniList media id. */
+    val remoteId: String,
+    val status: TrackStatus? = null,
+    /** Last chapter read, as text so "12.5" survives. */
+    val progress: String? = null,
+    /** 1–10, or null when unrated. */
+    val score: Int? = null,
+    val remoteTitle: String? = null,
+)
+
 @Serializable
 data class LibraryEntry(
     /** The title as discovery found it (Comick or MangaDex), kept for display offline. */
@@ -49,6 +79,8 @@ data class LibraryEntry(
     /** Chapters known at the last check (for the unread count). */
     val chapterCount: Int = 0,
     val lastCheckedAt: Long? = null,
+    /** Records on trackers, by service ([Trackers]). */
+    val tracks: Map<String, Track> = emptyMap(),
 ) {
     val key: String
         get() = keyOf(title)

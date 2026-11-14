@@ -38,9 +38,12 @@ class BeakoAppTest {
     @Test
     fun clickingASidebarItemSwitchesScreen() = runComposeUiTest {
         setContent {
-            BeakoApp(still) { destination ->
-                androidx.compose.material3.Text("screen:${destination.name}")
-            }
+            BeakoApp(
+                still,
+                screen = { destination ->
+                    androidx.compose.material3.Text("screen:${destination.name}")
+                },
+            )
         }
         onNodeWithText("screen:BROWSE").assertIsDisplayed()
 

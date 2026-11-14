@@ -166,6 +166,7 @@ class ReaderModelTest {
     @Test
     fun readingToTheEndOrMovingOnMarksTheChapterRead() = runTest {
         val store = library()
+        val finished = mutableListOf<String>()
         val model =
             ReaderModel(
                 backgroundScope,
@@ -174,6 +175,7 @@ class ReaderModelTest {
                 listOf(chapter("1"), chapter("2"), chapter("3")),
                 0,
                 store,
+                onChapterRead = { finished += it.id },
             )
         model.start()
         runCurrent()
@@ -186,6 +188,8 @@ class ReaderModelTest {
         model.nextChapter()
         runCurrent()
         assertEquals(setOf("c1", "c2"), store.entry(manga)!!.readChapterIds)
+        // Trackers hear about each finished chapter.
+        assertEquals(listOf("c1", "c2"), finished.distinct())
     }
 
     @Test

@@ -8,8 +8,20 @@ class AppState(
     val container: AppContainer,
     private val scope: CoroutineScope,
     onUpdates: (List<TitleUpdate>) -> Unit = {},
+    openBrowser: (String) -> Unit = ::openInBrowser,
 ) {
     val navigator = Navigator()
+    val accounts =
+        AccountsModel(
+            scope,
+            container.comickAccount,
+            container.comickTracker,
+            container.aniList,
+            container.mangaDexAccount,
+            container.library,
+            container.settings,
+            openBrowser,
+        )
     val browse = BrowseModel(scope, container.comick, container.mangaDex)
     val search = SearchModel(scope, container.discovery, container.comick)
     val libraryScreen =
@@ -42,7 +54,15 @@ class AppState(
                 container.downloads,
                 title,
                 languages = { container.settings.current.languages },
+                onChaptersRead = { chapters -> accounts.chaptersRead(title, chapters) },
             )
+        }
+
+    private val tracking = mutableMapOf<String, TitleTracking>()
+
+    fun tracking(title: Title): TitleTracking =
+        tracking.getOrPut("${title.source}:${title.id}") {
+            TitleTracking(scope, accounts, details(title))
         }
 
     fun reader(page: Page.Reader): ReaderModel {
@@ -59,8 +79,18 @@ class AppState(
                 incognito = { container.settings.current.incognito },
                 localPages = { chapter -> container.downloads.localPages(page.title, chapter) },
                 dataSaver = { container.settings.current.dataSaver },
+                onChapterRead = { chapter -> accounts.chaptersRead(page.title, listOf(chapter)) },
             )
         reader = page to model
         return model
+    }
+}
+
+/** Opens a web page in the system browser. */
+fun openInBrowser(url: String) {
+    runCatching {
+        if (java.awt.Desktop.isDesktopSupported()) {
+            java.awt.Desktop.getDesktop().browse(java.net.URI(url))
+        }
     }
 }

@@ -231,3 +231,33 @@ fun Chip(text: String, modifier: Modifier = Modifier, ink: Color = BeakoColors.T
                 .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }
+
+/** A labelled single-line text box on glass. [secret] hides what is typed. */
+@Composable
+fun GlassTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    secret: Boolean = false,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = BeakoColors.TextMuted)
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = BeakoColors.Text),
+            cursorBrush = SolidColor(BeakoColors.Text),
+            visualTransformation =
+                if (secret) androidx.compose.ui.text.input.PasswordVisualTransformation()
+                else androidx.compose.ui.text.input.VisualTransformation.None,
+            modifier =
+                Modifier.fillMaxWidth()
+                    .height(40.dp)
+                    .glass(RoundedCornerShape(12.dp), tint = BeakoColors.Rim)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .semantics { contentDescription = label },
+        )
+    }
+}
