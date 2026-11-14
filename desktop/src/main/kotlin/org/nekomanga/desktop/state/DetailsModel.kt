@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import org.nekomanga.shared.discovery.Discovery
 import org.nekomanga.shared.download.DownloadManager
 import org.nekomanga.shared.extensions.ReadingSources
+import org.nekomanga.shared.extensions.SourceCheck
 import org.nekomanga.shared.extensions.SourceMatch
 import org.nekomanga.shared.library.LibraryEntry
 import org.nekomanga.shared.library.LibraryStore
@@ -50,6 +51,80 @@ class DetailsModel(
     /** True while installed sources are being searched for this title. */
     var searchingSources by mutableStateOf(false)
         private set
+
+    /** Each installed source's answer for this title (match, none, or error), for the picker. */
+    var sourceChecks by mutableStateOf<List<SourceCheck>>(emptyList())
+        private set
+
+    /**
+     * True once MangaDex has been looked up (its result is in [availableOn] or [mangaDexFailure]).
+     */
+    var mangaDexChecked by mutableStateOf(false)
+        private set
+
+    /** Why MangaDex couldn't be checked, if it failed. */
+    val mangaDexFailure: String?
+        get() = mangaDexError
+
+    /** Installed sources as (source id, name). */
+    val installedSources: List<Pair<String, String>>
+        get() = readingSources?.usableSources.orEmpty()
+
+    /** Results of a search by hand in the source picker; null when none has run. */
+    var pickerResults by mutableStateOf<Loadable<List<PickerResult>>?>(null)
+        private set
+
+    private var pickerJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Searches [sourceId] (MangaDex or an installed source) for [query], for when automatic
+     * matching missed or picked the wrong title (romaji vs English names, for example).
+     */
+    fun pickerSearch(sourceId: String, query: String) {
+        pickerJob?.cancel()
+        if (query.isBlank()) {
+            pickerResults = null
+            return
+        }
+        pickerResults = Loadable.Loading
+        pickerJob = scope.launch {
+            pickerResults =
+                try {
+                    Loadable.Ready(
+                        if (sourceId == Sources.MANGADEX)
+                            mangaDex.search(query, limit = 20).items.map {
+                                PickerResult(it.title, it.id, it.coverUrl)
+                            }
+                        else
+                            readingSources?.search(sourceId, query).orEmpty().map {
+                                PickerResult(it.name, it.url, it.imageUrl)
+                            },
+                    )
+                } catch (e: ApiError) {
+                    Loadable.Failed(e.message.orEmpty())
+                }
+        }
+    }
+
+    /** Reads from [sourceId] using [result], picked by hand; remembered for library titles. */
+    fun bind(sourceId: String, sourceName: String, result: PickerResult) {
+        val match = SourceMatch(sourceId, sourceName, result.url)
+        availableOn = availableOn.filterNot { it.sourceId == sourceId } + match
+        if (sourceId == Sources.MANGADEX) {
+            mangaDexId = result.url
+            if (library.contains(title)) library.setMangaDexId(title, result.url)
+        } else {
+            readingSources?.bind(title, match)
+            if (library.contains(title))
+                library.setSourceLinks(title, mapOf(sourceId to result.url))
+        }
+        sourceChecks = sourceChecks.map {
+            if (it.sourceId == sourceId) it.copy(match = match, error = null) else it
+        }
+        pickerResults = null
+        selectedSource = sourceId
+        loadChapters()
+    }
 
     /** Reads chapters from [sourceId] instead; remembered for library titles. */
     fun selectSource(sourceId: String) {
@@ -195,6 +270,7 @@ class DetailsModel(
         if (similar !is Loadable.Ready) loadSimilar()
         chapters = Loadable.Loading
         mangaDexError = null
+        mangaDexChecked = false
         scope.launch {
             val entry = library.entry(title)
             // MangaDex first (it's quick and keyed by shared ids), then installed sources.
@@ -215,6 +291,7 @@ class DetailsModel(
                     mangaDexError = e.message.orEmpty()
                     null
                 }
+            mangaDexChecked = true
             val remembered =
                 entry?.sourceLinks.orEmpty().mapNotNull { (sourceId, url) ->
                     readingSources?.nameOf(sourceId)?.let { SourceMatch(sourceId, it, url) }
@@ -240,7 +317,9 @@ class DetailsModel(
         searchingSources = true
         val found =
             try {
-                sources.find(title, skip = availableOn.map { it.sourceId }.toSet())
+                val checks = sources.check(title, skip = availableOn.map { it.sourceId }.toSet())
+                sourceChecks = checks
+                checks.mapNotNull { it.match }
             } finally {
                 searchingSources = false
             }
@@ -340,3 +419,6 @@ class DetailsModel(
     /** Chapters filled in from another source, by chapter id, with that source's name. */
     val filledFrom = androidx.compose.runtime.mutableStateMapOf<String, String>()
 }
+
+/** A title found by a search in the source picker; [url] is its address (or MangaDex id). */
+data class PickerResult(val name: String, val url: String, val imageUrl: String?)

@@ -49,6 +49,7 @@ import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.SidebarMode
+import org.nekomanga.shared.diagnostics.DiagnosticLog
 
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
 const val APP_ICON = "neko-icon.png"
@@ -63,11 +64,19 @@ fun main(args: Array<String>) {
         )
     }
     val container = AppContainer()
+    DiagnosticLog.start(container.dirs.data)
+    DiagnosticLog.info(
+        "Beako ${System.getProperty("beako.version") ?: "dev"} started on ${System.getProperty("os.name")}",
+    )
+    Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+        DiagnosticLog.error("Uncaught error on ${thread.name}", error)
+    }
     // Covers and pages load through the app's own HTTP client, so they carry Beako's User-Agent.
     SingletonImageLoader.setSafe { context ->
         ImageLoader.Builder(context)
             .components { add(OkHttpNetworkFetcherFactory(callFactory = { container.httpClient })) }
             .crossfade(true)
+            .eventListener(ImageFailureLog)
             .build()
     }
     application {
@@ -328,4 +337,11 @@ private fun accountSlots(state: AppState): List<AccountSlot> {
         AccountSlot("MangaDex", mangaDex),
         aniList?.let { AccountSlot("AniList", it.name, it.avatarUrl) },
     )
+}
+
+/** Logs covers and pages that fail to load (HTTP errors, undecodable images) to beako.log. */
+private object ImageFailureLog : coil3.EventListener() {
+    override fun onError(request: coil3.request.ImageRequest, result: coil3.request.ErrorResult) {
+        DiagnosticLog.error("Image failed to load: ${request.data}", result.throwable)
+    }
 }

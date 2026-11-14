@@ -5,12 +5,21 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
+import org.nekomanga.shared.diagnostics.DiagnosticLog
 import org.nekomanga.shared.mangadex.MangaDexApi
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.PageList
 import org.nekomanga.shared.model.Sources
 import org.nekomanga.shared.model.Title
 import org.nekomanga.shared.net.ApiError
+
+/** One installed source's answer for a title: a match, nothing, or an [error] message. */
+data class SourceCheck(
+    val sourceId: String,
+    val name: String,
+    val match: SourceMatch?,
+    val error: String?,
+)
 
 /** A place a title can be read: MangaDex or an installed source, with the title's address there. */
 data class SourceMatch(
@@ -77,6 +86,10 @@ class ReadingSources(
     val hasExtensions: Boolean
         get() = extensions.usable.isNotEmpty()
 
+    /** Installed, enabled sources as (source id, name), for the source picker. */
+    val usableSources: List<Pair<String, String>>
+        get() = extensions.usable.map { sourceIdOf(it.info.id) to it.info.name }
+
     /** An installed source's name, or null when it's no longer installed and enabled. */
     fun nameOf(sourceId: String): String? =
         extensionId(sourceId)?.let { id ->
@@ -109,12 +122,29 @@ class ReadingSources(
         return try {
             block()
         } catch (e: ExtensionError) {
+            DiagnosticLog.error("Source $name (id $id) failed", e)
             throw ApiError.SourceFailed(name, e.message ?: "$name failed", e)
         } catch (e: ApiError) {
+            DiagnosticLog.error("Source $name (id $id) failed", e)
             throw e
         } catch (e: java.io.IOException) {
+            DiagnosticLog.error("Source $name (id $id) couldn’t be reached", e)
             throw ApiError.Unreachable(name, e)
         }
+    }
+
+    /**
+     * Searches one installed source by hand, for the source picker: [query] can be any name
+     * (romaji, the original title…) when the automatic match missed.
+     */
+    suspend fun search(sourceId: String, query: String): List<ExtensionManga> {
+        val id = extensionId(sourceId) ?: return emptyList()
+        return guarded(id) { extensions.source(id).search(query).titles }
+    }
+
+    /** Remembers a title the user picked by hand on [match]'s source. */
+    fun bind(title: Title, match: SourceMatch) {
+        searches.put("${title.source}:${title.id}", match.sourceId, match)
     }
 
     /**
@@ -125,7 +155,17 @@ class ReadingSources(
         title: Title,
         skip: Set<String> = emptySet(),
         perSourceMillis: Long = 20_000,
-    ): List<SourceMatch> {
+    ): List<SourceMatch> = check(title, skip, perSourceMillis).mapNotNull { it.match }
+
+    /**
+     * Every installed source's answer for [title]: a match, no match, or an error. Errors are
+     * logged and reported, not hidden, so the source picker can show them.
+     */
+    suspend fun check(
+        title: Title,
+        skip: Set<String> = emptySet(),
+        perSourceMillis: Long = 20_000,
+    ): List<SourceCheck> {
         val names =
             (listOf(title.title) + title.altTitles)
                 .map(::normalise)
@@ -134,16 +174,17 @@ class ReadingSources(
         val queries =
             (listOf(title.title) + title.altTitles).filter { it.isNotBlank() }.distinct().take(2)
         val titleKey = "${title.source}:${title.id}"
-        val candidates = extensions.usable.filter { sourceIdOf(it.info.id) !in skip }
-        // Sources already searched for this title answer from the cache.
-        val cached = candidates.mapNotNull { searches.get(titleKey, sourceIdOf(it.info.id)) }
-        val remembered = cached.mapNotNull { it.match }
-        val toSearch = candidates.filter { searches.get(titleKey, sourceIdOf(it.info.id)) == null }
-        val fresh = coroutineScope {
-            toSearch
+        val results = coroutineScope {
+            extensions.usable
+                .filter { sourceIdOf(it.info.id) !in skip }
                 .map { installed ->
                     async {
                         val sourceId = sourceIdOf(installed.info.id)
+                        val name = installed.info.name
+                        // Sources already searched for this title answer from the cache.
+                        searches.get(titleKey, sourceId)?.let {
+                            return@async SourceCheck(sourceId, name, it.match, null)
+                        }
                         val outcome =
                             withTimeoutOrNull(perSourceMillis) {
                                 runCatching {
@@ -154,27 +195,47 @@ class ReadingSources(
                                         }
                                     }
                                 }
-                                    .map { found ->
-                                        found?.let {
-                                            SourceMatch(
-                                                sourceId,
-                                                installed.info.name,
-                                                it.url,
-                                                installed.info.isUnoriginal,
-                                            )
-                                        }
-                                    }
                             }
-                        // Only definite answers are cached: a failure or timeout is tried again.
-                        if (outcome != null && outcome.isSuccess) {
-                            searches.put(titleKey, sourceId, outcome.getOrNull())
+                        when {
+                            outcome == null -> {
+                                DiagnosticLog.error(
+                                    "Source $name (id ${installed.info.id}) timed out searching for “${title.title}”",
+                                )
+                                SourceCheck(sourceId, name, null, "took too long to answer")
+                            }
+                            outcome.isFailure -> {
+                                val error = outcome.exceptionOrNull()
+                                DiagnosticLog.error(
+                                    "Source $name (id ${installed.info.id}) failed searching for “${title.title}”",
+                                    error,
+                                )
+                                // Only definite answers are cached: failures are tried again.
+                                SourceCheck(
+                                    sourceId,
+                                    name,
+                                    null,
+                                    error?.message ?: error?.let { it::class.simpleName },
+                                )
+                            }
+                            else -> {
+                                val match =
+                                    outcome.getOrNull()?.let {
+                                        SourceMatch(
+                                            sourceId,
+                                            name,
+                                            it.url,
+                                            installed.info.isUnoriginal,
+                                        )
+                                    }
+                                searches.put(titleKey, sourceId, match)
+                                SourceCheck(sourceId, name, match, null)
+                            }
                         }
-                        outcome?.getOrNull()
                     }
                 }
-                .mapNotNull { it.await() }
+                .map { it.await() }
         }
-        return (remembered + fresh).sortedBy { it.unoriginal }
+        return results.sortedBy { it.match?.unoriginal ?: false }
     }
 
     private val searches = SearchCache()

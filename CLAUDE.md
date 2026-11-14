@@ -74,6 +74,7 @@ The port is Windows-only. Build with the `-PdesktopOnly` switch, which skips the
 - `net` package: sealed `ApiError` hierarchy (including `ApiError.SourceFailed`).
 - `desktop/src/main/kotlin/org/nekomanga/desktop/state/`: desktop UI state and wiring (`AppContainer`, `DetailsModel`).
 - `desktop/src/test/kotlin/org/nekomanga/desktop/`: desktop unit and UI tests (`DetailsModelTest`, etc.).
+- `shared/.../diagnostics/DiagnosticLog`: the diagnostic log; `desktop/.../platform/SelfTest`: the packaged-runtime self-test.
 
 ### 2. Build, format and test commands
 - **Always format before building or committing:** `./gradlew -PdesktopOnly ktfmtFormat -q`
@@ -102,6 +103,21 @@ The JS extension runtime executes untrusted third-party scripts and is the highe
   - Switching the active source must not trigger false "new chapter" notifications or leave stale "from <source>" labels on chapter rows.
   - Missing upload times from extensions fall back to unknown (null / empty), never `0L` (1970-01-01).
 
-### 6. Git and release workflow
+### 6. Packaging (Windows MSI; learned from 0.1.0 QA, Nov 14 2026)
+- The installer bundles its own Java runtime. Keep `includeAllModules = true` in `desktop/build.gradle.kts` for 0.1.x: jpackage's automatic module list dropped `jdk.httpserver` (Comick and AniList sign-in crashed with `NoClassDefFoundError: com/sun/net/httpserver/HttpServer`) and `jdk.localedata`.
+- Gradle tests run on a full JDK, so they can't catch a missing runtime module. When code starts depending on a new JDK area (a `com.sun.*` or `jdk.*` API, a charset, a locale, a security provider), add a check for it to `SelfTest`.
+- `Beako.exe --self-test <report>` checks the bundled runtime and exits 0 or 1. CI runs it on the packaged app before uploading the installer; a failure must block the release. Locally: `./gradlew -PdesktopOnly :desktop:createDistributable`, then run `desktop/build/compose/binaries/main/app/Beako/bin/Beako --self-test <file>`.
+
+### 7. Title page and source picker (UI rules)
+- The "Reading from <source>" / "Not available on any source" pill is always clickable and opens the Source Picker. Never make source choice depend on automatic matching having found something.
+- The picker lists MangaDex and every installed, enabled source with its state: Matched, No automatic match, Checking, or Error with the source's message. A failed source is shown, never hidden; the pill adds "· N failed".
+- Every source in the picker has a manual search, prefilled with the title and offering its alternative names (romaji, original script) as one-click queries. Picking a result binds it (saved in the library entry's `sourceLinks`, or the MangaDex id) and switches to it. Comick is never listed.
+
+### 8. Images and diagnostics
+- Comick's resized covers are always JPEG: build `https://meo.comick.pictures/<key without extension>-m.jpg`, never keep the original's `.png` (those 404; about half the covers were blank in 0.1.0).
+- Extension URLs are normalised like a browser would (spaces and illegal characters percent-encoded) and checked with OkHttp's URL parser, the same one that sends the request; never `java.net.URI`, which rejects addresses sites use.
+- `beako.log` in the data folder (`%APPDATA%\Beako` on Windows; `BEAKO_HOME/data` when set) records source failures (name, id, stack trace), image load failures and uncaught errors. It rotates at 1 MB to `beako.log.1`. Never log tokens, passwords or request headers.
+
+### 9. Git and release workflow
 - Work in small, verifiable checkpoints: implement → format → run targeted tests → commit.
 - Never commit client secrets to source code. Desktop sign-in flows (AniList, Discord RPC) embed only public client/application IDs and use PKCE or local redirect flows where applicable.
