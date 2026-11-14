@@ -48,6 +48,13 @@ data class Settings(
     val reader: ReaderPrefs = ReaderPrefs(),
     /** Reader key overrides: action name to AWT key codes. Missing actions use the defaults. */
     val keyBindings: Map<String, List<Int>> = emptyMap(),
+    /** Show what you're reading in Discord (never in incognito mode). */
+    val discordPresence: Boolean = false,
+    val discordShowTitle: Boolean = true,
+    val discordShowChapter: Boolean = true,
+    val discordShowCover: Boolean = true,
+    /** Discord application id; empty uses Beako's own. */
+    val discordAppId: String = "",
     /** Write a backup once a day, keeping a week of them. */
     val autoBackup: Boolean = true,
 )

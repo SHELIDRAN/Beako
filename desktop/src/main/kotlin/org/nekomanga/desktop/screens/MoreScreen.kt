@@ -311,6 +311,7 @@ fun MoreScreen(
         }
         if (sources != null) item("sources") { sources() }
         item("keyboard") { KeyboardSection(settingsStore) }
+        item("discord") { DiscordSection(settingsStore) }
         if (backup != null) item("backup") { backup() }
         item("about") {
             Section("About") {

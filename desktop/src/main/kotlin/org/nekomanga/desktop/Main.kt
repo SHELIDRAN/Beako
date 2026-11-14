@@ -45,6 +45,7 @@ import org.nekomanga.desktop.state.LocalWindowControl
 import org.nekomanga.desktop.state.Page
 import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.WindowControl
+import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.SidebarMode
@@ -88,6 +89,7 @@ fun main() {
             onCloseRequest = {
                 container.library.flush()
                 container.extensions.closeAll()
+                container.discord.close()
                 exitApplication()
             },
             title = APP_NAME,
@@ -262,6 +264,30 @@ private fun AppPage(state: AppState, page: Page) {
             )
         is Page.Reader -> {
             val settings by state.container.settings.settings.collectAsState()
+            val reader = state.reader(page)
+            // Discord shows the chapter while the reader is open, and nothing once it closes.
+            val activity =
+                if (!settings.discordPresence || settings.incognito) null
+                else
+                    org.nekomanga.desktop.platform.Activity(
+                        details =
+                            reader.title.title.takeIf { settings.discordShowTitle }
+                                ?: "Reading manga",
+                        state =
+                            reader.chapter.displayName().takeIf {
+                                settings.discordShowChapter && settings.discordShowTitle
+                            },
+                        startedAt = remember(reader.index) { System.currentTimeMillis() },
+                        imageUrl =
+                            reader.title.coverUrl.takeIf {
+                                settings.discordShowCover && settings.discordShowTitle
+                            },
+                        imageText = reader.title.title.takeIf { settings.discordShowTitle },
+                    )
+            LaunchedEffect(activity) { state.container.discord.update(activity) }
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                onDispose { state.container.discord.update(null) }
+            }
             ReaderScreen(
                 state.reader(page),
                 onClose = { state.navigator.back() },
