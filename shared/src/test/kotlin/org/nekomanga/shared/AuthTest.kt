@@ -65,6 +65,9 @@ class AuthTest {
             LoopbackReceiver(port, "/comick/callback").await {
                 Thread {
                     browse("http://127.0.0.1:$port/favicon.ico")
+                    // A prefetch with no OAuth answer must not end the wait.
+                    browse("http://127.0.0.1:$port/comick/callback")
+                    browse("http://127.0.0.1:$port/comick/callback?utm=x")
                     browse("http://127.0.0.1:$port/comick/callback?code=abc&state=s1")
                 }
                     .start()

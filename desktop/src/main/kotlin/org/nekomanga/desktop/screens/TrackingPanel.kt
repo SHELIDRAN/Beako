@@ -39,7 +39,10 @@ import org.nekomanga.shared.tracking.Tracker
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TrackingPanel(tracking: TitleTracking, entry: LibraryEntry?) {
-    val signedIn = tracking.accounts.trackers.filter { it.account.collectAsState().value != null }
+    val signedIn =
+        tracking.accounts.trackers.filter {
+            it.account.collectAsState().value != null || it.isConnected
+        }
     if (signedIn.isEmpty()) {
         Text(
             if (ANILIST_ENABLED) "Connect Comick or AniList in More to track this title."

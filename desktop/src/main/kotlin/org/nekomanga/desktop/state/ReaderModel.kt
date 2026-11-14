@@ -143,8 +143,9 @@ class ReaderModel(
     private fun markRead(done: Chapter) {
         val store = library ?: return
         if (!store.contains(title) || incognito()) return
+        // Only a newly finished chapter syncs, so moving around the last page sends nothing more.
+        if (done.id in store.entry(title)?.readChapterIds.orEmpty()) return
         store.setRead(title, listOf(done.id), true)
-        // Trackers skip chapters behind their saved progress, so re-reads cost nothing.
         onChapterRead(done)
     }
 
@@ -197,6 +198,13 @@ const val LOCAL_PAGE = "beako-file:"
 /** The image to load for a page: a [java.io.File] for downloaded pages, else the URL. */
 fun pageModel(url: String): Any =
     if (url.startsWith(LOCAL_PAGE)) java.io.File(url.removePrefix(LOCAL_PAGE)) else url
+
+/** The highest chapter number among these, as written ("12.5"); null when none is numbered. */
+fun List<Chapter>.highestNumber(): String? = mapNotNull { chapter ->
+    chapter.number?.toDoubleOrNull()?.let { it to chapter.number }
+}
+    .maxByOrNull { it.first }
+    ?.second
 
 /** "Chapter 12", "Vol. 2 Chapter 12 · Title", or the title alone for unnumbered chapters. */
 fun Chapter.displayName(): String {

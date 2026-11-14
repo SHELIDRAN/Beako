@@ -39,6 +39,7 @@ class TrackingTest {
         override val service = Trackers.COMICK
         override val displayName = "Fake"
         override val account: StateFlow<Account?> = MutableStateFlow(Account("me"))
+        override val isConnected = true
         val saves = mutableListOf<Track>()
 
         override suspend fun find(title: Title) = null

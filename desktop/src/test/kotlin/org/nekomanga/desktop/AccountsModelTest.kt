@@ -103,10 +103,24 @@ class AccountsModelTest {
     }
 
     @Test
+    fun importingMatchesTitlesAlreadyInTheLibraryFromAnotherSource() = runTest {
+        val fake = ComickFake()
+        val (model, library) = model(backgroundScope, fake)
+        val fromMangaDex = Title(Sources.MANGADEX, "md-1", "Sample")
+        library.add(fromMangaDex)
+
+        model.import(Service.COMICK)
+        runCurrent()
+
+        assertEquals(1, library.data.value.entries.size)
+        assertEquals("hid", library.entry(fromMangaDex)!!.tracks[Trackers.COMICK]!!.remoteId)
+    }
+
+    @Test
     fun finishingChaptersPushesTheHighestToLinkedTrackers() = runTest {
         val fake = ComickFake()
         val (model, library) = model(backgroundScope, fake)
-        model.comick.refreshAccount()
+        // Profile not loaded (as when offline at start-up): progress still syncs.
         library.add(title)
         library.setTrack(title, Track(Trackers.COMICK, "hid", TrackStatus.READING, "2"))
 
