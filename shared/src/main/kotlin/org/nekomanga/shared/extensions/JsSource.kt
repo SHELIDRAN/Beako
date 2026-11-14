@@ -163,6 +163,7 @@ class JsSource(
                 } catch (e: QuickJsException) {
                     throw ExtensionError(info.name, e.message ?: "the script failed", e)
                 } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                    runCatching { js.interruptEvaluation() }
                     throw ExtensionError(info.name, "took too long to answer", e)
                 } catch (e: kotlinx.serialization.SerializationException) {
                     throw ExtensionError(info.name, "returned something Beako can’t read", e)
@@ -176,6 +177,8 @@ class JsSource(
         val js = QuickJs.create(dispatcher)
         js.memoryLimit = 128L * 1024 * 1024
         js.maxStackSize = 2L * 1024 * 1024
+        // Interrupts synchronous script code (a loop never yields to the coroutine timeout).
+        js.evaluationTimeoutMillis = 60_000
         js.function("__send") { args ->
             send(args.getOrNull(0) as? String, args.getOrNull(1) as? String)
         }
@@ -348,10 +351,15 @@ class JsSource(
             .toString()
     }
 
+    /**
+     * Stops the source without waiting: a busy script is interrupted and closed on its own thread.
+     */
     override fun close() {
-        runCatching { kotlinx.coroutines.runBlocking(dispatcher) { engine?.close() } }
+        val js = engine
         engine = null
-        thread.shutdownNow()
+        runCatching { js?.interruptEvaluation() }
+        runCatching { thread.execute { runCatching { js?.close() } } }
+        thread.shutdown()
     }
 
     private fun quote(text: String) = JsonPrimitive(text).toString()

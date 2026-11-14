@@ -55,7 +55,6 @@ class DetailsModel(
     fun selectSource(sourceId: String) {
         if (sourceId == selectedSource || availableOn.none { it.sourceId == sourceId }) return
         selectedSource = sourceId
-        if (library.contains(title)) library.setReadingSource(title, sourceId)
         loadChapters()
     }
 
@@ -195,6 +194,7 @@ class DetailsModel(
     private fun load() {
         if (similar !is Loadable.Ready) loadSimilar()
         chapters = Loadable.Loading
+        mangaDexError = null
         scope.launch {
             val entry = library.entry(title)
             // MangaDex first (it's quick and keyed by shared ids), then installed sources.
@@ -212,6 +212,7 @@ class DetailsModel(
                         chapters = Loadable.Failed(e.message.orEmpty())
                         return@launch
                     }
+                    mangaDexError = e.message.orEmpty()
                     null
                 }
             val remembered =
@@ -233,13 +234,13 @@ class DetailsModel(
     private suspend fun searchExtensions(saved: String?) {
         val sources = readingSources
         if (sources == null || !sources.hasExtensions) {
-            if (selectedSource == null) chapters = Loadable.Ready(emptyList())
+            if (selectedSource == null) chapters = noSource()
             return
         }
         searchingSources = true
         val found =
             try {
-                sources.find(title)
+                sources.find(title, skip = availableOn.map { it.sourceId }.toSet())
             } finally {
                 searchingSources = false
             }
@@ -254,13 +255,16 @@ class DetailsModel(
                 selectedSource = choice
                 loadChapters()
             }
-            choice == null -> chapters = Loadable.Ready(emptyList())
+            choice == null -> chapters = noSource()
             found.isNotEmpty() -> fillGaps()
         }
     }
 
     private fun loadChapters() {
         val match = availableOn.firstOrNull { it.sourceId == selectedSource } ?: return
+        if (library.contains(title)) library.switchReadingSource(title, match.sourceId)
+        filledFrom.clear()
+        gapJob?.cancel()
         chapters = Loadable.Loading
         scope.launch {
             chapters =
@@ -326,6 +330,12 @@ class DetailsModel(
     }
 
     private var gapJob: kotlinx.coroutines.Job? = null
+
+    /** Why MangaDex couldn't be checked, shown when no other source has the title either. */
+    private var mangaDexError: String? = null
+
+    private fun noSource(): Loadable<List<Chapter>> =
+        mangaDexError?.let { Loadable.Failed(it) } ?: Loadable.Ready(emptyList())
 
     /** Chapters filled in from another source, by chapter id, with that source's name. */
     val filledFrom = androidx.compose.runtime.mutableStateMapOf<String, String>()

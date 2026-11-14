@@ -51,6 +51,7 @@ class ExtensionManager(
                 ?: throw IOException(
                     "Paste an https link to a repository’s index.json, or a Mangayomi add-repo link.",
                 )
+        policy(url)
         val sources = index(url)
         update { it.copy(repositories = (it.repositories + url).distinct()) }
         return sources
@@ -81,6 +82,7 @@ class ExtensionManager(
             throw IOException("Beako doesn’t read from Comick.")
         if (Repositories.indexUrl(info.sourceCodeUrl) == null)
             throw IOException("${info.name} has no https download link.")
+        policy(info.sourceCodeUrl)
         val response = http.get(info.sourceCodeUrl)
         if (response.code !in 200..299 || response.body.isBlank()) {
             throw IOException("Couldn’t download ${info.name} (${response.code}).")
@@ -175,6 +177,15 @@ class ExtensionManager(
     }
 
     private fun codeFile(id: Long) = File(folder, "$id.js")
+
+    /** Repositories and code downloads follow the same host rules as the scripts. */
+    private fun policy(url: String) {
+        try {
+            HostPolicy.check(url)
+        } catch (e: HostPolicy.Blocked) {
+            throw IOException(e.message)
+        }
+    }
 
     private fun hostOf(url: String) = runCatching {
         java.net.URI(url).host.orEmpty().lowercase()

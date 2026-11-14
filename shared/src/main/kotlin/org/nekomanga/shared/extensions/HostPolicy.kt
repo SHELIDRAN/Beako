@@ -40,6 +40,17 @@ object HostPolicy {
                 address.address[0].toInt() and 0xff == 100 &&
                 (address.address[1].toInt() and 0xc0) == 64)
 
+    /** [check], plus every address the host resolves to must be public. */
+    fun checkResolved(url: String) {
+        check(url)
+        val host = URI(url).host
+        val addresses = runCatching {
+            InetAddress.getAllByName(host).toList()
+        }
+            .getOrDefault(emptyList())
+        if (addresses.any(::isPrivate)) throw Blocked("Extensions can’t reach the local network")
+    }
+
     fun isComick(host: String): Boolean = host.split('.').any { it.contains("comick") }
 
     private fun literalAddress(host: String): InetAddress? {
