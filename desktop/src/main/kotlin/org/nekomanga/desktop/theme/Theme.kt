@@ -227,6 +227,10 @@ object BeakoColors {
     val InkFill: Color
         get() = Text
 
+    /** The 1 px line nested menu rows hang off. */
+    val TreeLine: Color
+        get() = pick(0x26FFFFFF, 0x26000000)
+
     val InkOnFill: Color
         get() = pick(0xFF0B0C0E, 0xFFFFFFFF)
 

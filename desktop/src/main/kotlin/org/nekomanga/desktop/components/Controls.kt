@@ -250,7 +250,6 @@ fun ToggleIconButton(
     role: Role = Role.Switch,
 ) {
     val interaction = remember { MutableInteractionSource() }
-    val turn by animateFloatAsState(if (checked) 1f else 0f, dropletSpec(), label = "glyph")
     val offInk = if (ghost) BeakoColors.Text else BeakoColors.AccentInk
     val ink by
         animateColorAsState(
@@ -277,23 +276,27 @@ fun ToggleIconButton(
         contentAlignment = Alignment.Center,
     ) {
         RiseInk(checked, BeakoColors.InkFill)
-        // + turns into −: the vertical bar folds flat while the glyph turns half a circle.
-        Box(
-            Modifier.size(14.dp).rotate(180f * turn).drawBehind {
-                val bar = 2.dp.toPx()
-                val y = (size.height - bar) / 2
-                drawRoundRect(ink, Offset(0f, y), Size(size.width, bar), CornerRadius(bar / 2))
-                rotate(90f * (1f - turn)) {
-                    drawRoundRect(
-                        ink,
-                        Offset(0f, y),
-                        Size(size.width, bar),
-                        CornerRadius(bar / 2),
-                    )
-                }
-            },
-        )
+        PlusMinusGlyph(minus = checked, color = ink)
     }
+}
+
+/**
+ * A plus that turns into a minus: the vertical bar folds flat while the glyph turns half a circle
+ * on the droplet spring. Used by ToggleIconButton and folding menu groups.
+ */
+@Composable
+fun PlusMinusGlyph(minus: Boolean, color: Color, modifier: Modifier = Modifier) {
+    val turn by animateFloatAsState(if (minus) 1f else 0f, dropletSpec(), label = "glyph")
+    Box(
+        modifier.size(14.dp).rotate(180f * turn).drawBehind {
+            val bar = 2.dp.toPx()
+            val y = (size.height - bar) / 2
+            drawRoundRect(color, Offset(0f, y), Size(size.width, bar), CornerRadius(bar / 2))
+            rotate(90f * (1f - turn)) {
+                drawRoundRect(color, Offset(0f, y), Size(size.width, bar), CornerRadius(bar / 2))
+            }
+        },
+    )
 }
 
 // ───────────── TriStateChip ─────────────
