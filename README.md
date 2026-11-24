@@ -46,7 +46,7 @@ Beako runs on 64-bit Windows 10 and 11 and bundles its own Java runtime, so ther
 
 ### Look and comfort
 - **Beako Glass**, a neutral liquid-glass design: the covers bring the colour, the interface stays out of their way.
-- Six colour schemes, including **Porcelain**, a light one. Glass strength, interface size (80–150%), and a menu that collapses to a slim rail or stays open.
+- 33 colour schemes in light and dark, including Neko's Kitsune Fire, Miami Vice, Nord and Tokyo Night, with an option to follow Windows' light or dark mode. Glass strength, interface size (80–150%), and a menu that collapses to a slim rail or stays open.
 - **Reduce motion** and **Reduce transparency**, which also follow Windows' own settings. Every control works from the keyboard with a visible focus ring; Ctrl+K and Ctrl+F jump to search.
 - Discord Rich Presence (optional), DNS over HTTPS, MangaDex data saver and an incognito mode.
 

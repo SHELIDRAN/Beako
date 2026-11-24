@@ -1,10 +1,6 @@
 package org.nekomanga.desktop.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,7 +16,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -42,11 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected as semanticsSelected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -198,9 +190,30 @@ fun MoreScreen(
                             }
                         }
                     }
-                    PaletteRow(settings.palette) { name ->
-                        settingsStore.update { it.copy(palette = name) }
-                    }
+                    ThemePicker(
+                        settings,
+                        inUse =
+                            Palette.effective(
+                                settings.palette,
+                                settings.lightPalette,
+                                settings.darkPalette,
+                                settings.followSystemTheme,
+                                systemComfort.lightMode,
+                            ),
+                        windowsModeKnown = systemComfort.lightMode != null,
+                        onPick = { palette ->
+                            settingsStore.update {
+                                if (palette.light) {
+                                    it.copy(palette = palette.name, lightPalette = palette.name)
+                                } else {
+                                    it.copy(palette = palette.name, darkPalette = palette.name)
+                                }
+                            }
+                        },
+                        onFollow = { follow ->
+                            settingsStore.update { it.copy(followSystemTheme = follow) }
+                        },
+                    )
                     SliderRow(
                         "Glass strength",
                         "${(settings.glassStrength * 100).toInt()}%",
@@ -473,46 +486,6 @@ internal fun ToggleRow(
 
 /** For tests: the label a sidebar mode shows. */
 internal fun Settings.sidebarText() = sidebarLabel(sidebarMode)
-
-@Composable
-private fun PaletteRow(selected: String, onSelect: (String) -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            "Colour scheme",
-            style = MaterialTheme.typography.titleMedium,
-            color = BeakoColors.Text,
-            modifier = Modifier.width(180.dp),
-        )
-        Palette.entries.forEach { palette ->
-            val on = palette.name == selected
-            Box(
-                Modifier.size(34.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(listOf(palette.groundGlow, palette.ground)),
-                    )
-                    .border(
-                        if (on) 2.dp else 1.dp,
-                        if (on) BeakoColors.Text else BeakoColors.RimBright,
-                        CircleShape,
-                    )
-                    .clickable(role = Role.RadioButton) { onSelect(palette.name) }
-                    .semantics {
-                        contentDescription = palette.label
-                        semanticsSelected = on
-                    },
-            )
-        }
-        Text(
-            Palette.of(selected).label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = BeakoColors.TextMuted,
-        )
-    }
-}
 
 /** A slider that previews while dragging and saves when released. */
 @Composable

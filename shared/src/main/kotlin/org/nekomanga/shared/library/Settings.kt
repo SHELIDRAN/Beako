@@ -17,8 +17,13 @@ data class Settings(
     val reduceTransparency: Boolean = false,
     /** "AUTO_COLLAPSE", "ALWAYS_EXPANDED" or "ICONS_ONLY". */
     val sidebarMode: String = "AUTO_COLLAPSE",
-    /** Colour scheme name ("NEUTRAL", "MIDNIGHT", "WARM", "FOREST", "OLED"). */
+    /** The colour scheme in use (a Palette name, e.g. "NEUTRAL", "NORD_DARK"). */
     val palette: String = "NEUTRAL",
+    /** The light and dark schemes "Follow Windows light or dark mode" switches between. */
+    val lightPalette: String = "PORCELAIN",
+    val darkPalette: String = "NEUTRAL",
+    /** Use [lightPalette] or [darkPalette] to match Windows' app mode. */
+    val followSystemTheme: Boolean = false,
     /** Windows 11's Mica material in the window frame (with a title bar matching the palette). */
     val windowBackdrop: Boolean = true,
     /** Glass blur and tint strength, 0.5–1.5. */

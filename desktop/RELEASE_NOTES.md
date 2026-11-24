@@ -1,18 +1,22 @@
 Beako is a manga reader for Windows, based on the [Neko](https://github.com/nekomangaorg/Neko) Android app (Apache-2.0).
 
-## Beako 0.1.4
+## Beako 0.1.5
 
-**Install:** download `Beako-0.1.4-windows-x64.msi` below and run it; it upgrades earlier versions in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
+**Install:** download `Beako-0.1.5-windows-x64.msi` below and run it; it upgrades earlier versions in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
 
-### New look: Beako Glass
-- **A new navigation menu.** The sidebar is now a full menu: search (Ctrl+K), your library and new-chapter counts, Browse with its Discover and Search pages, your accounts, and More at the bottom. It collapses to a slim icon rail; the pin button keeps it open, and More → Appearance → Sidebar still chooses how it behaves.
-- **Porcelain, a light colour scheme**, in More → Appearance. The reader keeps text you can read on its own black, gray or white page background.
-- **More is split into tabs:** General, Accounts, Sources and Backup.
-- **Title page:** "Continue reading" is a large orange button, and a round + button adds the title to your library (when it's there, it opens the categories menu).
-- **Reader settings:** page fit is a row of icons, and the background is a Black · Gray · White switch.
-- **Library:** a softer search box, and the sort order is a small pill that opens into a choice.
-- **Clearer messages:** failed downloads, tracker sync problems and sign-in errors now show as alerts.
-- **Motion:** buttons dip when pressed, rows and tag chips fill with a sweep, arrows swing in on hover, and selections slide into place. More → Appearance → Reduce motion turns all of it off.
+### New
+- **27 more colour schemes**, in More → Appearance. Neko's themes come across in both light and dark: Kitsune Fire, Miami Vice, Cherry Blossom, Crayon, Royal, Neon Nights, Nord, Tokyo Night, Tako, Teal Ocean, Jungle, Citrus Squeeze, Chocolate, plus Monochrome (light). Each brings its own background, text and accent colour, adjusted where needed so text stays easy to read. Schemes are shown as small previews, in a dark row and a light row.
+- **Follow Windows light or dark mode:** pick a light and a dark scheme, and Beako switches between them with Windows.
+- **A new Beako logo** for the window, taskbar, menu and installer.
+- **Search results have a right-click menu:** Add to library, Track on Comick and Copy link.
+- **Ctrl+F** jumps to the search box on Library and Search (elsewhere it opens Search).
+- **Keyboard focus is always visible:** every button, chip, tab, card and row shows a ring when you reach it with Tab. Icon-only buttons and the collapsed menu's icons show their name on hover.
+- **Beako follows Windows' own settings** for animation and transparency effects, on top of its own switches.
+- **Richer glass:** the menu and card captions take on more colour from what's behind them.
+- **Windows frame:** the title bar matches the colour scheme, and on Windows 11 it uses Mica (More → Appearance → Mica window frame).
+
+### Fixed
+- On the title page, **Start reading / Continue reading stretched across the whole row** in 0.1.4 and hid the Download, library and source buttons.
 
 ### Still to come
 - Dart-based Mangayomi sources (most sources in the big repositories); JavaScript ones work.

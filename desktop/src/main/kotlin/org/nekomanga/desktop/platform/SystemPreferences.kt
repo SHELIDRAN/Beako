@@ -7,7 +7,12 @@ import com.sun.jna.ptr.IntByReference
 import com.sun.jna.win32.StdCallLibrary
 
 /** What Windows asks apps to do about motion and transparency. */
-data class SystemComfort(val reduceMotion: Boolean = false, val reduceTransparency: Boolean = false)
+data class SystemComfort(
+    val reduceMotion: Boolean = false,
+    val reduceTransparency: Boolean = false,
+    /** Windows' app mode: true light, false dark, null unknown (off Windows). */
+    val lightMode: Boolean? = null,
+)
 
 /**
  * Reads Windows' own comfort settings: Settings → Accessibility → Visual effects → "Animation
@@ -23,6 +28,8 @@ object SystemPreferences {
         return SystemComfort(
             reduceMotion = runCatching { !animationsOn() }.getOrDefault(false),
             reduceTransparency = runCatching { !transparencyOn() }.getOrDefault(false),
+            lightMode =
+                runCatching { personalize("AppsUseLightTheme")?.let { it != 0 } }.getOrNull(),
         )
     }
 
@@ -32,21 +39,25 @@ object SystemPreferences {
         return !ok || on.value != 0
     }
 
-    private fun transparencyOn(): Boolean {
-        val value = IntByReference(1)
+    // Missing value: Windows' default, which is on.
+    private fun transparencyOn(): Boolean =
+        personalize("EnableTransparency")?.let { it != 0 } ?: true
+
+    /** A DWORD under the Personalize key, or null when it isn't there. */
+    private fun personalize(name: String): Int? {
+        val value = IntByReference(0)
         val size = IntByReference(4)
         val status =
             Advapi32.INSTANCE.RegGetValueW(
                 HKEY_CURRENT_USER,
                 WString(PERSONALIZE),
-                WString("EnableTransparency"),
+                WString(name),
                 RRF_RT_REG_DWORD,
                 null,
                 value.pointer,
                 size,
             )
-        // Missing value: Windows' default, which is on.
-        return status != 0 || value.value != 0
+        return if (status == 0) value.value else null
     }
 
     private const val SPI_GETCLIENTAREAANIMATION = 0x1042

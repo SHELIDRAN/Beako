@@ -126,17 +126,6 @@ fun main(args: Array<String>) {
             onPreviewKeyEvent = keyRouter::dispatch,
         ) {
             awtFrame = window
-            // The frame follows the palette (dark or light title bar) and, on Windows 11, Mica.
-            val frameSettings by container.settings.settings.collectAsState()
-            LaunchedEffect(window, frameSettings.palette, frameSettings.windowBackdrop) {
-                runCatching {
-                    WindowsBackdrop.apply(
-                        window,
-                        dark = !Palette.of(frameSettings.palette).light,
-                        mica = frameSettings.windowBackdrop,
-                    )
-                }
-            }
             val scope = rememberCoroutineScope()
             val state = remember {
                 AppState(
@@ -177,6 +166,27 @@ fun main(args: Array<String>) {
                     }
                 }
             }
+            // The frame follows the scheme in use (dark or light title bar) and, on Windows 11,
+            // Mica.
+            val frameSettings by container.settings.settings.collectAsState()
+            val frameLight =
+                Palette.effective(
+                        frameSettings.palette,
+                        frameSettings.lightPalette,
+                        frameSettings.darkPalette,
+                        frameSettings.followSystemTheme,
+                        state.systemComfort.lightMode,
+                    )
+                    .light
+            LaunchedEffect(window, frameLight, frameSettings.windowBackdrop) {
+                runCatching {
+                    WindowsBackdrop.apply(
+                        window,
+                        dark = !frameLight,
+                        mica = frameSettings.windowBackdrop,
+                    )
+                }
+            }
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
             // read:<query> starts on that page, using the first MangaDex match.
             LaunchedEffect(Unit) { openForDevelopment(state, System.getenv("BEAKO_OPEN")) }
@@ -197,7 +207,14 @@ fun main(args: Array<String>) {
                             sidebarMode =
                                 runCatching { SidebarMode.valueOf(settings.sidebarMode) }
                                     .getOrDefault(SidebarMode.AUTO_COLLAPSE),
-                            palette = Palette.of(settings.palette),
+                            palette =
+                                Palette.effective(
+                                    settings.palette,
+                                    settings.lightPalette,
+                                    settings.darkPalette,
+                                    settings.followSystemTheme,
+                                    state.systemComfort.lightMode,
+                                ),
                             glassStrength = settings.glassStrength,
                             scale = settings.uiScale,
                         ),
