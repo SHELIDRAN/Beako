@@ -12,8 +12,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
@@ -34,12 +32,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import org.nekomanga.desktop.components.GlassButton
+import org.nekomanga.desktop.components.DropletSegmented
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.components.IconOption
+import org.nekomanga.desktop.components.IconToggleGroup
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.LocalAppearance
 import org.nekomanga.desktop.theme.glass
@@ -69,7 +68,7 @@ fun BoxScope.ReaderSettingsPanel(
             Modifier.padding(12.dp)
                 .width(340.dp)
                 .fillMaxHeight()
-                .glass(RoundedCornerShape(22.dp), tint = Color(0xD9101114))
+                .glass(RoundedCornerShape(22.dp), tint = BeakoColors.GlassSolid.copy(alpha = 0.88f))
                 // Clicks on the panel's empty space must not reach the page-turn zones beneath.
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -89,16 +88,42 @@ fun BoxScope.ReaderSettingsPanel(
                 )
                 GlassIconButton(Icons.Outlined.Close, "Close reader settings (Esc)", onClose)
             }
-            Choice(
-                "Background",
-                listOf("BLACK" to "Black", "GRAY" to "Gray", "WHITE" to "White"),
-                prefs.background,
-            ) {
-                onPrefs(prefs.copy(background = it))
+            val backgrounds = listOf("BLACK" to "Black", "GRAY" to "Gray", "WHITE" to "White")
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Background",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = BeakoColors.Text,
+                )
+                DropletSegmented(
+                    backgrounds.map { it.second },
+                    backgrounds.indexOfFirst { it.first == prefs.background }.coerceAtLeast(0),
+                    { onPrefs(prefs.copy(background = backgrounds[it].first)) },
+                    label = "Background",
+                )
             }
             if (paged) {
-                Choice("Page fit", PageFit.entries.map { it.name to it.label }, prefs.fit) {
-                    onPrefs(prefs.copy(fit = it))
+                val fit = PageFit.of(prefs.fit)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Page fit",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = BeakoColors.Text,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            fit.label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = BeakoColors.TextMuted,
+                        )
+                    }
+                    IconToggleGroup(
+                        PageFit.entries.map { IconOption(it.icon, it.label) },
+                        fit.ordinal,
+                        { onPrefs(prefs.copy(fit = PageFit.entries[it].name)) },
+                        label = "Page fit",
+                    )
                 }
                 ToggleRow(
                     "Split wide pages",
@@ -134,36 +159,6 @@ fun BoxScope.ReaderSettingsPanel(
                 style = MaterialTheme.typography.bodySmall,
                 color = BeakoColors.TextMuted,
             )
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Choice(
-    title: String,
-    options: List<Pair<String, String>>,
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = BeakoColors.Text)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            options.forEach { (value, label) ->
-                GlassButton(
-                    label,
-                    onClick = { onSelect(value) },
-                    primary = value == selected,
-                    modifier =
-                        Modifier.semantics {
-                            contentDescription =
-                                "$title: $label" + if (value == selected) ", selected" else ""
-                        },
-                )
-            }
         }
     }
 }

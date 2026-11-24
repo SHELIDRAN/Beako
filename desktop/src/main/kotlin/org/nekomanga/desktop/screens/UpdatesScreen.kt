@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +37,7 @@ import java.time.OffsetDateTime
 import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.StateMessage
+import org.nekomanga.desktop.components.hoverSweep
 import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
@@ -165,13 +164,17 @@ fun UpdatesScreen(
 @Composable
 private fun UpdateRowView(row: UpdateRow, onClick: () -> Unit) {
     val hover = remember { MutableInteractionSource() }
-    val hovered by hover.collectIsHoveredAsState()
     Row(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (hovered) Color(0x12FFFFFF) else Color.Transparent)
+            .hoverSweep(hover)
             .hoverable(hover)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = hover,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .semantics(mergeDescendants = true) {
                 contentDescription = "${row.title.title}, ${row.chapter.displayName()}, unread"
             }

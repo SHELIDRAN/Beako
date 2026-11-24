@@ -1,10 +1,16 @@
 package org.nekomanga.desktop.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -26,23 +32,41 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.Motion
+import org.nekomanga.desktop.theme.ShadowSpec
+import org.nekomanga.desktop.theme.Sizes
+import org.nekomanga.desktop.theme.easeOutSpec
 import org.nekomanga.desktop.theme.glass
+import org.nekomanga.desktop.theme.press
+import org.nekomanga.desktop.theme.sweepSpec
 
-/** A pill button on glass. [primary] makes it the solid, high-emphasis action. */
+/**
+ * A pill button on glass. [primary] makes it the solid, high-emphasis action (text fill, ground
+ * ink); [accent] the orange one, for the single action a screen exists for. A view has a primary
+ * *or* an accent, not both.
+ */
 @Composable
 fun GlassButton(
     label: String,
@@ -50,44 +74,126 @@ fun GlassButton(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
     primary: Boolean = false,
+    accent: Boolean = false,
+    enabled: Boolean = true,
 ) {
     val shape = CircleShape
+    val interaction = remember { MutableInteractionSource() }
+    val hovered by interaction.collectIsHoveredAsState()
+    val glow by animateFloatAsState(if (accent && hovered && enabled) 1f else 0f, easeOutSpec(200))
     val base =
-        if (primary) Modifier.clip(shape).background(BeakoColors.Text)
-        else Modifier.glass(shape, tint = BeakoColors.Rim)
+        when {
+            accent ->
+                Modifier.graphicsLayer { translationY = -1.dp.toPx() * glow }
+                    .dropShadow(shape, ShadowSpec.accentGlow(glow))
+                    .clip(shape)
+                    .background(BeakoColors.AccentFill)
+            primary -> Modifier.clip(shape).background(BeakoColors.Text)
+            else -> Modifier.glass(shape, tint = BeakoColors.Rim)
+        }
     Row(
         modifier
-            .defaultMinSize(minHeight = 36.dp)
+            .alpha(if (enabled) 1f else 0.45f)
+            .press(interaction, enabled)
+            .defaultMinSize(minHeight = Sizes.controlMd)
             .then(base)
-            .clickable(role = Role.Button, onClick = onClick)
+            .hoverable(interaction, enabled)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        val ink = if (primary) BeakoColors.Ground else BeakoColors.Text
-        if (icon != null) Icon(icon, null, tint = ink, modifier = Modifier.size(16.dp))
+        val ink =
+            when {
+                accent -> BeakoColors.AccentInk
+                primary -> BeakoColors.Ground
+                else -> BeakoColors.Text
+            }
+        if (icon != null) Icon(icon, null, tint = ink, modifier = Modifier.size(Sizes.iconSm))
         Text(label, style = MaterialTheme.typography.labelLarge, color = ink)
     }
 }
 
-/** An icon-only button with an accessible name. */
+/**
+ * An icon-only button with an accessible name. With [checked] it is a toggle: an ink circle
+ * **rises** from below when it turns on and leaves through the top when it turns off.
+ */
 @Composable
 fun GlassIconButton(
     icon: ImageVector,
     description: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    checked: Boolean? = null,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Box(
         modifier
-            .size(36.dp)
+            .press(interaction)
+            .size(Sizes.controlMd)
             .glass(CircleShape, tint = BeakoColors.Rim)
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = description },
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                role = if (checked == null) Role.Button else Role.Switch,
+                onClick = onClick,
+            )
+            .semantics {
+                contentDescription = description
+                if (checked != null) stateDescription = if (checked) "On" else "Off"
+            },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = BeakoColors.Text, modifier = Modifier.size(18.dp))
+        val on = checked == true
+        if (checked != null) RiseInk(on, BeakoColors.InkFill)
+        Icon(
+            icon,
+            null,
+            tint = if (on) BeakoColors.InkOnFill else BeakoColors.Text,
+            modifier = Modifier.size(Sizes.iconMd),
+        )
     }
+}
+
+private class RiseMemory(var last: Boolean, var exitingUp: Boolean = false)
+
+/**
+ * Rise: a circle of [color] that fills its parent from below when [on], and carries on up and out
+ * through the top when it turns off.
+ */
+@Composable
+internal fun BoxScope.RiseInk(on: Boolean, color: Color) {
+    // 0 = below (hidden), 1 = covering, 2 = gone through the top.
+    val target = if (on) 1f else 0f
+    // Which way the ink leaves depends on the change, so remember the last state (not as Compose
+    // state: it only steers drawing and must not trigger recomposition).
+    val memory = remember { RiseMemory(on) }
+    if (memory.last != on) {
+        memory.exitingUp = memory.last
+        memory.last = on
+    }
+    val exitingUp = memory.exitingUp
+    val progress by animateFloatAsState(target, sweepSpec(Motion.RISE), label = "rise")
+    Box(
+        Modifier.matchParentSize().clip(CircleShape).drawBehind {
+            val y =
+                if (on || !exitingUp) size.height * (1f - progress) // rising in, or dropping back
+                else -size.height * (1f - progress) // leaving through the top
+            if (progress > 0f) {
+                drawCircle(
+                    color,
+                    radius = size.maxDimension * 0.75f,
+                    center = Offset(size.width / 2, size.height / 2 + y),
+                )
+            }
+        },
+    )
 }
 
 @Composable
@@ -213,7 +319,7 @@ fun StateMessage(
 /** A grey block shown where content is still loading. */
 @Composable
 fun Skeleton(modifier: Modifier = Modifier, corner: Int = 12) {
-    Box(modifier.clip(RoundedCornerShape(corner.dp)).background(Color(0x14FFFFFF)))
+    Box(modifier.clip(RoundedCornerShape(corner.dp)).background(BeakoColors.ChipRim))
 }
 
 /** A small label pill, e.g. "Manhwa" or "★ 8.5". */
@@ -226,8 +332,8 @@ fun Chip(text: String, modifier: Modifier = Modifier, ink: Color = BeakoColors.T
         modifier =
             modifier
                 .clip(RoundedCornerShape(6.dp))
-                .background(Color(0x24FFFFFF))
-                .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(6.dp))
+                .background(BeakoColors.ChipFill)
+                .border(1.dp, BeakoColors.ChipRim, RoundedCornerShape(6.dp))
                 .padding(horizontal = 7.dp, vertical = 2.dp),
     )
 }

@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import org.nekomanga.desktop.components.Alert
+import org.nekomanga.desktop.components.AlertKind
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.state.TitleTracking
@@ -71,11 +73,7 @@ fun TrackingPanel(tracking: TitleTracking, entry: LibraryEntry?) {
             }
         }
         tracking.accounts.syncProblem?.let {
-            Text(
-                "Last sync didn’t go through: $it",
-                style = MaterialTheme.typography.bodySmall,
-                color = BeakoColors.Danger,
-            )
+            Alert("Last sync didn’t go through: $it", kind = AlertKind.DANGER)
         }
     }
 }

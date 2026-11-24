@@ -1,10 +1,8 @@
 package org.nekomanga.desktop.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -45,6 +42,7 @@ import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.StateMessage
+import org.nekomanga.desktop.components.hoverSweep
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.shared.library.HistoryEntry
@@ -144,7 +142,6 @@ fun HistoryScreen(store: LibraryStore, onResume: (HistoryEntry) -> Unit, onBrows
 @Composable
 private fun HistoryRow(entry: HistoryEntry, onResume: () -> Unit, onRemove: () -> Unit) {
     val hover = remember { MutableInteractionSource() }
-    val hovered by hover.collectIsHoveredAsState()
     val time =
         Instant.ofEpochMilli(entry.readAt)
             .atZone(ZoneId.systemDefault())
@@ -152,9 +149,15 @@ private fun HistoryRow(entry: HistoryEntry, onResume: () -> Unit, onRemove: () -
     Row(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (hovered) Color(0x12FFFFFF) else Color.Transparent)
+            .hoverSweep(hover)
             .hoverable(hover)
-            .clickable(role = Role.Button, onClickLabel = "Resume", onClick = onResume)
+            .clickable(
+                interactionSource = hover,
+                indication = null,
+                role = Role.Button,
+                onClickLabel = "Resume",
+                onClick = onResume,
+            )
             .semantics(mergeDescendants = true) {
                 contentDescription = "Resume ${entry.title.title}"
             }
