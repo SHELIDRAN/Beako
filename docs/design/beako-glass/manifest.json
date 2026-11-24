@@ -1,0 +1,197 @@
+{
+  "manifestVersion": 3,
+  "name": "Beako Glass",
+  "namespace": "BeakoGlass",
+  "files": [
+    "assets/Logos/README.md",
+    "components/Alert/README.md",
+    "components/ArrowButton/README.md",
+    "components/Banner/README.md",
+    "components/Chip/README.md",
+    "components/Droplet/README.md",
+    "components/DropletSegmented/README.md",
+    "components/GlassButton/README.md",
+    "components/GlassIconButton/README.md",
+    "components/GlassSurface/README.md",
+    "components/GlassTextField/README.md",
+    "components/IconToggleGroup/README.md",
+    "components/MorphSelect/README.md",
+    "components/NavPanel/README.md",
+    "components/RankChip/README.md",
+    "components/ResultRow/README.md",
+    "components/SearchField/README.md",
+    "components/Sidebar/README.md",
+    "components/Skeleton/README.md",
+    "components/SoftCard/README.md",
+    "components/SoftField/README.md",
+    "components/StateMessage/README.md",
+    "components/Tabs/README.md",
+    "components/TitleCard/README.md",
+    "components/ToggleIconButton/README.md",
+    "components/TriStateChip/README.md",
+    "components/bundle.css",
+    "fonts/Inter-Bold.otf",
+    "fonts/Inter-Medium.otf",
+    "fonts/Inter-Regular.otf",
+    "fonts/Inter-SemiBold.otf",
+    "licenses/Inter-OFL.txt",
+    "tokens.css"
+  ],
+  "libraries": [],
+  "components": [
+    {
+      "name": "Alert",
+      "group": "Feedback",
+      "summary": "A compact raised notice that sits inside content — an icon, one line of text, an optional action — with an accent version that glows to ask for attention."
+    },
+    {
+      "name": "ArrowButton",
+      "group": "Actions",
+      "summary": "A large pill call to action with a round arrow knob on the right; on hover or focus the knob's accent-fill sweeps across the whole pill and the label turns acc…"
+    },
+    {
+      "name": "Banner",
+      "group": "Feedback",
+      "summary": "A notice across the top of a screen, with optional actions on the right."
+    },
+    {
+      "name": "Chip",
+      "group": "Content",
+      "summary": "A small label pill on card captions — the comic type (\"Manhwa\") or a score (\"★ 8.5\")."
+    },
+    {
+      "name": "Droplet",
+      "group": "Surfaces",
+      "summary": "The clear glass pill that marks a selection everywhere in Beako: mostly transparent, a faint rim, a soft shadow and no bright glint."
+    },
+    {
+      "name": "DropletSegmented",
+      "group": "Actions",
+      "summary": "A segmented switch whose selection is a glass droplet that slides between options — 7d · 1m · 3m, Hot · New."
+    },
+    {
+      "name": "GlassButton",
+      "group": "Actions",
+      "summary": "A pill button on glass; primary makes it the solid, high-emphasis action."
+    },
+    {
+      "name": "GlassIconButton",
+      "group": "Actions",
+      "summary": "An icon-only circular glass button with an accessible name."
+    },
+    {
+      "name": "GlassSurface",
+      "group": "Surfaces",
+      "summary": "The floating liquid-glass panel: what is behind is blurred under a light dark tint, with a 1 px rim that fades from rim-bright to rim, and a shadow-glass drop…"
+    },
+    {
+      "name": "GlassTextField",
+      "group": "Inputs",
+      "summary": "A labelled single-line text box on glass; secret hides what is typed."
+    },
+    {
+      "name": "IconToggleGroup",
+      "group": "Actions",
+      "summary": "An icon-only single choice on a small raised surface card: the chosen icon is full text, the others sit at text-muted and 70% opacity, and the change cross-fad…"
+    },
+    {
+      "name": "MorphSelect",
+      "group": "Inputs",
+      "summary": "A small pill trigger (\"This week ⌄\") that grows out of itself into a popover — an action on top, a two-way segmented choice below — and shrinks back into the p…"
+    },
+    {
+      "name": "NavPanel",
+      "group": "Navigation",
+      "summary": "The full glass menu: logo and collapse control, a search with its shortcut, sections (\"Main\", \"Accounts\") with counts and add buttons, an expandable group whos…"
+    },
+    {
+      "name": "RankChip",
+      "group": "Content",
+      "summary": "The position badge on ranked shelves: gold, silver and bronze for the top three, dark glass below."
+    },
+    {
+      "name": "ResultRow",
+      "group": "Content",
+      "summary": "One search result as a glass row: rank, cover, title, details and description."
+    },
+    {
+      "name": "SearchField",
+      "group": "Inputs",
+      "summary": "The pill search box at the top of Browse and Search."
+    },
+    {
+      "name": "Sidebar",
+      "group": "Navigation",
+      "summary": "The floating glass navigation pill down the left edge: account rings on top, then Library · Latest updates · Browse · Reading history · More."
+    },
+    {
+      "name": "Skeleton",
+      "group": "Surfaces",
+      "summary": "A flat grey block (chip-rim, 8% white) shown where content is still loading."
+    },
+    {
+      "name": "SoftCard",
+      "group": "Surfaces",
+      "summary": "The four soft elevations in one place: flat (1 px rim), raised (shadow-soft-raised, same fill as the ground), floating (surface + shadow-float) and pressed (sh…"
+    },
+    {
+      "name": "SoftField",
+      "group": "Inputs",
+      "summary": "A soft (neumorphic) search field: it is the same colour as the ground under it and is shaped only by shadow-soft-raised (light top-left, dark bottom-right), wi…"
+    },
+    {
+      "name": "StateMessage",
+      "group": "Feedback",
+      "summary": "A centred message for empty and error states, with an optional action below."
+    },
+    {
+      "name": "Tabs",
+      "group": "Navigation",
+      "summary": "Text tabs on a 1 px rim hairline; the current tab is text with a 2 px accent underline that slides (and stretches to the label's width) on the droplet spring."
+    },
+    {
+      "name": "TitleCard",
+      "group": "Content",
+      "summary": "The glass caption card: a 2:3 cover with a frosted caption, an optional rank chip or unread badge, and a small lift on hover."
+    },
+    {
+      "name": "ToggleIconButton",
+      "group": "Actions",
+      "summary": "A round on/off button: off is an accent-fill circle with a plus; on, an ink-fill circle wipes down from the top and the plus turns into a minus."
+    },
+    {
+      "name": "TriStateChip",
+      "group": "Inputs",
+      "summary": "A tag chip with three states — not selected, included (✓) and excluded (✕ with a strikethrough) — so state is never shown by colour alone."
+    }
+  ],
+  "assetGroups": [
+    {
+      "name": "Logos"
+    },
+    {
+      "name": "Logo",
+      "files": [
+        {
+          "path": "assets/Logo/logo.png",
+          "id": "891b6a3ad608b2a8b21e63dc9f75a6a0"
+        }
+      ]
+    }
+  ],
+  "storage": {
+    "files": {
+      "assets/Logo/logo.png": {
+        "store": "blob",
+        "id": "891b6a3ad608b2a8b21e63dc9f75a6a0",
+        "sha256": "abf346dadba7b294b17eab7522af74e05ae5195827e8dfef70a1e05f70710919",
+        "bytes": 4132168,
+        "type": "image/png",
+        "name": "logo.png",
+        "addedAt": "2026-11-24T01:16:58.107Z",
+        "via": "page"
+      }
+    },
+    "blobBytesUsed": 4132168
+  }
+}

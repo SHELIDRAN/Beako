@@ -1,0 +1,43 @@
+{
+  "v": 3,
+  "assetGroups": {
+    "Logo": {
+      "files": {
+        "logo.webp": {
+          "blob": "6cdcd00848b988e091b0feae5630612b",
+          "name": "logo.webp",
+          "sha256": "40ad91e41b5ee8ad82990a8f648ed61a956c4613525ad2e547c05503e86d2244",
+          "size": 37868,
+          "type": "image/webp"
+        }
+      },
+      "name": "Logo",
+      "order": [
+        "logo.webp"
+      ]
+    }
+  },
+  "blobs": {},
+  "createdOnFiles": {
+    "at": "2026-11-24T12:00:00Z",
+    "v": 1
+  },
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  },
+  "groups": [
+    "Logo"
+  ],
+  "lastChange": {
+    "at": "2026-11-24T13:45:00Z",
+    "by": "Claude",
+    "note": "Motion vocabulary (press, sweep, rise, swing, travel, bloom) from the reference studies, applied across 11 components.",
+    "via": "Claude chat"
+  },
+  "layout": "files",
+  "libraries": [],
+  "namespace": "BeakoGlass",
+  "sections": {},
+  "title": "Beako Glass"
+}

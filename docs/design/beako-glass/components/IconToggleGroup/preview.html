@@ -1,0 +1,38 @@
+<!-- @dsCard group="Actions" height=170 subtitle="Click: the ink travels to the new icon line by line" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0}.pane{padding:24px}.split{display:grid;grid-template-columns:1fr 1fr}.cap{margin:0 0 16px;color:var(--text-muted);font:600 11px/14px var(--font-sans);letter-spacing:.6px;text-transform:uppercase}</style></head>
+<body>
+<div class="split"><div class="bk-stage pane"><p class="cap">Neutral</p><div class="bk-icon-toggle" role="radiogroup" aria-label="Text alignment">
+<button class="bk-icon-toggle__opt" role="radio" aria-checked="true" aria-label="Align left"><svg viewBox="0 0 32 32" aria-hidden="true"><line x1="4" y1="9" x2="28" y2="9"/><line x1="4" y1="16" x2="28" y2="16"/><line x1="4" y1="23" x2="16" y2="23"/></svg></button>
+<button class="bk-icon-toggle__opt" role="radio" aria-checked="false" aria-label="Align centre"><svg viewBox="0 0 32 32" aria-hidden="true"><line x1="4" y1="9" x2="28" y2="9"/><line x1="4" y1="16" x2="28" y2="16"/><line x1="10" y1="23" x2="22" y2="23"/></svg></button>
+<button class="bk-icon-toggle__opt" role="radio" aria-checked="false" aria-label="Align right"><svg viewBox="0 0 32 32" aria-hidden="true"><line x1="4" y1="9" x2="28" y2="9"/><line x1="4" y1="16" x2="28" y2="16"/><line x1="16" y1="23" x2="28" y2="23"/></svg></button>
+<div class="bk-icon-toggle__ink" aria-hidden="true"><span></span><span></span><span></span></div></div></div><div class="bk-stage pane" data-theme="porcelain"><p class="cap">Porcelain</p><div class="bk-icon-toggle" role="radiogroup" aria-label="Text alignment">
+<button class="bk-icon-toggle__opt" role="radio" aria-checked="true" aria-label="Align left"><svg viewBox="0 0 32 32" aria-hidden="true"><line x1="4" y1="9" x2="28" y2="9"/><line x1="4" y1="16" x2="28" y2="16"/><line x1="4" y1="23" x2="16" y2="23"/></svg></button>
+<button class="bk-icon-toggle__opt" role="radio" aria-checked="false" aria-label="Align centre"><svg viewBox="0 0 32 32" aria-hidden="true"><line x1="4" y1="9" x2="28" y2="9"/><line x1="4" y1="16" x2="28" y2="16"/><line x1="10" y1="23" x2="22" y2="23"/></svg></button>
+<button class="bk-icon-toggle__opt" role="radio" aria-checked="false" aria-label="Align right"><svg viewBox="0 0 32 32" aria-hidden="true"><line x1="4" y1="9" x2="28" y2="9"/><line x1="4" y1="16" x2="28" y2="16"/><line x1="16" y1="23" x2="28" y2="23"/></svg></button>
+<div class="bk-icon-toggle__ink" aria-hidden="true"><span></span><span></span><span></span></div></div></div></div>
+<script>
+document.querySelectorAll('.bk-icon-toggle').forEach(function (g) {
+  var o = g.querySelectorAll('.bk-icon-toggle__opt'), bars = g.querySelectorAll('.bk-icon-toggle__ink span');
+  function place(b) {
+    var box = g.getBoundingClientRect(), lines = b.querySelectorAll('line'), t = 2.2;
+    lines.forEach(function (l, i) {
+      var r = l.getBoundingClientRect();
+      bars[i].style.left = (r.left - box.left - t / 2) + 'px'; bars[i].style.width = (r.width + t) + 'px';
+      bars[i].style.top = (r.top - box.top - t / 2) + 'px';
+    });
+  }
+  // Leading edge first: when travelling left, the bottom line leads instead of the top.
+  var cur = 0;
+  o.forEach(function (b, i) {
+    if (b.getAttribute('aria-checked') === 'true') { cur = i; place(b); }
+    b.addEventListener('click', function () {
+      var dir = i > cur ? 1 : -1; cur = i;
+      bars.forEach(function (x, k) { x.style.transitionDelay = (dir > 0 ? k : 2 - k) * 45 + 'ms'; });
+      o.forEach(function (x) { x.setAttribute('aria-checked', x === b ? 'true' : 'false'); }); place(b);
+    });
+  });
+  g.setAttribute('data-ink', '');
+});
+</script>
+</body></html>

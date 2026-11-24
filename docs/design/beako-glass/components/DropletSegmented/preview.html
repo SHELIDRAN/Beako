@@ -1,0 +1,22 @@
+<!-- @dsCard group="Actions" height=150 -->
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0}</style></head>
+<body class="bk-stage">
+<div style="padding:24px;display:flex;flex-direction:column;gap:20px;align-items:flex-start">
+  <div style="display:flex;align-items:center;gap:16px"><span class="bk-t-head-s">Most Recent Popular</span><div class="bk-glass bk-glass--control bk-segmented" role="radiogroup" aria-label="Time window"><div class="bk-segmented__track"><div class="bk-droplet" style="transform:translateX(calc(var(--segment-width) * 0))"></div><button class="bk-segment" role="radio" aria-checked="true">7d</button><button class="bk-segment" role="radio" aria-checked="false">1m</button><button class="bk-segment" role="radio" aria-checked="false">3m</button></div></div></div>
+  <div class="bk-glass bk-glass--control bk-segmented" role="radiogroup" aria-label="Sort"><div class="bk-segmented__track"><div class="bk-droplet" style="transform:translateX(calc(var(--segment-width) * 1))"></div><button class="bk-segment" role="radio" aria-checked="false">Hot</button><button class="bk-segment" role="radio" aria-checked="true">New</button></div></div>
+</div>
+<script>
+
+document.querySelectorAll('.bk-segmented').forEach(function (g) {
+  var drop = g.querySelector('.bk-droplet');
+  var opts = g.querySelectorAll('.bk-segment');
+  opts.forEach(function (o, i) {
+    o.addEventListener('click', function () {
+      opts.forEach(function (x) { x.setAttribute('aria-checked', x === o ? 'true' : 'false'); });
+      drop.style.transform = 'translateX(' + (i * o.offsetWidth) + 'px)';
+    });
+  });
+});
+</script>
+</body></html>
