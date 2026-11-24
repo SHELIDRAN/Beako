@@ -1,0 +1,41 @@
+<!-- @dsCard group="Inputs" height=300 subtitle="Click the pill: it grows into its own menu" -->
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0}.pane{padding:24px}.split{display:grid;grid-template-columns:1fr 1fr}.cap{margin:0 0 16px;color:var(--text-muted);font:600 11px/14px var(--font-sans);letter-spacing:.6px;text-transform:uppercase}</style></head>
+<body>
+<div class="split"><div class="bk-stage pane"><p class="cap">Neutral</p><div class="bk-widget">
+<div class="bk-widget__head"><svg class="bk-icon " viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4v11H4zm12 4h4v7h-4zm-6-9h4v16h-4z"/></svg>
+<div class="bk-morph">
+<button class="bk-morph__trigger" aria-haspopup="true" aria-expanded="false"><span class="bk-morph__value">This week</span><svg class="bk-icon bk-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg></button>
+<div class="bk-morph__pop" role="dialog" aria-label="Reading stats range">
+<button class="bk-morph__action"><svg class="bk-icon bk-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Add reading goal</button>
+<div class="bk-morph__seg" role="radiogroup" aria-label="Range"><div class="bk-morph__seg-ind"></div><button class="bk-morph__opt" role="radio" aria-checked="false">Today</button><button class="bk-morph__opt" role="radio" aria-checked="true">This week</button></div>
+</div></div>
+<svg class="bk-icon " viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg></div>
+<div class="bk-widget__body"><span class="bk-t-head-s">42 chapters</span><span class="bk-t-body-s bk-muted">Across 6 series  •  3h 10m</span></div>
+</div></div><div class="bk-stage pane" data-theme="porcelain"><p class="cap">Porcelain</p><div class="bk-widget">
+<div class="bk-widget__head"><svg class="bk-icon " viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4v11H4zm12 4h4v7h-4zm-6-9h4v16h-4z"/></svg>
+<div class="bk-morph">
+<button class="bk-morph__trigger" aria-haspopup="true" aria-expanded="false"><span class="bk-morph__value">This week</span><svg class="bk-icon bk-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"/></svg></button>
+<div class="bk-morph__pop" role="dialog" aria-label="Reading stats range">
+<button class="bk-morph__action"><svg class="bk-icon bk-icon--sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Add reading goal</button>
+<div class="bk-morph__seg" role="radiogroup" aria-label="Range"><div class="bk-morph__seg-ind"></div><button class="bk-morph__opt" role="radio" aria-checked="false">Today</button><button class="bk-morph__opt" role="radio" aria-checked="true">This week</button></div>
+</div></div>
+<svg class="bk-icon " viewBox="0 0 24 24" aria-hidden="true"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg></div>
+<div class="bk-widget__body"><span class="bk-t-head-s">42 chapters</span><span class="bk-t-body-s bk-muted">Across 6 series  •  3h 10m</span></div>
+</div></div></div>
+<script>
+document.querySelectorAll('.bk-morph').forEach(function (m) {
+  var trig = m.querySelector('.bk-morph__trigger'), val = m.querySelector('.bk-morph__value');
+  var ind = m.querySelector('.bk-morph__seg-ind'), opts = m.querySelectorAll('.bk-morph__opt');
+  function place() { opts.forEach(function (o) { if (o.getAttribute('aria-checked') === 'true') { ind.style.width = o.offsetWidth + 'px'; ind.style.transform = 'translateX(' + o.offsetLeft + 'px)'; } }); }
+  function open(on) { if (on) { m.setAttribute('data-open', ''); place(); opts[0].focus(); } else { m.removeAttribute('data-open'); trig.focus(); } trig.setAttribute('aria-expanded', on ? 'true' : 'false'); }
+  trig.addEventListener('click', function () { open(true); });
+  opts.forEach(function (o) { o.addEventListener('click', function () {
+    opts.forEach(function (x) { x.setAttribute('aria-checked', x === o ? 'true' : 'false'); }); place(); val.textContent = o.textContent;
+    setTimeout(function () { open(false); }, 380);
+  }); });
+  m.addEventListener('keydown', function (e) { if (e.key === 'Escape') open(false); });
+  document.addEventListener('click', function (e) { if (m.hasAttribute('data-open') && !m.contains(e.target)) open(false); });
+});
+</script>
+</body></html>

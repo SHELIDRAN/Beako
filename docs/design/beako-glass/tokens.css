@@ -1,0 +1,295 @@
+/* Beako Glass — generated from tokens.json */
+:root, [data-theme="neutral"] {
+  --ground: #0b0c0e; /* The window background, the darkest layer. Also the ink on the primary button and on the unread badge. Palette.ground. Porcelain makes it a pale grey (#ebebee): the one light palette. */
+  --ground-glow: #1c1d20; /* Centre of the radial glow behind every screen (at 120,0, radius 1400 px, fading to ground). The only place a palette shows its hue. */
+  --surface: #15161a; /* Material surface: dialogs, menus and other solid panels that sit on the ground. */
+  --surface-raised: #1d1e23; /* A cover's placeholder while it loads or when there is none; Material surfaceVariant. */
+  --glass-solid: #1a1b1f; /* Solid stand-in for every glass panel when Reduce transparency is on. */
+  --text: #f5f5f6; /* Primary text and icons on every surface and on glass; the fill of the primary button and unread badge. Material primary. Porcelain flips it to near-black #17171a (15:1 on its ground). */
+  --text-muted: #a9a9af; /* Secondary text, placeholders, unselected labels and icons. At least 6.8:1 on every palette's surfaces (WCAG AA). */
+  --rim: #ffffff24; /* Bottom of the glass rim gradient, card borders, and the tint of glass controls (buttons, fields, banners, segmented track). Material outlineVariant. */
+  --rim-bright: #ffffff42; /* Top of the glass rim gradient and the account ring border. Material outline. */
+  --glass-tint: #090a0c57; /* Dark tint laid over the blur on large glass (sidebar, card captions); light enough to stay see-through. Multiplied by the Glass strength setting (0.5–1.5). */
+  --focus: #ffffff; /* Keyboard focus ring on every control. */
+  --gold: #ffd666; /* Rank 1 and the rating star in search results. */
+  --silver: #e2e4e8; /* Rank 2. */
+  --bronze: #e8a06e; /* Rank 3. */
+  --positive: #8ee4af; /* Success state text, e.g. a matched source in the Source Picker. Never the only signal. */
+  --danger: #ff8a80; /* Errors and the excluded state of a tri-state chip. Material error. Never the only signal: pair with ✕, a strikethrough or words. */
+  --rank-gold-fill: #ffd666d9; /* Rank chip fill for #1 (gold at 85%). */
+  --rank-silver-fill: #e2e4e8d9; /* Rank chip fill for #2 (silver at 85%). */
+  --rank-bronze-fill: #e8a06ed9; /* Rank chip fill for #3 (bronze at 85%). */
+  --rank-plain-fill: #0a0a0c66; /* Rank chip fill from #4 down, with text ink. */
+  --rank-gold-ink: #3a2a00; /* Numeral on the gold rank chip. */
+  --rank-silver-ink: #1c1d20; /* Numeral on the silver rank chip. */
+  --rank-bronze-ink: #3a1a06; /* Numeral on the bronze rank chip. */
+  --rank-rim: #ffffff47; /* 1 px border on every rank chip. */
+  --droplet-top: #ffffff3d; /* Top of the droplet's vertical gradient, and its 1 px rim. On Porcelain the droplet becomes a solid white pill lifted by shadow-droplet. */
+  --droplet-bottom: #ffffff14; /* Bottom of the droplet's vertical gradient. */
+  --chip-fill: #ffffff24; /* Fill of the small label chip (type, genre) on card captions. */
+  --chip-rim: #ffffff14; /* Border of the small label chip; also the skeleton block fill. */
+  --hover: #ffffff12; /* Hover highlight behind a search result row. */
+  --card-highlight: #ffffff2e; /* Top of the 56 px highlight fading down from a title card's top edge. */
+  --text-shadow: #0000008c; /* Soft shadow (blur 6) under text on glass captions, so it holds 4.5:1 over bright covers. */
+  --tri-none-fill: #ffffff0f; /* Tri-state chip, not selected: fill (rim border, muted label). */
+  --tri-included-fill: #ffffff33; /* Tri-state chip, included: fill, with a ✓ and text label. */
+  --tri-included-rim: #ffffff80; /* Tri-state chip, included: border. */
+  --tri-excluded-fill: #ff8a8014; /* Tri-state chip, excluded: fill, with a danger ✕ and a struck-through label. */
+  --tri-excluded-rim: #ff8a8099; /* Tri-state chip, excluded: border (danger at 60%). */
+  --accent: #df5830; /* The one hue in the interface (orange, from the app styleguide). Focus glow, the accent alert icon, active tab underline, the knob of an ArrowButton, a small unread dot. Not for text on the ground: 3.2:1 on Porcelain, so icons and rings only. */
+  --accent-fill: #c8461f; /* Fill of the one accent call to action per screen (GlassButton accent, ArrowButton accent, a selected accent chip). Darker than accent so white accent-ink holds 4.8:1. */
+  --accent-ink: #ffffff; /* Label and icon on accent-fill (4.8:1). */
+  --accent-soft: #df583029; /* Wash behind an accent alert and a hovered accent chip. */
+  --accent-rim: #df583099; /* 1 px border of the accent alert and the accent focus ring on soft fields. */
+  --ink-fill: #f5f5f6; /* The inverted strong pill: the open parent in NavPanel, the ToggleIconButton when on, count badges. Same as text, named for fills. */
+  --ink-on-fill: #0b0c0e; /* Text and icons on ink-fill. */
+  --soft-light: #ffffff0d; /* The light half of a soft (neumorphic) shadow: top-left highlight. Shown in the shadow-soft-* tokens. */
+  --soft-dark: #000000b3; /* The dark half of a soft shadow: bottom-right falloff. */
+  --tree-line: #ffffff26; /* The 1 px guide joining a NavPanel group to its children, and its tick on the current child. */
+  --shadow-glass: 0 6px 24px #000000b3; /* Elevation 12 dp: GlassSurface (sidebar, floating panels). */
+  --shadow-card: 0 5px 20px #000000a6; /* Elevation 10 dp: title cards. */
+  --shadow-droplet: 0 3px 12px #00000080; /* Elevation 6 dp: the selection droplet. */
+  --shadow-soft-raised: -4px -4px 12px #ffffff0a, 6px 6px 16px #000000b3; /* Soft (neumorphic) raised: SoftField raised, SoftCard, the white widget card. Two shadows, light top-left and dark bottom-right; the fill is the same as the ground under it. */
+  --shadow-soft-inset: inset 3px 3px 8px #000000b3, inset -3px -3px 8px #ffffff0a; /* Soft pressed / inset: SoftField inset, a pressed SoftCard. Never for something that floats. */
+  --shadow-float: 0 16px 40px -8px #000000cc, 0 2px 6px #00000066; /* Popovers that grow out of a trigger (MorphSelect), the NavPanel flyout. Higher than shadow-glass. */
+  --shadow-accent-glow: 0 6px 20px #df583066; /* Hover glow under an accent button and the accent alert. The only coloured shadow. */
+}
+[data-theme="midnight"] {
+  --ground: #090b10;
+  --ground-glow: #172033;
+  --surface: #121722;
+  --surface-raised: #1a2130;
+  --glass-solid: #161c29;
+}
+[data-theme="warm"] {
+  --ground: #0e0c0a;
+  --ground-glow: #221c17;
+  --surface: #181512;
+  --surface-raised: #211d19;
+  --glass-solid: #1d1915;
+}
+[data-theme="forest"] {
+  --ground: #090d0b;
+  --ground-glow: #16231c;
+  --surface: #121a16;
+  --surface-raised: #19231e;
+  --glass-solid: #151e19;
+}
+[data-theme="oled"] {
+  --ground: #000000;
+  --ground-glow: #111113;
+  --surface: #0c0c0e;
+  --surface-raised: #141417;
+  --glass-solid: #101012;
+}
+[data-theme="porcelain"] {
+  --ground: #ebebee;
+  --ground-glow: #f8f8fa;
+  --surface: #ffffff;
+  --surface-raised: #f3f3f5;
+  --glass-solid: #f7f7f9;
+  --text: #17171a;
+  --text-muted: #55565e;
+  --rim: #0000001a;
+  --rim-bright: #ffffffe6;
+  --glass-tint: #ffffff99;
+  --focus: #17171a;
+  --gold: #8a5c00;
+  --silver: #6b6e76;
+  --bronze: #a0522d;
+  --positive: #1a7340;
+  --danger: #c0392b;
+  --rank-plain-fill: #ffffffcc;
+  --rank-rim: #0000001f;
+  --droplet-top: #ffffff;
+  --droplet-bottom: #ffffffd9;
+  --chip-fill: #0000000d;
+  --chip-rim: #00000014;
+  --hover: #0000000a;
+  --card-highlight: #ffffff4d;
+  --text-shadow: #ffffffb3;
+  --tri-none-fill: #0000000a;
+  --tri-included-fill: #17171a14;
+  --tri-included-rim: #17171a80;
+  --tri-excluded-fill: #c0392b14;
+  --tri-excluded-rim: #c0392b99;
+  --accent-soft: #df58301f;
+  --accent-rim: #df583080;
+  --ink-fill: #17171a;
+  --ink-on-fill: #ffffff;
+  --soft-light: #ffffffe6;
+  --soft-dark: #0000001f;
+  --tree-line: #00000026;
+  --shadow-glass: 0 8px 28px #0000001f;
+  --shadow-card: 0 6px 20px #00000024;
+  --shadow-droplet: 0 2px 8px #00000026;
+  --shadow-soft-raised: -6px -6px 14px #ffffffe6, 6px 6px 16px #0000001f;
+  --shadow-soft-inset: inset 3px 3px 8px #0000001f, inset -3px -3px 8px #ffffffe6;
+  --shadow-float: 0 16px 40px -10px #0000002e, 0 2px 6px #0000000f;
+}
+:root {
+  --space-xs: 4px; /* Segmented track padding, gap between a field label and its box. */
+  --space-sm: 8px; /* Caption inset inside a title card, gap in state messages. */
+  --space-md: 12px; /* Banner gaps, tri-state chip side padding, text field padding. */
+  --space-lg: 16px; /* Banner side padding, gap between columns in result rows and between a shelf title and its switch. */
+  --space-xl: 24px; /* Gaps between sections inside a screen. */
+  --space-xxl: 32px; /* Screen side inset; shelves scroll edge to edge inside it. */
+  --space-3xl: 48px; /* Gap between a widget card's header row and its body. */
+  --radius-chip: 6px; /* Small label chip on captions. */
+  --radius-thumb: 10px; /* Cover thumbnail in a result row. */
+  --radius-field: 12px; /* Text fields, rank chips, skeleton blocks. */
+  --radius-caption: 13px; /* Frosted caption inside a title card (card radius minus its 8 px inset, plus 3). */
+  --radius-panel: 16px; /* Banners and search result rows. */
+  --radius-card: 18px; /* Title cards and their skeletons. */
+  --radius-sidebar: 30px; /* The floating sidebar pill. */
+  --radius-menu: 20px; /* MorphSelect popover, NavPanel flyout, soft square search button. */
+  --radius-widget: 28px; /* Widget cards (the large soft white card that hosts a MorphSelect) and the NavPanel. */
+  --radius-pill: 9999px; /* Buttons, icon buttons, search field, segmented switch and droplet, tri-state chips, badges, avatars. */
+  --blur-glass: 24px; /* Default glass: sidebar, captions, buttons, fields, banners. */
+  --blur-control: 20px; /* The segmented switch track. */
+  --control-sm: 32px; /* Segment height, tri-state chip height. */
+  --control-md: 36px; /* Button and icon button height; sidebar droplet height. */
+  --control-lg: 40px; /* Text field height. */
+  --control-xl: 44px; /* Search field height. */
+  --segment-width: 64px; /* Default width of one segmented option. */
+  --icon-sm: 16px; /* Icon inside a button; signed-out account plus. */
+  --icon-md: 18px; /* Icon button, search, clear and banner icons. */
+  --icon-lg: 22px; /* Sidebar destination icons. */
+  --card-width: 172px; /* Title card width (2:3 with card-height). */
+  --card-height: 258px; /* Title card height. */
+  --row-cover-width: 84px; /* Result row cover width (2:3). */
+  --row-cover-height: 126px; /* Result row cover height. */
+  --rank-chip: 34px; /* Rank chip square; also the account ring diameter. */
+  --sidebar-collapsed: 68px; /* Sidebar width, icons only (50 px per item). */
+  --sidebar-expanded: 104px; /* Sidebar width with labels (70 px per item). */
+  --sidebar-rail: 84px; /* Space reserved for the collapsed sidebar, outer margin included. */
+  --control-cta: 48px; /* ArrowButton and ToggleIconButton height; the knob is control-cta minus 8 px. */
+  --nav-item: 40px; /* NavPanel row height, collapsed rail icon cell. */
+  --nav-panel: 248px; /* NavPanel width when expanded. */
+  --nav-rail: 64px; /* NavPanel width when collapsed to icons; submenus open as a flyout to its right. */
+  --font-sans: Inter, "Segoe UI", system-ui, sans-serif;
+  --text-display-small: 700 32px/38px var(--font-sans); /* Screen titles. Material displaySmall. */
+  --text-headline-medium: 700 26px/32px var(--font-sans); /* Title page heading. Material headlineMedium. */
+  --text-headline-small: 700 22px/28px var(--font-sans); /* Shelf names and the large muted rank numeral in result rows. Material headlineSmall. */
+  --text-title-large: 600 18px/24px var(--font-sans); /* Result row titles, empty and error state titles. Material titleLarge. */
+  --text-title-medium: 600 15px/20px var(--font-sans); /* Rank chip numerals, the year and rating in result rows. Material titleMedium. */
+  --text-title-small: 600 13px/18px var(--font-sans); /* Title card captions (two lines max). Material titleSmall. */
+  --text-body-large: 400 15px/22px var(--font-sans); /* Text typed into search and text fields, and their placeholders. Material bodyLarge. */
+  --text-body-medium: 400 14px/20px var(--font-sans); /* Default running text: banners, descriptions, state details. Material bodyMedium. */
+  --text-body-small: 400 12px/17px var(--font-sans); /* Metadata lines in result rows. Material bodySmall. */
+  --text-label-large: 600 14px/18px var(--font-sans); /* Button labels, account initials. Material labelLarge. */
+  --text-label-medium: 600 12px/16px var(--font-sans); /* Segmented options, tri-state chips, field labels, unread badges. Material labelMedium. */
+  --text-label-small: 500 11px/14px var(--font-sans); /* Caption chips, ratings and counts on cards, sidebar labels. Material labelSmall. */
+}
+.display-small {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+}
+.headline-medium {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.headline-small {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.title-large {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.title-medium {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.title-small {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.body-large {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.body-medium {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.body-small {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.label-large {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.label-medium {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.label-small {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/Inter-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
