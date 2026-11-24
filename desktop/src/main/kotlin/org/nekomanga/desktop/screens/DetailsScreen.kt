@@ -102,7 +102,12 @@ fun DetailsScreen(
     ) {
         item("header") {
             Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                GlassIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+                GlassIconButton(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    "Back",
+                    onBack,
+                    swingFrom = -90f,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                     Cover(
                         title.coverUrl,

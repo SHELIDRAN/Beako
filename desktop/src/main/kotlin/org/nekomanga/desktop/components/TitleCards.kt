@@ -9,6 +9,7 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -104,10 +105,24 @@ fun TitleCard(
     val reduceMotion = LocalAppearance.current.reduceMotion
     val haze = remember { HazeState() }
     val focused by hover.collectIsFocusedAsState()
+    val pressed by hover.collectIsPressedAsState()
     val raised = hovered || focused
-    val lift by animateFloatAsState(if (raised && !reduceMotion) 1f else 0f, dropletSpec())
+    // Lifts 6 px on hover and sinks back to 2 px while pressed.
+    val lift by
+        animateFloatAsState(
+            when {
+                !raised || reduceMotion -> 0f
+                pressed -> 1f / 3f
+                else -> 1f
+            },
+            dropletSpec(),
+        )
     // The shadow deepens even with Reduce motion; only the movement is dropped.
-    val shadow by animateFloatAsState(if (raised) 1f else 0f, easeOutSpec())
+    val shadow by
+        animateFloatAsState(
+            if (raised && !pressed) 1f else 0f,
+            easeOutSpec(if (pressed) 120 else 450),
+        )
     Box(
         modifier
             .size(width = 172.dp, height = 258.dp)

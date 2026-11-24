@@ -28,6 +28,7 @@ import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.Droplet
 import org.nekomanga.desktop.theme.dropletSpec
 import org.nekomanga.desktop.theme.glass
+import org.nekomanga.desktop.theme.press
 
 /**
  * A segmented switch whose selection is a glass droplet that slides between the options, e.g. 7d ·
@@ -54,12 +55,14 @@ fun DropletSegmented(
         Row {
             options.forEachIndexed { index, option ->
                 val selected = index == selectedIndex
+                val interaction = remember { MutableInteractionSource() }
                 Box(
-                    Modifier.width(optionWidth)
+                    Modifier.press(interaction)
+                        .width(optionWidth)
                         .height(32.dp)
                         .clip(CircleShape)
                         .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
+                            interactionSource = interaction,
                             indication = null,
                             role = Role.RadioButton,
                             onClickLabel = option,

@@ -100,7 +100,12 @@ fun SearchScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    GlassIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+                    GlassIconButton(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        "Back",
+                        onBack,
+                        swingFrom = -90f,
+                    )
                     Text(
                         "Search",
                         style = MaterialTheme.typography.displaySmall,
