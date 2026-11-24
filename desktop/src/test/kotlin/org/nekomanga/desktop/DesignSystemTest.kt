@@ -43,6 +43,7 @@ import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.BeakoTheme
 import org.nekomanga.desktop.theme.Palette
+import org.nekomanga.desktop.theme.WindowsAccent
 
 @OptIn(ExperimentalTestApi::class)
 class DesignSystemTest {
@@ -57,40 +58,71 @@ class DesignSystemTest {
     fun textKeepsAaContrastOnEveryPalette() {
         val before = BeakoColors.palette
         try {
-            for (palette in Palette.entries) {
-                BeakoColors.palette = palette
-                for (bg in
-                    listOf(
-                        BeakoColors.Ground,
-                        BeakoColors.Surface,
-                        BeakoColors.SurfaceRaised,
-                        BeakoColors.GlassSolid,
-                    )) {
-                    // Beako's own schemes keep about 18:1; Neko's are held to AAA (7:1).
-                    assertTrue(contrast(BeakoColors.Text, bg) >= 7.0, "text on $palette")
-                    assertTrue(contrast(BeakoColors.TextMuted, bg) >= 4.5, "muted on $palette")
-                    assertTrue(contrast(BeakoColors.Danger, bg) >= 4.5, "danger on $palette")
-                    assertTrue(contrast(BeakoColors.Gold, bg) >= 4.5, "rating on $palette")
-                    assertTrue(contrast(BeakoColors.Positive, bg) >= 4.5, "matched on $palette")
-                }
-                // Icons, the tab underline and unread dots in the accent: 3:1 (non-text).
-                assertTrue(
-                    contrast(BeakoColors.Accent, BeakoColors.Ground) >= 3.0,
-                    "accent $palette",
-                )
-                // The accent button's label on its fill.
-                assertTrue(
-                    contrast(BeakoColors.AccentInk, BeakoColors.AccentFill) >= 4.5,
-                    "accent button on $palette",
-                )
-                // The primary button inverts: ground ink on a text fill.
-                assertTrue(contrast(BeakoColors.Ground, BeakoColors.Text) >= 7.0)
-                // Ink fills (counts, the open menu group) keep their label readable.
-                assertTrue(contrast(BeakoColors.InkOnFill, BeakoColors.InkFill) >= 7.0)
-            }
+            Palette.entries.forEach(::assertReadable)
         } finally {
             BeakoColors.palette = before
         }
+    }
+
+    @Test
+    fun dynamicSchemesStayReadableWhateverTheWindowsAccent() {
+        val before = BeakoColors.palette
+        try {
+            for (rgb in
+                listOf(
+                    0x0078D4, // Windows blue
+                    0xFFD800, // pale yellow
+                    0x001F5C, // near-black navy
+                    0xFF0000,
+                    0x00CC6A,
+                    0xE3008C,
+                    0x767676,
+                    0xFFFFFF,
+                    0x000000,
+                )) {
+                WindowsAccent.update(Color(0xFF000000 or rgb.toLong()))
+                assertReadable(Palette.DYNAMIC_DARK)
+                assertReadable(Palette.DYNAMIC_LIGHT)
+            }
+            // The scheme follows the accent: a red accent gives a red-ish accent colour.
+            WindowsAccent.update(Color(0xFFE81123))
+            BeakoColors.palette = Palette.DYNAMIC_DARK
+            assertTrue(BeakoColors.Accent.red > BeakoColors.Accent.blue, "red accent stays red")
+        } finally {
+            WindowsAccent.update(WindowsAccent.DEFAULT)
+            BeakoColors.palette = before
+        }
+    }
+
+    @Test
+    fun windowsAccentColoursAreReadInTheRightOrder() {
+        // Windows stores 0xAABBGGRR: its default blue #0078D4 is 0xFFD47800.
+        assertEquals(0x0078D4, org.nekomanga.desktop.platform.abgrToRgb(0xFFD47800.toInt()))
+    }
+
+    /** Text 7:1, secondary text, error, rating and success 4.5:1, accent 3:1, labels 4.5:1. */
+    private fun assertReadable(palette: Palette) {
+        BeakoColors.palette = palette
+        for (bg in
+            listOf(
+                BeakoColors.Ground,
+                BeakoColors.Surface,
+                BeakoColors.SurfaceRaised,
+                BeakoColors.GlassSolid,
+            )) {
+            assertTrue(contrast(BeakoColors.Text, bg) >= 7.0, "text on $palette")
+            assertTrue(contrast(BeakoColors.TextMuted, bg) >= 4.5, "muted on $palette")
+            assertTrue(contrast(BeakoColors.Danger, bg) >= 4.5, "danger on $palette")
+            assertTrue(contrast(BeakoColors.Gold, bg) >= 4.5, "rating on $palette")
+            assertTrue(contrast(BeakoColors.Positive, bg) >= 4.5, "matched on $palette")
+        }
+        assertTrue(contrast(BeakoColors.Accent, BeakoColors.Ground) >= 3.0, "accent $palette")
+        assertTrue(
+            contrast(BeakoColors.AccentInk, BeakoColors.AccentFill) >= 4.5,
+            "accent button on $palette",
+        )
+        assertTrue(contrast(BeakoColors.Ground, BeakoColors.Text) >= 7.0)
+        assertTrue(contrast(BeakoColors.InkOnFill, BeakoColors.InkFill) >= 7.0)
     }
 
     @Test
@@ -112,6 +144,7 @@ class DesignSystemTest {
             assertEquals(Palette.PORCELAIN, Palette.of("PORCELAIN"))
             assertEquals(Palette.NEUTRAL, Palette.of("NOT_A_SCHEME"))
             assertTrue(Palette.entries.count { it.fromNeko } >= 20)
+            assertEquals(2, Palette.entries.count { it.dynamic })
         } finally {
             BeakoColors.palette = before
         }

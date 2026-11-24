@@ -32,23 +32,25 @@ import androidx.compose.ui.unit.sp
  */
 enum class Palette(
     val label: String,
-    val ground: Color,
-    val groundGlow: Color,
-    val surface: Color,
-    val surfaceRaised: Color,
-    val glassSolid: Color,
+    open val ground: Color,
+    open val groundGlow: Color,
+    open val surface: Color,
+    open val surfaceRaised: Color,
+    open val glassSolid: Color,
     val light: Boolean = false,
     /** Text and secondary text; null keeps Beako's neutral white/grey (or near-black on light). */
-    val text: Color? = null,
-    val textMuted: Color? = null,
+    open val text: Color? = null,
+    open val textMuted: Color? = null,
     /** Icons, the tab underline, unread dots: at least 3:1 on [ground]. */
-    val accent: Color = Color(0xFFDF5830),
+    open val accent: Color = Color(0xFFDF5830),
     /** Accent buttons: [accentInk] on [accentFill] holds at least 4.5:1. */
-    val accentFill: Color = Color(0xFFC8461F),
-    val accentInk: Color = Color(0xFFFFFFFF),
+    open val accentFill: Color = Color(0xFFC8461F),
+    open val accentInk: Color = Color(0xFFFFFFFF),
     /** The scheme's second colour, shown in its preview. */
-    val secondary: Color? = null,
+    open val secondary: Color? = null,
     val fromNeko: Boolean = false,
+    /** Built from the Windows accent colour at run time ([WindowsAccent]). */
+    val dynamic: Boolean = false,
 ) {
     NEUTRAL(
         "Neutral",
@@ -99,6 +101,52 @@ enum class Palette(
         Color(0xFFF7F7F9),
         light = true,
     ),
+    DYNAMIC_DARK(
+        "Dynamic",
+        Color.Black,
+        Color.Black,
+        Color.Black,
+        Color.Black,
+        Color.Black,
+        light = false,
+        dynamic = true,
+    ) {
+        private val scheme
+            get() = DynamicScheme.of(WindowsAccent.color, light)
+
+        override val ground
+            get() = scheme.ground
+
+        override val groundGlow
+            get() = scheme.glow
+
+        override val surface
+            get() = scheme.surface
+
+        override val surfaceRaised
+            get() = scheme.raised
+
+        override val glassSolid
+            get() = scheme.glass
+
+        override val text
+            get() = scheme.text
+
+        override val textMuted
+            get() = scheme.muted
+
+        override val accent
+            get() = scheme.accent
+
+        override val accentFill
+            get() = scheme.accentFill
+
+        override val accentInk
+            get() = scheme.accentInk
+
+        override val secondary
+            get() = scheme.secondary
+    },
     KITSUNE_FIRE_DARK(
         "Kitsune Fire",
         Color(0xFF1A1C1E),
@@ -307,6 +355,52 @@ enum class Palette(
         secondary = Color(0xFFFF8B9C),
         fromNeko = true,
     ),
+    DYNAMIC_LIGHT(
+        "Dynamic",
+        Color.Black,
+        Color.Black,
+        Color.Black,
+        Color.Black,
+        Color.Black,
+        light = true,
+        dynamic = true,
+    ) {
+        private val scheme
+            get() = DynamicScheme.of(WindowsAccent.color, light)
+
+        override val ground
+            get() = scheme.ground
+
+        override val groundGlow
+            get() = scheme.glow
+
+        override val surface
+            get() = scheme.surface
+
+        override val surfaceRaised
+            get() = scheme.raised
+
+        override val glassSolid
+            get() = scheme.glass
+
+        override val text
+            get() = scheme.text
+
+        override val textMuted
+            get() = scheme.muted
+
+        override val accent
+            get() = scheme.accent
+
+        override val accentFill
+            get() = scheme.accentFill
+
+        override val accentInk
+            get() = scheme.accentInk
+
+        override val secondary
+            get() = scheme.secondary
+    },
     KITSUNE_FIRE_LIGHT(
         "Kitsune Fire",
         Color(0xFFF1F1F6),
@@ -655,6 +749,13 @@ object BeakoColors {
             }
 
     private val dangerFor = java.util.concurrent.ConcurrentHashMap<Palette, Color>()
+
+    /** Drops colours worked out from the Dynamic schemes' accent, after it changes. */
+    internal fun forgetDerived() {
+        listOf(dangerFor, goldFor, positiveFor).forEach { cache ->
+            cache.keys.removeAll { it.dynamic }
+        }
+    }
 
     /** [base] kept at 4.5:1 on this palette's grounds, worked out once per palette. */
     private fun readableFor(cache: MutableMap<Palette, Color>, base: Color): Color =

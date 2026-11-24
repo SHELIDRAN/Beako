@@ -162,6 +162,12 @@ fun main(args: Array<String>) {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                 SystemPreferences.read()
                             }
+                        // The Dynamic schemes follow Windows' accent colour.
+                        state.systemComfort.accentRgb?.let {
+                            org.nekomanga.desktop.theme.WindowsAccent.update(
+                                androidx.compose.ui.graphics.Color(0xFF000000 or it.toLong()),
+                            )
+                        }
                         kotlinx.coroutines.delay(30_000L)
                     }
                 }
