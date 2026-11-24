@@ -208,7 +208,7 @@ internal fun PlaceholderPage(name: String, onBack: () -> Unit) {
         Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        GlassIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack)
+        GlassIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Back", onBack, swingFrom = -90f)
         Text(name, style = MaterialTheme.typography.displaySmall, color = BeakoColors.Text)
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -637,9 +638,23 @@ fun SoftCard(
     val hovered by interaction.collectIsHoveredAsState()
     val focused by interaction.collectIsFocusedAsState()
     val reduceMotion = LocalAppearance.current.reduceMotion
+    val pressed by interaction.collectIsPressedAsState()
     val lifted = elevation == SoftElevation.LIFT && (hovered || focused)
-    val shadow by animateFloatAsState(if (lifted) 1f else 0f, easeOutSpec())
-    val rise by animateFloatAsState(if (lifted && !reduceMotion) 1f else 0f, dropletSpec())
+    val shadow by
+        animateFloatAsState(
+            if (lifted && !pressed) 1f else 0f,
+            easeOutSpec(if (pressed) 120 else 450),
+        )
+    // Rises 6 px on hover, sinks back to 2 px while pressed.
+    val rise by
+        animateFloatAsState(
+            when {
+                !lifted || reduceMotion -> 0f
+                pressed -> 1f / 3f
+                else -> 1f
+            },
+            dropletSpec(),
+        )
     val look =
         when (elevation) {
             SoftElevation.LIFT ->
@@ -832,8 +847,30 @@ fun IconToggleGroup(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(Radius.panel)
-    // The ink pill slides to the chosen option (56 wide, 8 apart).
-    val inkX by animateDpAsState(64.dp * selectedIndex, dropletSpec(), label = "travel")
+    // Travel: the ink moves to the chosen option (56 wide, 8 apart) edge by edge, the leading
+    // edge first and the trailing one 45 ms behind, so it stretches across and settles.
+    val inkLeft = remember { Animatable(64f * selectedIndex) }
+    val inkRight = remember { Animatable(64f * selectedIndex + 56f) }
+    val travel = dropletSpec<Float>()
+    val reduceMotion = LocalAppearance.current.reduceMotion
+    LaunchedEffect(selectedIndex) {
+        val l = 64f * selectedIndex
+        val r = l + 56f
+        if (reduceMotion) {
+            inkLeft.snapTo(l)
+            inkRight.snapTo(r)
+            return@LaunchedEffect
+        }
+        val right = l > inkLeft.value
+        launch {
+            if (right) delay(45)
+            inkLeft.animateTo(l, travel)
+        }
+        launch {
+            if (!right) delay(45)
+            inkRight.animateTo(r, travel)
+        }
+    }
     val scope = rememberCoroutineScope()
     val pressDip = remember { Animatable(0f) }
     Box(
@@ -847,8 +884,8 @@ fun IconToggleGroup(
             .semantics { contentDescription = label },
     ) {
         Box(
-            Modifier.offset(x = inkX)
-                .size(56.dp, 48.dp)
+            Modifier.offset(x = inkLeft.value.dp)
+                .size((inkRight.value - inkLeft.value).coerceAtLeast(0f).dp, 48.dp)
                 .clip(RoundedCornerShape(Radius.field))
                 .background(BeakoColors.ChipFill),
         )
@@ -873,7 +910,8 @@ fun IconToggleGroup(
                     )
                 Tooltip(option.label) {
                     Box(
-                        Modifier.size(56.dp, 48.dp)
+                        Modifier.press(interaction)
+                            .size(56.dp, 48.dp)
                             .clip(RoundedCornerShape(Radius.field))
                             .background(
                                 if (hovered && !selected) BeakoColors.Hover else Color.Transparent,
@@ -998,11 +1036,22 @@ fun MorphSelect(
                     transition.animateFloat({ if (reduceMotion) snap() else tween(160) }) {
                         if (it) 1f else 0f
                     }
+                // Bloom: the rows follow the popover, the action 70 ms in and the choice 130 ms.
                 val rows by
                     transition.animateFloat(
                         {
                             if (reduceMotion) snap()
                             else if (targetState) tween(360, delayMillis = 70, easing = Motion.Out)
+                            else tween(100)
+                        },
+                    ) {
+                        if (it) 1f else 0f
+                    }
+                val choiceRow by
+                    transition.animateFloat(
+                        {
+                            if (reduceMotion) snap()
+                            else if (targetState) tween(360, delayMillis = 130, easing = Motion.Out)
                             else tween(100)
                         },
                     ) {
@@ -1026,16 +1075,22 @@ fun MorphSelect(
                 ) {
                     if (action != null) {
                         val (text, run) = action
+                        val actionPress = remember { MutableInteractionSource() }
                         Box(
                             Modifier.graphicsLayer {
                                     alpha = rows
                                     translationY = 8.dp.toPx() * (1f - rows)
                                 }
+                                .press(actionPress)
                                 .fillMaxWidth()
                                 .height(Sizes.controlLg)
                                 .clip(CircleShape)
                                 .border(1.dp, BeakoColors.Rim, CircleShape)
-                                .clickable(role = Role.Button) {
+                                .clickable(
+                                    interactionSource = actionPress,
+                                    indication = LocalIndication.current,
+                                    role = Role.Button,
+                                ) {
                                     run()
                                     open.targetState = false
                                 },
@@ -1053,8 +1108,8 @@ fun MorphSelect(
                     val indicator by animateDpAsState(segWidth * chosen, dropletSpec())
                     Box(
                         Modifier.graphicsLayer {
-                                alpha = rows
-                                translationY = 8.dp.toPx() * (1f - rows)
+                                alpha = choiceRow
+                                translationY = 8.dp.toPx() * (1f - choiceRow)
                             }
                             .fillMaxWidth()
                             .selectableGroup(),
@@ -1069,11 +1124,17 @@ fun MorphSelect(
                         Row {
                             options.forEachIndexed { index, option ->
                                 val selected = index == chosen
+                                val optionPress = remember { MutableInteractionSource() }
                                 Box(
-                                    Modifier.width(segWidth)
+                                    Modifier.press(optionPress)
+                                        .width(segWidth)
                                         .height(Sizes.controlLg)
                                         .clip(CircleShape)
-                                        .clickable(role = Role.RadioButton) {
+                                        .clickable(
+                                            interactionSource = optionPress,
+                                            indication = LocalIndication.current,
+                                            role = Role.RadioButton,
+                                        ) {
                                             chosen = index
                                             onSelect(index)
                                             // Close once the choice has been seen.

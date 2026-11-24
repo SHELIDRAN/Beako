@@ -523,7 +523,12 @@ private fun BoxScope.ReaderControls(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            GlassIconButton(Icons.AutoMirrored.Outlined.ArrowBack, "Close reader (Esc)", onClose)
+            GlassIconButton(
+                Icons.AutoMirrored.Outlined.ArrowBack,
+                "Close reader (Esc)",
+                onClose,
+                swingFrom = -90f,
+            )
             Column(Modifier.weight(1f)) {
                 Text(
                     model.title.title,
@@ -577,6 +582,7 @@ private fun BoxScope.ReaderControls(
                     Icons.Outlined.ChevronLeft,
                     "Previous chapter${keys.hint(ReaderAction.PREVIOUS_CHAPTER)}",
                     { model.previousChapter() },
+                    swingFrom = -90f,
                 )
             }
             val count = model.pageCount
@@ -591,6 +597,7 @@ private fun BoxScope.ReaderControls(
                     Icons.Outlined.ChevronRight,
                     "Next chapter${keys.hint(ReaderAction.NEXT_CHAPTER)}",
                     model::nextChapter,
+                    swingFrom = 90f,
                 )
             }
         }
