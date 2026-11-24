@@ -60,15 +60,33 @@ class DesignSystemTest {
             for (palette in Palette.entries) {
                 BeakoColors.palette = palette
                 for (bg in
-                    listOf(BeakoColors.Ground, BeakoColors.Surface, BeakoColors.GlassSolid)) {
-                    assertTrue(contrast(BeakoColors.Text, bg) >= 12.0, "text on $palette")
+                    listOf(
+                        BeakoColors.Ground,
+                        BeakoColors.Surface,
+                        BeakoColors.SurfaceRaised,
+                        BeakoColors.GlassSolid,
+                    )) {
+                    // Beako's own schemes keep about 18:1; Neko's are held to AAA (7:1).
+                    assertTrue(contrast(BeakoColors.Text, bg) >= 7.0, "text on $palette")
                     assertTrue(contrast(BeakoColors.TextMuted, bg) >= 4.5, "muted on $palette")
                     assertTrue(contrast(BeakoColors.Danger, bg) >= 4.5, "danger on $palette")
+                    assertTrue(contrast(BeakoColors.Gold, bg) >= 4.5, "rating on $palette")
+                    assertTrue(contrast(BeakoColors.Positive, bg) >= 4.5, "matched on $palette")
                 }
-                // The accent button's white label on its fill.
-                assertTrue(contrast(BeakoColors.AccentInk, BeakoColors.AccentFill) >= 4.5)
+                // Icons, the tab underline and unread dots in the accent: 3:1 (non-text).
+                assertTrue(
+                    contrast(BeakoColors.Accent, BeakoColors.Ground) >= 3.0,
+                    "accent $palette",
+                )
+                // The accent button's label on its fill.
+                assertTrue(
+                    contrast(BeakoColors.AccentInk, BeakoColors.AccentFill) >= 4.5,
+                    "accent button on $palette",
+                )
                 // The primary button inverts: ground ink on a text fill.
-                assertTrue(contrast(BeakoColors.Ground, BeakoColors.Text) >= 12.0)
+                assertTrue(contrast(BeakoColors.Ground, BeakoColors.Text) >= 7.0)
+                // Ink fills (counts, the open menu group) keep their label readable.
+                assertTrue(contrast(BeakoColors.InkOnFill, BeakoColors.InkFill) >= 7.0)
             }
         } finally {
             BeakoColors.palette = before
@@ -76,18 +94,43 @@ class DesignSystemTest {
     }
 
     @Test
-    fun porcelainIsTheOneLightPalette() {
+    fun lightSchemesFlipTheInkAndBeakosOwnKeepTheOrangeAccent() {
         val before = BeakoColors.palette
         try {
-            assertEquals(listOf(Palette.PORCELAIN), Palette.entries.filter { it.light })
-            BeakoColors.palette = Palette.PORCELAIN
-            assertTrue(BeakoColors.Text.luminance() < 0.05f, "dark text on Porcelain")
-            BeakoColors.palette = Palette.NEUTRAL
-            assertTrue(BeakoColors.Text.luminance() > 0.85f, "light text on Neutral")
+            for (palette in Palette.entries) {
+                BeakoColors.palette = palette
+                if (palette.light) {
+                    assertTrue(BeakoColors.Text.luminance() < 0.2f, "dark text on $palette")
+                } else {
+                    assertTrue(BeakoColors.Text.luminance() > 0.5f, "light text on $palette")
+                }
+            }
+            for (own in listOf(Palette.NEUTRAL, Palette.PORCELAIN, Palette.OLED)) {
+                BeakoColors.palette = own
+                assertEquals(Color(0xFFDF5830), BeakoColors.Accent)
+            }
             assertEquals(Palette.PORCELAIN, Palette.of("PORCELAIN"))
+            assertEquals(Palette.NEUTRAL, Palette.of("NOT_A_SCHEME"))
+            assertTrue(Palette.entries.count { it.fromNeko } >= 20)
         } finally {
             BeakoColors.palette = before
         }
+    }
+
+    @Test
+    fun followingWindowsPicksTheLightOrDarkScheme() {
+        fun effective(follow: Boolean, light: Boolean?) =
+            Palette.effective("NORD_DARK", "KITSUNE_FIRE_LIGHT", "NEON_NIGHTS_DARK", follow, light)
+        assertEquals(Palette.NORD_DARK, effective(follow = false, light = true))
+        assertEquals(Palette.KITSUNE_FIRE_LIGHT, effective(follow = true, light = true))
+        assertEquals(Palette.NEON_NIGHTS_DARK, effective(follow = true, light = false))
+        // Windows' mode unknown (off Windows): the scheme picked last.
+        assertEquals(Palette.NORD_DARK, effective(follow = true, light = null))
+        // A scheme saved in the wrong slot falls back to Porcelain or Neutral.
+        assertEquals(
+            Palette.PORCELAIN,
+            Palette.effective("NEUTRAL", "NORD_DARK", "NEUTRAL", true, true),
+        )
     }
 
     private fun stateIs(text: String) =
