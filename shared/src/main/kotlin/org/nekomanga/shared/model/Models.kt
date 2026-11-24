@@ -115,3 +115,16 @@ data class PageList(val urls: List<String>)
 
 /** One page of results plus whether more can be requested. */
 data class Paged<T>(val items: List<T>, val hasMore: Boolean)
+
+/**
+ * The title's page on the web, for "Copy link": comick.dev by slug, mangadex.org by id, or the
+ * extension's own address. Null when there's no address to give.
+ */
+fun Title.webLink(): String? =
+    when {
+        source == Sources.COMICK ->
+            slug?.takeIf { it.isNotBlank() }?.let { "https://comick.dev/comic/$it" }
+        source == Sources.MANGADEX -> "https://mangadex.org/title/$id"
+        id.startsWith("https://") || id.startsWith("http://") -> id
+        else -> null
+    }

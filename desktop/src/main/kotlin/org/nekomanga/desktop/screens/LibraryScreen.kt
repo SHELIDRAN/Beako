@@ -39,6 +39,7 @@ import org.nekomanga.desktop.components.TitleCard
 import org.nekomanga.desktop.state.GroupBy
 import org.nekomanga.desktop.state.LibraryModel
 import org.nekomanga.desktop.state.LibrarySort
+import org.nekomanga.desktop.state.rememberSearchShortcut
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.shared.model.Title
 
@@ -92,6 +93,8 @@ fun LibraryScreen(
                     { model.query = it },
                     "Search library by name, tag or genre",
                     Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shortcut = "Ctrl F",
+                    focusRequester = rememberSearchShortcut(),
                 )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),

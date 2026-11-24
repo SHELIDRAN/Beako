@@ -16,6 +16,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -214,5 +215,54 @@ class DesignSystemTest {
         assertEquals(null, readerPalette("WHITE", Palette.PORCELAIN))
         assertEquals(Palette.PORCELAIN, readerPalette("WHITE", Palette.MIDNIGHT))
         assertEquals(null, readerPalette("BLACK", Palette.MIDNIGHT))
+    }
+
+    @Test
+    fun ctrlFFocusesTheShownSearchBoxElseItIsMissing() {
+        runComposeUiTest {
+            val shortcut = org.nekomanga.desktop.state.SearchShortcut()
+            assertEquals(false, shortcut.focus())
+            var show by mutableStateOf(true)
+            setContent {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    org.nekomanga.desktop.state.LocalSearchShortcut provides shortcut,
+                ) {
+                    BeakoTheme {
+                        if (show) {
+                            org.nekomanga.desktop.components.SoftField(
+                                "",
+                                {},
+                                "Search library",
+                                focusRequester =
+                                    org.nekomanga.desktop.state.rememberSearchShortcut(),
+                            )
+                        }
+                    }
+                }
+            }
+            runOnIdle { assertEquals(true, shortcut.focus()) }
+            onNodeWithContentDescription("Search library").assertIsFocused()
+            show = false
+            runOnIdle { assertEquals(false, shortcut.focus()) }
+        }
+    }
+
+    @Test
+    fun iconButtonsKeepTheirNameAndAFocusRingDoesNotBreakThem() {
+        runComposeUiTest {
+            var clicks = 0
+            setContent {
+                BeakoTheme(BeakoAppearance(reduceMotion = true)) {
+                    org.nekomanga.desktop.components.GlassIconButton(
+                        Icons.Outlined.Height,
+                        "Next chapter",
+                        { clicks++ },
+                        swingFrom = 90f,
+                    )
+                }
+            }
+            onNodeWithContentDescription("Next chapter").performClick()
+            assertEquals(1, clicks)
+        }
     }
 }

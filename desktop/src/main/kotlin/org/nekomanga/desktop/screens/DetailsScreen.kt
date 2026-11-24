@@ -68,6 +68,7 @@ import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.TitleTracking
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.shared.download.DownloadState
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.Title
@@ -471,6 +472,7 @@ private fun ChapterRow(
     val name = chapter.displayName()
     Row(
         Modifier.fillMaxWidth()
+            .focusRing(hover, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .hoverSweep(hover)
             .hoverable(hover)

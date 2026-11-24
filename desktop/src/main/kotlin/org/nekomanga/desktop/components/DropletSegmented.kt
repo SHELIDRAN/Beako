@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.Droplet
 import org.nekomanga.desktop.theme.dropletSpec
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.desktop.theme.press
 
@@ -60,6 +61,7 @@ fun DropletSegmented(
                     Modifier.press(interaction)
                         .width(optionWidth)
                         .height(32.dp)
+                        .focusRing(interaction, CircleShape)
                         .clip(CircleShape)
                         .clickable(
                             interactionSource = interaction,

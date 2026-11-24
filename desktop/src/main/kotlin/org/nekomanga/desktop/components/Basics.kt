@@ -64,6 +64,7 @@ import org.nekomanga.desktop.theme.ShadowSpec
 import org.nekomanga.desktop.theme.Sizes
 import org.nekomanga.desktop.theme.dropletSpec
 import org.nekomanga.desktop.theme.easeOutSpec
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.desktop.theme.press
 import org.nekomanga.desktop.theme.sweepSpec
@@ -102,6 +103,7 @@ fun GlassButton(
             .alpha(if (enabled) 1f else 0.45f)
             .press(interaction, enabled)
             .defaultMinSize(minHeight = Sizes.controlMd)
+            .focusRing(interaction, shape)
             .then(base)
             .hoverable(interaction, enabled)
             .clickable(
@@ -155,32 +157,36 @@ fun GlassIconButton(
             swing.animateTo(0f, swingSpec)
         }
     }
-    Box(
-        modifier
-            .press(interaction)
-            .size(Sizes.controlMd)
-            .glass(CircleShape, tint = BeakoColors.Rim)
-            .hoverable(interaction)
-            .clickable(
-                interactionSource = interaction,
-                indication = LocalIndication.current,
-                role = if (checked == null) Role.Button else Role.Switch,
-                onClick = onClick,
+    // Icon-only, so it always has a tooltip as well as its accessible name.
+    Tooltip(description) {
+        Box(
+            modifier
+                .press(interaction)
+                .size(Sizes.controlMd)
+                .focusRing(interaction, CircleShape)
+                .glass(CircleShape, tint = BeakoColors.Rim)
+                .hoverable(interaction)
+                .clickable(
+                    interactionSource = interaction,
+                    indication = LocalIndication.current,
+                    role = if (checked == null) Role.Button else Role.Switch,
+                    onClick = onClick,
+                )
+                .semantics {
+                    contentDescription = description
+                    if (checked != null) stateDescription = if (checked) "On" else "Off"
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            val on = checked == true
+            if (checked != null) RiseInk(on, BeakoColors.InkFill)
+            Icon(
+                icon,
+                null,
+                tint = if (on) BeakoColors.InkOnFill else BeakoColors.Text,
+                modifier = Modifier.size(Sizes.iconMd).graphicsLayer { rotationZ = swing.value },
             )
-            .semantics {
-                contentDescription = description
-                if (checked != null) stateDescription = if (checked) "On" else "Off"
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        val on = checked == true
-        if (checked != null) RiseInk(on, BeakoColors.InkFill)
-        Icon(
-            icon,
-            null,
-            tint = if (on) BeakoColors.InkOnFill else BeakoColors.Text,
-            modifier = Modifier.size(Sizes.iconMd).graphicsLayer { rotationZ = swing.value },
-        )
+        }
     }
 }
 

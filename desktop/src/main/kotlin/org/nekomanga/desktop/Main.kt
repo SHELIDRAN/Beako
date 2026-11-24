@@ -1,5 +1,6 @@
 package org.nekomanga.desktop
 
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +27,8 @@ import kotlinx.coroutines.launch
 import org.jetbrains.skia.Image
 import org.nekomanga.desktop.components.AccountSlot
 import org.nekomanga.desktop.components.Destination
+import org.nekomanga.desktop.platform.SystemPreferences
+import org.nekomanga.desktop.platform.WindowsBackdrop
 import org.nekomanga.desktop.screens.AccountsSection
 import org.nekomanga.desktop.screens.BackupSection
 import org.nekomanga.desktop.screens.BrowseScreen
@@ -50,6 +53,9 @@ import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.SidebarMode
 import org.nekomanga.shared.diagnostics.DiagnosticLog
+import org.nekomanga.shared.library.Trackers
+import org.nekomanga.shared.model.Title
+import org.nekomanga.shared.model.webLink
 
 /** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
 const val APP_ICON = "neko-icon.png"
@@ -117,6 +123,17 @@ fun main(args: Array<String>) {
             onPreviewKeyEvent = keyRouter::dispatch,
         ) {
             awtFrame = window
+            // The frame follows the palette (dark or light title bar) and, on Windows 11, Mica.
+            val frameSettings by container.settings.settings.collectAsState()
+            LaunchedEffect(window, frameSettings.palette, frameSettings.windowBackdrop) {
+                runCatching {
+                    WindowsBackdrop.apply(
+                        window,
+                        dark = !Palette.of(frameSettings.palette).light,
+                        mica = frameSettings.windowBackdrop,
+                    )
+                }
+            }
             val scope = rememberCoroutineScope()
             val state = remember {
                 AppState(
@@ -146,6 +163,16 @@ fun main(args: Array<String>) {
                     }
                 }
                 state.updates.start()
+                // Windows' animation and transparency settings, followed while Beako runs.
+                launch {
+                    while (true) {
+                        state.systemComfort =
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                SystemPreferences.read()
+                            }
+                        kotlinx.coroutines.delay(30_000L)
+                    }
+                }
             }
             // Developer aid for screenshots: BEAKO_OPEN=search:<query>, title:<query> or
             // read:<query> starts on that page, using the first MangaDex match.
@@ -158,8 +185,12 @@ fun main(args: Array<String>) {
                 BeakoApp(
                     appearance =
                         BeakoAppearance(
-                            reduceMotion = settings.reduceMotion,
-                            reduceTransparency = settings.reduceTransparency,
+                            // Beako's switches add to Windows' own; they never override it.
+                            reduceMotion =
+                                settings.reduceMotion || state.systemComfort.reduceMotion,
+                            reduceTransparency =
+                                settings.reduceTransparency ||
+                                    state.systemComfort.reduceTransparency,
                             sidebarMode =
                                 runCatching { SidebarMode.valueOf(settings.sidebarMode) }
                                     .getOrDefault(SidebarMode.AUTO_COLLAPSE),
@@ -258,6 +289,7 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.container.library,
                 state.container.downloads,
                 state.container.dirs.downloads,
+                systemComfort = state.systemComfort,
                 accounts = {
                     AccountsSection(
                         state.accounts,
@@ -280,6 +312,7 @@ private fun AppPage(state: AppState, page: Page) {
                 page.query,
                 onBack = { state.navigator.back() },
                 onOpen = { state.navigator.open(Page.Details(it)) },
+                menu = { title -> resultMenu(state, title) },
             )
         is Page.Details ->
             DetailsScreen(
@@ -339,6 +372,30 @@ fun loadAppIcon(): ImageBitmap {
 }
 
 /** The sidebar's account avatars: Comick and MangaDex always, AniList once connected. */
+/** A search result's right-click menu: Add to library, Track on Comick, Copy link. */
+private fun resultMenu(state: AppState, title: Title): List<ContextMenuItem> = buildList {
+    val library = state.container.library
+    if (!library.contains(title)) add(ContextMenuItem("Add to library") { library.add(title) })
+    if (state.accounts.comick.isConnected) {
+        add(
+            ContextMenuItem("Track on Comick") {
+                // Linking can need a choice between matches, which the title page shows.
+                state.navigator.open(Page.Details(title))
+                state.tracking(title).autoLink(Trackers.COMICK)
+            },
+        )
+    }
+    title.webLink()?.let { link ->
+        add(
+            ContextMenuItem("Copy link") {
+                java.awt.Toolkit.getDefaultToolkit()
+                    .systemClipboard
+                    .setContents(java.awt.datatransfer.StringSelection(link), null)
+            },
+        )
+    }
+}
+
 /** Library size and unread new chapters, for the menu. */
 @Composable
 private fun menuCounts(state: AppState): Map<Destination, Int> {

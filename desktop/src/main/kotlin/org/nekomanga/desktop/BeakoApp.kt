@@ -47,8 +47,10 @@ import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.Sidebar
 import org.nekomanga.desktop.components.SidebarPanelReserve
 import org.nekomanga.desktop.components.SidebarRailWidth
+import org.nekomanga.desktop.state.LocalSearchShortcut
 import org.nekomanga.desktop.state.Navigator
 import org.nekomanga.desktop.state.Page
+import org.nekomanga.desktop.state.SearchShortcut
 import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.BeakoTheme
@@ -89,82 +91,93 @@ fun BeakoApp(
     // The reader takes the whole window; every other page keeps the sidebar.
     val immersive = openPage is Page.Reader
     val haze = remember { HazeState() }
+    val searchShortcut = remember { SearchShortcut() }
     BeakoTheme(appearance) {
-        Box(
-            Modifier.fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(BeakoColors.GroundGlow, BeakoColors.Ground),
-                        center = Offset(120f, 0f),
-                        radius = 1400f,
-                    ),
-                )
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    val target = shortcutDestination(event.key)
-                    when {
-                        // Ctrl+K: the menu's search.
-                        event.isCtrlPressed && event.key == Key.K && !immersive -> {
-                            if (openPage !is Page.Search) navigator.open(Page.Search())
-                            destination = Destination.BROWSE
-                            true
-                        }
-                        event.isCtrlPressed && target != null && !immersive -> {
-                            navigator.clear()
-                            destination = target
-                            true
-                        }
-                        // Alt+Left goes back from any page. (Esc is handled by each page.)
-                        event.isAltPressed && event.key == Key.DirectionLeft -> navigator.back()
-                        else -> false
-                    }
-                },
-        ) {
+        CompositionLocalProvider(LocalSearchShortcut provides searchShortcut) {
             Box(
                 Modifier.fillMaxSize()
-                    .hazeSource(haze)
-                    .padding(
-                        start =
-                            when {
-                                immersive -> 0.dp
-                                appearance.sidebarMode == SidebarMode.ALWAYS_EXPANDED ->
-                                    SidebarPanelReserve
-                                else -> SidebarRailWidth
-                            },
-                    ),
-            ) {
-                AnimatedContent(
-                    targetState = openPage to destination,
-                    transitionSpec = { fadeThrough(appearance.reduceMotion) },
-                ) { (targetPage, targetDestination) ->
-                    if (targetPage != null) page(targetPage) else screen(targetDestination)
-                }
-            }
-            if (!immersive) {
-                CompositionLocalProvider(LocalHazeState provides haze) {
-                    Sidebar(
-                        accounts = accounts,
-                        onAccountClick = onAccountClick,
-                        selected = destination,
-                        onSelect = {
-                            navigator.clear()
-                            destination = it
-                        },
-                        searchOpen = openPage is Page.Search,
-                        onSearch = {
-                            if (openPage !is Page.Search) navigator.open(Page.Search())
-                            destination = Destination.BROWSE
-                        },
-                        counts = counts,
-                        fresh =
-                            if (newestUpdateAt > updatesSeenAt) setOf(Destination.UPDATES)
-                            else emptySet(),
-                        onModeChange = onSidebarMode,
-                        modifier =
-                            Modifier.align(Alignment.CenterStart)
-                                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
-                                .fillMaxHeight(),
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(BeakoColors.GroundGlow, BeakoColors.Ground),
+                            center = Offset(120f, 0f),
+                            radius = 1400f,
+                        ),
                     )
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        val target = shortcutDestination(event.key)
+                        when {
+                            // Ctrl+F: this screen's search box, or Search when it has none.
+                            event.isCtrlPressed && event.key == Key.F && !immersive -> {
+                                if (!searchShortcut.focus()) {
+                                    if (openPage !is Page.Search) navigator.open(Page.Search())
+                                    destination = Destination.BROWSE
+                                }
+                                true
+                            }
+                            // Ctrl+K: the menu's search.
+                            event.isCtrlPressed && event.key == Key.K && !immersive -> {
+                                if (openPage !is Page.Search) navigator.open(Page.Search())
+                                destination = Destination.BROWSE
+                                true
+                            }
+                            event.isCtrlPressed && target != null && !immersive -> {
+                                navigator.clear()
+                                destination = target
+                                true
+                            }
+                            // Alt+Left goes back from any page. (Esc is handled by each page.)
+                            event.isAltPressed && event.key == Key.DirectionLeft -> navigator.back()
+                            else -> false
+                        }
+                    },
+            ) {
+                Box(
+                    Modifier.fillMaxSize()
+                        .hazeSource(haze)
+                        .padding(
+                            start =
+                                when {
+                                    immersive -> 0.dp
+                                    appearance.sidebarMode == SidebarMode.ALWAYS_EXPANDED ->
+                                        SidebarPanelReserve
+                                    else -> SidebarRailWidth
+                                },
+                        ),
+                ) {
+                    AnimatedContent(
+                        targetState = openPage to destination,
+                        transitionSpec = { fadeThrough(appearance.reduceMotion) },
+                    ) { (targetPage, targetDestination) ->
+                        if (targetPage != null) page(targetPage) else screen(targetDestination)
+                    }
+                }
+                if (!immersive) {
+                    CompositionLocalProvider(LocalHazeState provides haze) {
+                        Sidebar(
+                            accounts = accounts,
+                            onAccountClick = onAccountClick,
+                            selected = destination,
+                            onSelect = {
+                                navigator.clear()
+                                destination = it
+                            },
+                            searchOpen = openPage is Page.Search,
+                            onSearch = {
+                                if (openPage !is Page.Search) navigator.open(Page.Search())
+                                destination = Destination.BROWSE
+                            },
+                            counts = counts,
+                            fresh =
+                                if (newestUpdateAt > updatesSeenAt) setOf(Destination.UPDATES)
+                                else emptySet(),
+                            onModeChange = onSidebarMode,
+                            modifier =
+                                Modifier.align(Alignment.CenterStart)
+                                    .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                                    .fillMaxHeight(),
+                        )
+                    }
                 }
             }
         }

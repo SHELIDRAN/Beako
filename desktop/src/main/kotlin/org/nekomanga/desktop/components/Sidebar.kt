@@ -104,6 +104,7 @@ import org.nekomanga.desktop.theme.ShadowSpec
 import org.nekomanga.desktop.theme.SidebarMode
 import org.nekomanga.desktop.theme.dropShadows
 import org.nekomanga.desktop.theme.dropletSpec
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.desktop.theme.press
 
 /** The app's top-level screens, in sidebar order. */
@@ -414,6 +415,7 @@ private fun SearchRow(expanded: Boolean, onSearch: () -> Unit) {
         Modifier.press(interaction)
             .fillMaxWidth()
             .height(36.dp)
+            .focusRing(interaction, shape)
             .clip(shape)
             .background(BeakoColors.ChipFill)
             .border(1.dp, BeakoColors.Rim, shape)
@@ -576,92 +578,96 @@ private fun MenuRow(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val shape = CircleShape
-    Row(
-        modifier
-            .press(interaction)
-            .fillMaxWidth()
-            .height(height)
-            .clip(shape)
-            .then(if (ink) Modifier.background(BeakoColors.InkFill) else Modifier)
-            .hoverSweep(interaction)
-            .hoverable(interaction)
-            .clickable(
-                interactionSource = interaction,
-                indication = null,
-                role = role,
-                onClick = onClick,
-            )
-            .semantics(mergeDescendants = true) {
-                contentDescription = description
-                if (selected != null) selectedState(selected)
-                if (state != null) stateDescription = state
-            }
-            .padding(start = startPadding, end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (leading != null) {
-            Box {
-                leading()
-                if (dot) {
-                    Box(
-                        Modifier.align(Alignment.TopEnd)
-                            .offset(x = 3.dp, y = (-3).dp)
-                            .size(9.dp)
-                            .clip(CircleShape)
-                            .background(BeakoColors.Surface)
-                            .padding(1.dp)
-                            .clip(CircleShape)
-                            .background(BeakoColors.Accent)
-                            .semantics { contentDescription = "new" },
-                    )
+    // On the rail only the icon shows, so it gets its name as a tooltip.
+    Tooltip(if (expanded) null else description) {
+        Row(
+            modifier
+                .press(interaction)
+                .fillMaxWidth()
+                .height(height)
+                .focusRing(interaction, shape)
+                .clip(shape)
+                .then(if (ink) Modifier.background(BeakoColors.InkFill) else Modifier)
+                .hoverSweep(interaction)
+                .hoverable(interaction)
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    role = role,
+                    onClick = onClick,
+                )
+                .semantics(mergeDescendants = true) {
+                    contentDescription = description
+                    if (selected != null) selectedState(selected)
+                    if (state != null) stateDescription = state
+                }
+                .padding(start = startPadding, end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (leading != null) {
+                Box {
+                    leading()
+                    if (dot) {
+                        Box(
+                            Modifier.align(Alignment.TopEnd)
+                                .offset(x = 3.dp, y = (-3).dp)
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(BeakoColors.Surface)
+                                .padding(1.dp)
+                                .clip(CircleShape)
+                                .background(BeakoColors.Accent)
+                                .semantics { contentDescription = "new" },
+                        )
+                    }
                 }
             }
-        }
-        if (expanded) {
-            Column(Modifier.weight(1f).reveal(expanded, index)) {
-                Text(
-                    label,
-                    style =
-                        MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                        ),
-                    color =
-                        when {
-                            ink -> BeakoColors.InkOnFill
-                            leading == null && selected != true -> BeakoColors.TextMuted
-                            else -> BeakoColors.Text
-                        },
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (sub != null) {
+            if (expanded) {
+                Column(Modifier.weight(1f).reveal(expanded, index)) {
                     Text(
-                        sub,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = BeakoColors.TextMuted,
+                        label,
+                        style =
+                            MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            ),
+                        color =
+                            when {
+                                ink -> BeakoColors.InkOnFill
+                                leading == null && selected != true -> BeakoColors.TextMuted
+                                else -> BeakoColors.Text
+                            },
                         maxLines = 1,
                         softWrap = false,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (sub != null) {
+                        Text(
+                            sub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = BeakoColors.TextMuted,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
+                if (count != null && count > 0) {
+                    Text(
+                        if (count > 999) "999+" else count.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = BeakoColors.InkOnFill,
+                        modifier =
+                            Modifier.reveal(expanded, index)
+                                .defaultMinSize(minWidth = 22.dp)
+                                .clip(CircleShape)
+                                .background(BeakoColors.InkFill)
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+                if (trailing != null) Box(Modifier.reveal(expanded, index)) { trailing() }
             }
-            if (count != null && count > 0) {
-                Text(
-                    if (count > 999) "999+" else count.toString(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = BeakoColors.InkOnFill,
-                    modifier =
-                        Modifier.reveal(expanded, index)
-                            .defaultMinSize(minWidth = 22.dp)
-                            .clip(CircleShape)
-                            .background(BeakoColors.InkFill)
-                            .padding(horizontal = 6.dp, vertical = 3.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
-            if (trailing != null) Box(Modifier.reveal(expanded, index)) { trailing() }
         }
     }
 }
