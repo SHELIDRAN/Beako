@@ -65,6 +65,13 @@ class ReaderModel(
     private val splitWidePages: () -> Boolean = { false },
     /** Pages from wherever the chapter lives; MangaDex when not given. */
     private val pageSource: (suspend (Chapter) -> PageList)? = null,
+    /** The mode for titles without a saved one; null picks by the title's type. */
+    defaultMode: ReadingMode? = null,
+    /** Whether a chapter has been read, for "skip chapters marked read". */
+    private val isRead: (Chapter) -> Boolean = { false },
+    private val skipRead: () -> Boolean = { false },
+    /** Paged modes: show a page between chapters. */
+    private val transitions: () -> Boolean = { false },
 ) {
     var index by mutableStateOf(startIndex.coerceIn(0, (chapters.size - 1).coerceAtLeast(0)))
         private set
@@ -84,7 +91,8 @@ class ReaderModel(
             record()
         }
 
-    private val modeState = mutableStateOf(savedMode ?: ReadingMode.defaultFor(title.type))
+    private val modeState =
+        mutableStateOf(savedMode ?: defaultMode ?: ReadingMode.defaultFor(title.type))
     private var modeChosen = savedMode != null
 
     /** The layout. Setting it is the user's choice: it is remembered and stops auto-detection. */
@@ -152,6 +160,45 @@ class ReaderModel(
     val hasNext: Boolean
         get() = index < chapters.lastIndex
 
+    /** The chapter "next" opens: the following one, or the next unread with "skip read". */
+    val nextIndex: Int
+        get() {
+            if (!hasNext) return index
+            if (skipRead()) {
+                val unread = (index + 1..chapters.lastIndex).firstOrNull { !isRead(chapters[it]) }
+                if (unread != null) return unread
+            }
+            return index + 1
+        }
+
+    /**
+     * True while the page between chapters shows (paged modes): what you finished and what's next.
+     * Turning on opens the next chapter; turning back returns to the last page.
+     */
+    var atTransition by mutableStateOf(false)
+        private set
+
+    /**
+     * Two pages side by side (set by the screen from the page layout and window shape). Wide pages
+     * and spreads still show alone.
+     */
+    var twoPages by mutableStateOf(false)
+
+    /** True when [index] is shown together with the page after it. */
+    fun pairedWithNext(index: Int): Boolean =
+        twoPages &&
+            mode.isPaged &&
+            index + 1 < pageCount &&
+            !isWide(index) &&
+            !isWide(index + 1) &&
+            !isSplit(index)
+
+    private fun isWide(index: Int): Boolean = (aspects[index] ?: return false) < WIDE_ASPECT
+
+    /** The last page index on screen now (the second of a pair). */
+    private val lastShown: Int
+        get() = if (pairedWithNext(page)) page + 1 else page
+
     val hasPrevious: Boolean
         get() = index > 0
 
@@ -168,10 +215,12 @@ class ReaderModel(
     fun retry() = load()
 
     fun nextChapter() {
-        if (hasNext) open(index + 1, atEnd = false)
+        atTransition = false
+        if (hasNext) open(nextIndex, atEnd = false)
     }
 
     fun previousChapter(atEnd: Boolean = false) {
+        atTransition = false
         if (hasPrevious) open(index - 1, atEnd)
     }
 
@@ -181,19 +230,29 @@ class ReaderModel(
      */
     fun turn(forward: Boolean) {
         if (pages !is Loadable.Ready) return
+        if (atTransition) {
+            if (forward) nextChapter() else atTransition = false
+            return
+        }
         when {
             forward && isSplit(page) && half == 0 -> {
                 halfState.value = 1
                 record()
             }
             !forward && isSplit(page) && half == 1 -> halfState.value = 0
-            forward && page < pageCount - 1 -> {
+            forward && lastShown < pageCount - 1 -> {
                 halfState.value = 0
-                page += 1
+                page = lastShown + 1
+            }
+            forward && transitions() -> {
+                // The chapter is finished: show what's next before opening it.
+                markRead(chapter)
+                atTransition = true
             }
             forward -> nextChapter()
             page > 0 -> {
-                page -= 1
+                // Two back when the previous two pages make a pair.
+                page = if (page >= 2 && pairedWithNext(page - 2)) page - 2 else page - 1
                 // Coming back into a spread starts on its second half.
                 halfState.value = if (isSplit(page)) 1 else 0
             }
@@ -211,8 +270,9 @@ class ReaderModel(
         if (count == 0) return
         val current = page.coerceIn(0, count - 1)
         store.recordProgress(title, chapter, current, incognito())
-        // A last-page spread counts once its second half is shown.
-        val finished = current == count - 1 && !(isSplit(current) && half == 0)
+        // A last-page spread counts once its second half is shown; a pair once it's on screen.
+        val shownLast = if (pairedWithNext(current)) current + 1 else current
+        val finished = shownLast >= count - 1 && !(isSplit(current) && half == 0)
         if (markRead && finished) markRead(chapter)
     }
 
@@ -229,6 +289,7 @@ class ReaderModel(
         // Moving on to the next chapter means this one is finished, even a one-page chapter.
         if (newIndex > index && pages is Loadable.Ready) markRead(chapter)
         index = newIndex
+        atTransition = false
         openAtEnd = atEnd
         resumePage = 0
         pageState.value = 0

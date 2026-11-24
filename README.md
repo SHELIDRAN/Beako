@@ -36,6 +36,8 @@ Beako runs on 64-bit Windows 10 and 11 and bundles its own Java runtime, so ther
 - **Gaps filled automatically.** When the source you read from is missing a chapter, Beako takes it from another one and labels where it came from.
 - **A reader for both comics and webtoons:** paged (left-to-right or right-to-left) or a continuous strip, fit to screen, width or height, split double pages, borderless full screen, and keyboard controls you can rebind. Webtoons are detected for you.
 - **Downloads** for reading offline, with a queue you can pause.
+- **Manga on your PC:** point Beako at a folder of series (folders of images or `.cbz`/`.zip` chapters) and read them like any other title.
+- **Reader options from Neko:** two pages side by side, crop borders, grayscale, a page between chapters, skip read or duplicate chapters, click-zone layouts, pages loaded ahead, and keeping the screen awake.
 
 ### Keep track
 - **Library** with categories, grouping, sorting and search across names, tags and genres.

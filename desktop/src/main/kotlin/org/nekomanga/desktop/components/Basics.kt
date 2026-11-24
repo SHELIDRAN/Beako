@@ -83,7 +83,10 @@ fun GlassButton(
     primary: Boolean = false,
     accent: Boolean = false,
     enabled: Boolean = true,
+    /** Just the [icon], with [label] as its name and tooltip. */
+    iconOnly: Boolean = false,
 ) {
+    val compact = iconOnly && icon != null
     val shape = CircleShape
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
@@ -98,33 +101,36 @@ fun GlassButton(
             primary -> Modifier.clip(shape).background(BeakoColors.Text)
             else -> Modifier.glass(shape, tint = BeakoColors.Rim)
         }
-    Row(
-        modifier
-            .alpha(if (enabled) 1f else 0.45f)
-            .press(interaction, enabled)
-            .defaultMinSize(minHeight = Sizes.controlMd)
-            .focusRing(interaction, shape)
-            .then(base)
-            .hoverable(interaction, enabled)
-            .clickable(
-                interactionSource = interaction,
-                indication = LocalIndication.current,
-                enabled = enabled,
-                role = Role.Button,
-                onClick = onClick,
-            )
-            .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        val ink =
-            when {
-                accent -> BeakoColors.AccentInk
-                primary -> BeakoColors.Ground
-                else -> BeakoColors.Text
-            }
-        if (icon != null) Icon(icon, null, tint = ink, modifier = Modifier.size(Sizes.iconSm))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = ink)
+    Tooltip(if (compact) label else null) {
+        Row(
+            modifier
+                .alpha(if (enabled) 1f else 0.45f)
+                .press(interaction, enabled)
+                .defaultMinSize(minHeight = Sizes.controlMd)
+                .focusRing(interaction, shape)
+                .then(base)
+                .hoverable(interaction, enabled)
+                .clickable(
+                    interactionSource = interaction,
+                    indication = LocalIndication.current,
+                    enabled = enabled,
+                    role = Role.Button,
+                    onClick = onClick,
+                )
+                .then(if (compact) Modifier.semantics { contentDescription = label } else Modifier)
+                .padding(horizontal = if (compact) 9.dp else 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            val ink =
+                when {
+                    accent -> BeakoColors.AccentInk
+                    primary -> BeakoColors.Ground
+                    else -> BeakoColors.Text
+                }
+            if (icon != null) Icon(icon, null, tint = ink, modifier = Modifier.size(Sizes.iconSm))
+            if (!compact) Text(label, style = MaterialTheme.typography.labelLarge, color = ink)
+        }
     }
 }
 

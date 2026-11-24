@@ -39,6 +39,12 @@ class UpdateChecker(
     /** Chapters from an installed source, for titles read there. */
     private val extensionChapters: (suspend (sourceId: String, url: String) -> List<Chapter>)? =
         null,
+    /** Chapters of a title in the local manga folder; null when local manga is off. */
+    private val localChapters: (() -> ((Title) -> List<Chapter>)?) = { null },
+    /** False skips the automatic checks for now (e.g. on battery); a manual check still runs. */
+    private val canRunAutomatically: () -> Boolean = { true },
+    /** Also refresh titles' details and covers from MangaDex. */
+    private val refreshDetails: () -> Boolean = { false },
     private val onFound: (List<TitleUpdate>) -> Unit = {},
 ) {
     var running by mutableStateOf(false)
@@ -65,7 +71,7 @@ class UpdateChecker(
             delay(firstDelayMillis)
             while (isActive) {
                 val hours = intervalHours()
-                if (hours > 0) runNow()?.join()
+                if (hours > 0 && canRunAutomatically()) runNow()?.join()
                 // With checks off, look again later in case the setting changes.
                 delay(hours.coerceAtLeast(1) * 60 * 60 * 1000L)
             }
@@ -89,6 +95,21 @@ class UpdateChecker(
         try {
             for ((index, entry) in entries.withIndex()) {
                 try {
+                    if (entry.title.source == org.nekomanga.shared.model.Sources.LOCAL) {
+                        val reader = localChapters()
+                        // File listing stays off the UI thread.
+                        val list = reader?.let {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                it(entry.title)
+                            }
+                        }
+                        if (list != null) {
+                            val fresh = library.recordCheck(entry.key, entry.visible(list))
+                            if (fresh.isNotEmpty()) found += TitleUpdate(entry.title, fresh)
+                        }
+                        progress = index + 1 to entries.size
+                        continue
+                    }
                     val source = entry.readingSource
                     val link = source?.let { entry.sourceLinks[it] }
                     if (
@@ -111,6 +132,9 @@ class UpdateChecker(
                             ?: discovery.findOnMangaDex(entry.title)?.id?.also {
                                 library.setMangaDexId(entry.title, it)
                             }
+                    if (id != null && refreshDetails()) {
+                        runCatching { library.refreshTitle(entry.key, mangaDex.title(id)) }
+                    }
                     if (id != null) {
                         val fresh =
                             library.recordCheck(
@@ -140,7 +164,19 @@ class UpdateChecker(
                 entry.unreadCount == 0) ||
                 ("UNREAD" in rules && entry.unreadCount > 0) ||
                 ("NOT_STARTED" in rules &&
-                    entry.status == org.nekomanga.shared.library.ReadingStatus.NOT_STARTED)
+                    entry.status == org.nekomanga.shared.library.ReadingStatus.NOT_STARTED) ||
+                ("DROPPED" in rules &&
+                    entry.tracks.values.any {
+                        it.status == org.nekomanga.shared.library.TrackStatus.DROPPED
+                    })
+
+        /**
+         * Whether [entry] is in the categories the check covers: in one of [include] (all when
+         * empty) and in none of [exclude].
+         */
+        fun inCategories(include: Set<String>, exclude: Set<String>, entry: LibraryEntry): Boolean =
+            (include.isEmpty() || entry.categories.any { it in include }) &&
+                entry.categories.none { it in exclude }
 
         /** A one-line summary for a notification, e.g. "Eleceed 391 and 2 more titles". */
         fun summary(updates: List<TitleUpdate>): String {

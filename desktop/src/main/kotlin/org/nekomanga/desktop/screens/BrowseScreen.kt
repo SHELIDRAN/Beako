@@ -17,6 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
@@ -34,7 +37,13 @@ import org.nekomanga.shared.model.Title
 
 /** The Browse home: a search field over Comick's charts. */
 @Composable
-fun BrowseScreen(model: BrowseModel, onSearch: () -> Unit, onOpen: (Title) -> Unit) {
+fun BrowseScreen(
+    model: BrowseModel,
+    onSearch: () -> Unit,
+    onOpen: (Title) -> Unit,
+    /** Manga in the local folder; null when local manga is off. */
+    localTitles: (suspend () -> List<Title>)? = null,
+) {
     LaunchedEffect(model) { model.start() }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 28.dp),
@@ -60,6 +69,24 @@ fun BrowseScreen(model: BrowseModel, onSearch: () -> Unit, onOpen: (Title) -> Un
                     GlassButton("Try Comick again", onClick = model::refresh)
                 }
             }
+        }
+        if (localTitles != null) {
+            var local by remember {
+                androidx.compose.runtime.mutableStateOf<
+                    org.nekomanga.desktop.state.Loadable<List<Title>>,
+                >(
+                    org.nekomanga.desktop.state.Loadable.Loading,
+                )
+            }
+            LaunchedEffect(Unit) {
+                local =
+                    org.nekomanga.desktop.state.Loadable.Ready(
+                        runCatching { localTitles() }.getOrDefault(emptyList()),
+                    )
+            }
+            // Only shown once there's something in the folder.
+            val ready = local as? org.nekomanga.desktop.state.Loadable.Ready
+            if (ready != null && ready.value.isNotEmpty()) Shelf("On this PC", local, onOpen)
         }
         if (model.comickDown) {
             Shelf("Most followed on MangaDex", model.mangaDexPopular, onOpen, ranked = true)

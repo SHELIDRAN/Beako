@@ -8,6 +8,8 @@ object Sources {
     const val MANGADEX = "mangadex"
     /** Titles imported from an AniList list. */
     const val ANILIST = "anilist"
+    /** Manga in a folder on this PC. */
+    const val LOCAL = "local"
 }
 
 /** IDs on other trackers, used to recognise the same title across services. */

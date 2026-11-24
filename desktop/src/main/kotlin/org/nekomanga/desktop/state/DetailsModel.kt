@@ -35,6 +35,16 @@ class DetailsModel(
     private val onChaptersRead: (List<Chapter>) -> Unit = {},
     /** Installed extensions, searched for this title; null when there are none to search. */
     private val readingSources: ReadingSources? = null,
+    /** The local manga folder, for titles from this PC. */
+    private val local: org.nekomanga.shared.local.LocalSource? = null,
+    /** "ANY": a chapter shared by several groups hides when any is hidden; "ALL": all of them. */
+    private val groupFilter: () -> String = { "ANY" },
+    /** Read one upload of each chapter number, preferring the group read before. */
+    private val skipDuplicates: () -> Boolean = { false },
+    /** Look up per-volume covers (MangaDex) to show the one being read. */
+    private val dynamicCovers: () -> Boolean = { false },
+    /** Category for new library titles: null asks, "" none, else that category. */
+    private val defaultCategory: () -> String? = { null },
 ) {
     /** Chapters newest first, as the list shows them. */
     var chapters by mutableStateOf<Loadable<List<Chapter>>>(Loadable.Loading)
@@ -143,10 +153,10 @@ class DetailsModel(
     var similar by mutableStateOf<Loadable<List<Title>>>(Loadable.Loading)
         private set
 
-    /** Every group that has chapters here, most chapters first. */
+    /** Every group that has chapters here (each one on its own), most chapters first. */
     fun groups(): List<String> =
         allChapters()
-            .mapNotNull { it.group }
+            .flatMap { groupsOf(it) }
             .groupingBy { it }
             .eachCount()
             .entries
@@ -161,11 +171,18 @@ class DetailsModel(
     /**
      * Chapters from groups that aren't hidden, newest first. Chapters with no group always show.
      */
-    fun visibleChapters(): List<Chapter> =
-        allChapters().filter { it.group == null || it.group !in excludedGroups }
+    fun visibleChapters(): List<Chapter> = visibleOf(allChapters())
 
-    private fun visibleOf(list: List<Chapter>) = list.filter {
-        it.group == null || it.group !in excludedGroups
+    private fun visibleOf(list: List<Chapter>) = list.filter { isVisible(it) }
+
+    /** A chapter shows unless its groups are hidden (any or all of them, by the setting). */
+    private fun isVisible(chapter: Chapter): Boolean {
+        val groups = groupsOf(chapter)
+        if (groups.isEmpty() || excludedGroups.isEmpty()) return true
+        // Saved filters from before groups were split still hide their exact chapters.
+        if (chapter.group in excludedGroups) return false
+        return if (groupFilter() == "ALL") !groups.all { it in excludedGroups }
+        else groups.none { it in excludedGroups }
     }
 
     private fun allChapters(): List<Chapter> = (chapters as? Loadable.Ready)?.value.orEmpty()
@@ -236,8 +253,52 @@ class DetailsModel(
         return readingOrder().filter { it.id in read }.highestNumber()
     }
 
-    /** [chapters] oldest first, the order the reader moves through them. */
-    fun readingOrder(): List<Chapter> = visibleChapters().reversed()
+    /**
+     * [chapters] oldest first, the order the reader moves through them. With "skip duplicate
+     * chapters", one upload of each number is kept: the one by the group read just before, else the
+     * first.
+     */
+    fun readingOrder(): List<Chapter> {
+        val order = visibleChapters().reversed()
+        return if (skipDuplicates()) withoutDuplicates(order) else order
+    }
+
+    /** Pages of the volume being read, by volume number; empty until looked up. */
+    var volumeCovers by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    private fun loadVolumeCovers(mangaId: String) {
+        if (!dynamicCovers() || volumeCovers.isNotEmpty()) return
+        scope.launch {
+            runCatching { mangaDex.volumeCovers(mangaId) }.onSuccess { volumeCovers = it }
+        }
+    }
+
+    /**
+     * The cover to show: with dynamic covers, that of the volume you're reading (or about to); else
+     * the title's own.
+     */
+    fun coverUrl(): String? {
+        if (!dynamicCovers() || volumeCovers.isEmpty()) return title.coverUrl
+        val order = readingOrder()
+        val chapter = continueIndex()?.let { order.getOrNull(it) }
+        val volume = chapter?.volume?.trimStart('0')?.ifEmpty { "0" }
+        return volume?.let { volumeCovers[it] } ?: title.coverUrl
+    }
+
+    /**
+     * Adds the title using the default category. True when the categories menu should open ("Always
+     * ask").
+     */
+    fun addWithDefaultCategory(): Boolean {
+        val default = defaultCategory()
+        when {
+            default == null -> addToLibrary()
+            default.isEmpty() || default !in categories -> addToLibrary()
+            else -> addToLibrary(listOf(default))
+        }
+        return default == null
+    }
 
     /** Where "Continue" should open: the saved chapter, else the first unread one. */
     fun continueIndex(): Int? {
@@ -267,6 +328,10 @@ class DetailsModel(
     }
 
     private fun load() {
+        if (title.source == Sources.LOCAL) {
+            loadLocal()
+            return
+        }
         if (similar !is Loadable.Ready) loadSimilar()
         chapters = Loadable.Loading
         mangaDexError = null
@@ -339,6 +404,20 @@ class DetailsModel(
         }
     }
 
+    /** A title from the local manga folder: its chapters come from the files, nothing else. */
+    private fun loadLocal() {
+        similar = Loadable.Ready(emptyList())
+        mangaDexChecked = true
+        val folder = local
+        if (folder == null) {
+            chapters = Loadable.Failed("Local manga is turned off in More → Library.")
+            return
+        }
+        availableOn = listOf(SourceMatch(Sources.LOCAL, LOCAL_NAME, title.id))
+        selectedSource = Sources.LOCAL
+        loadChapters()
+    }
+
     private fun loadChapters() {
         val match = availableOn.firstOrNull { it.sourceId == selectedSource } ?: return
         if (library.contains(title)) library.switchReadingSource(title, match.sourceId)
@@ -349,9 +428,17 @@ class DetailsModel(
             chapters =
                 try {
                     val list =
-                        if (match.sourceId == Sources.MANGADEX)
-                            mangaDex.allChapters(match.url, languages())
-                        else readingSources?.chapters(match.sourceId, match.url).orEmpty()
+                        when (match.sourceId) {
+                            Sources.LOCAL ->
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    local?.chapters(title).orEmpty()
+                                }
+                            Sources.MANGADEX -> {
+                                loadVolumeCovers(match.url)
+                                mangaDex.allChapters(match.url, languages())
+                            }
+                            else -> readingSources?.chapters(match.sourceId, match.url).orEmpty()
+                        }
                     library.entry(title)?.let { library.recordCheck(it.key, visibleOf(list)) }
                     Loadable.Ready(list)
                 } catch (e: ApiError) {
@@ -418,6 +505,40 @@ class DetailsModel(
 
     /** Chapters filled in from another source, by chapter id, with that source's name. */
     val filledFrom = androidx.compose.runtime.mutableStateMapOf<String, String>()
+}
+
+/** How the local manga folder is named in the source picker. */
+const val LOCAL_NAME = "This PC"
+
+/** The scanlation groups of a chapter: MangaDex joins several with " & ". */
+fun groupsOf(chapter: Chapter): List<String> =
+    chapter.group?.split(" & ")?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+
+/**
+ * One upload per chapter number, keeping the group read just before when it has one; unnumbered
+ * chapters all stay. [order] is oldest first.
+ */
+fun withoutDuplicates(order: List<Chapter>): List<Chapter> {
+    val result = mutableListOf<Chapter>()
+    var lastGroup: String? = null
+    var i = 0
+    while (i < order.size) {
+        val number = order[i].number?.toDoubleOrNull()
+        if (number == null) {
+            result += order[i]
+            lastGroup = order[i].group ?: lastGroup
+            i++
+            continue
+        }
+        var j = i
+        while (j < order.size && order[j].number?.toDoubleOrNull() == number) j++
+        val same = order.subList(i, j)
+        val pick = same.firstOrNull { it.group != null && it.group == lastGroup } ?: same.first()
+        result += pick
+        lastGroup = pick.group ?: lastGroup
+        i = j
+    }
+    return result
 }
 
 /** A title found by a search in the source picker; [url] is its address (or MangaDex id). */

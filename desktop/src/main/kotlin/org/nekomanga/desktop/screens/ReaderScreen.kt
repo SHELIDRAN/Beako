@@ -5,33 +5,20 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronLeft
@@ -49,15 +36,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -67,19 +51,17 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.nativeKeyCode
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
 import java.awt.Desktop
 import java.net.URI
 import kotlinx.coroutines.launch
 import org.nekomanga.desktop.components.DropletSegmented
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.components.LoadingMessage
 import org.nekomanga.desktop.components.StateMessage
+import org.nekomanga.desktop.platform.KeepAwake
 import org.nekomanga.desktop.state.KeyBindings
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.LocalKeyRouter
@@ -88,15 +70,11 @@ import org.nekomanga.desktop.state.ReaderAction
 import org.nekomanga.desktop.state.ReaderModel
 import org.nekomanga.desktop.state.ReadingMode
 import org.nekomanga.desktop.state.displayName
-import org.nekomanga.desktop.state.pageModel
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.LocalAppearance
 import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.library.ReaderPrefs
-
-/** Height÷width assumed for a webtoon page until it has loaded. */
-private const val DefaultAspect = 1.45f
 
 /**
  * The reader. Webtoon mode scrolls a long strip and hides the controls while scrolling down,
@@ -123,6 +101,12 @@ fun ReaderScreen(
         onDispose { BeakoColors.override = null }
     }
     val window = LocalWindowControl.current
+    // Keeps the display awake while the reader is open, if asked.
+    DisposableEffect(prefs.keepScreenOn) {
+        if (prefs.keepScreenOn) KeepAwake.hold()
+        onDispose { KeepAwake.release() }
+    }
+    LaunchedEffect(Unit) { if (prefs.openFullscreen) window?.setFullscreen(true) }
     val focus = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
     var controls by remember { mutableStateOf(true) }
@@ -189,11 +173,9 @@ fun ReaderScreen(
         val chapter = model.chapter
         when (val pages = model.pages) {
             is Loadable.Loading ->
-                Text(
+                LoadingMessage(
                     "Loading ${chapter.displayName()}…",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = BeakoColors.TextMuted,
-                    modifier = Modifier.align(Alignment.Center),
+                    Modifier.align(Alignment.Center),
                 )
             is Loadable.Failed ->
                 Box(Modifier.align(Alignment.Center)) {
@@ -237,6 +219,14 @@ fun ReaderScreen(
                             onToggleControls = { controls = !controls },
                         )
                 }
+        }
+        if (
+            prefs.showPageNumber &&
+                !controls &&
+                model.pages is Loadable.Ready &&
+                !model.atTransition
+        ) {
+            PageNumber(model, Modifier.align(Alignment.BottomCenter))
         }
         ReaderControls(
             model,
@@ -282,127 +272,6 @@ private fun openInBrowser(url: String) {
     runCatching { if (Desktop.isDesktopSupported()) Desktop.getDesktop().browse(URI(url)) }
 }
 
-@Composable
-private fun WebtoonStrip(
-    model: ReaderModel,
-    urls: List<String>,
-    listState: LazyListState,
-    prefs: ReaderPrefs,
-    onToggleControls: () -> Unit,
-    onScrollDirection: (down: Boolean) -> Unit,
-) {
-    // Height÷width of each loaded page, so a page keeps its size once known.
-    val aspects = remember(model.index) { mutableStateMapOf<Int, Float>() }
-    // Open at the saved page (or the last page, when paging back from the next chapter) before
-    // scroll positions count as reading.
-    var positioned by remember(model.index) { mutableStateOf(false) }
-    LaunchedEffect(listState, urls) {
-        listState.scrollToItem(model.page.coerceIn(0, urls.lastIndex))
-        positioned = true
-    }
-    LaunchedEffect(listState) {
-        var last = 0L
-        snapshotFlow {
-            listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
-        }
-            .collect { (item, offset) ->
-                if (!positioned) return@collect
-                model.page = item.coerceAtMost(urls.lastIndex)
-                // Position along the strip; only real movement counts as a direction.
-                val position = item * 100_000L + offset
-                if (position > last + 12) onScrollDirection(true)
-                else if (position < last - 12) onScrollDirection(false)
-                last = position
-            }
-    }
-    LazyColumn(
-        state = listState,
-        modifier =
-            Modifier.fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onToggleControls,
-                ),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(prefs.pageGap.coerceIn(0, 32).dp),
-    ) {
-        itemsIndexed(urls, key = { _, url -> url }) { index, url ->
-            AsyncImage(
-                model = pageModel(url),
-                contentDescription = "Page ${index + 1} of ${urls.size}",
-                contentScale = ContentScale.FillWidth,
-                onSuccess = { state ->
-                    val image = state.result.image
-                    if (image.width > 0) {
-                        aspects[index] = image.height.toFloat() / image.width
-                        model.reportAspect(index, aspects[index]!!)
-                    }
-                },
-                modifier =
-                    Modifier.fillMaxWidth(prefs.webtoonWidth.coerceIn(30, 100) / 100f)
-                        .aspectRatio(1f / (aspects[index] ?: DefaultAspect)),
-            )
-        }
-        item("end") {
-            Column(
-                Modifier.fillMaxWidth().padding(vertical = 56.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (model.hasNext) {
-                    GlassButton("Next chapter", onClick = model::nextChapter, primary = true)
-                } else {
-                    Text(
-                        "You’re all caught up",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = BeakoColors.TextMuted,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PagedView(
-    model: ReaderModel,
-    urls: List<String>,
-    prefs: ReaderPrefs,
-    onToggleControls: () -> Unit,
-) {
-    val rtl = model.mode == ReadingMode.RIGHT_TO_LEFT
-    val page = model.page.coerceIn(0, urls.lastIndex)
-    val report: (coil3.compose.AsyncImagePainter.State.Success) -> Unit = { state ->
-        val image = state.result.image
-        if (image.width > 0) model.reportAspect(page, image.height.toFloat() / image.width)
-    }
-    Box(Modifier.fillMaxSize()) {
-        val url = pageModel(urls[page])
-        val description = "Page ${page + 1} of ${urls.size}"
-        if (model.isSplit(page)) {
-            // The half read first is on the left for left-to-right, on the right for right-to-left.
-            SplitPage(url, description, model.aspectOf(page), showLeft = (model.half == 0) != rtl)
-        } else {
-            FittedPage(url, description, page, PageFit.of(prefs.fit), report)
-        }
-        // Read ahead, so the next page is ready when it is turned to.
-        urls.getOrNull(page + 1)?.let {
-            AsyncImage(
-                model = pageModel(it),
-                contentDescription = null,
-                modifier = Modifier.height(1.dp),
-            )
-        }
-        // Click zones: the outer thirds turn the page, the middle shows or hides the controls.
-        val leftForward = rtl != prefs.invertClickZones
-        Row(Modifier.fillMaxSize()) {
-            ClickZone(0.33f, "Left side: turn the page") { model.turn(forward = leftForward) }
-            ClickZone(0.5f, "Show or hide controls", onToggleControls)
-            ClickZone(1f, "Right side: turn the page") { model.turn(forward = !leftForward) }
-        }
-    }
-}
-
 /** How a page fits the window in the paged modes. */
 enum class PageFit(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     SCREEN("Fit screen", Icons.Outlined.FitScreen),
@@ -413,91 +282,6 @@ enum class PageFit(val label: String, val icon: androidx.compose.ui.graphics.vec
     companion object {
         fun of(name: String) = entries.firstOrNull { it.name == name } ?: SCREEN
     }
-}
-
-@Composable
-private fun FittedPage(
-    url: Any,
-    description: String,
-    page: Int,
-    fit: PageFit,
-    onLoaded: (coil3.compose.AsyncImagePainter.State.Success) -> Unit,
-) {
-    // Each page starts scrolled to its top-left corner.
-    val vertical = remember(page) { ScrollState(0) }
-    val horizontal = remember(page) { ScrollState(0) }
-    when (fit) {
-        PageFit.SCREEN ->
-            AsyncImage(
-                url,
-                description,
-                Modifier.fillMaxSize(),
-                contentScale = ContentScale.Fit,
-                onSuccess = onLoaded,
-            )
-        PageFit.WIDTH ->
-            Box(Modifier.fillMaxSize().verticalScroll(vertical)) {
-                AsyncImage(
-                    url,
-                    description,
-                    Modifier.fillMaxWidth(),
-                    contentScale = ContentScale.FillWidth,
-                    onSuccess = onLoaded,
-                )
-            }
-        PageFit.HEIGHT ->
-            Box(
-                Modifier.fillMaxSize().horizontalScroll(horizontal),
-                contentAlignment = Alignment.Center,
-            ) {
-                AsyncImage(
-                    url,
-                    description,
-                    Modifier.fillMaxHeight(),
-                    contentScale = ContentScale.FillHeight,
-                    onSuccess = onLoaded,
-                )
-            }
-        PageFit.ORIGINAL ->
-            Box(Modifier.fillMaxSize().verticalScroll(vertical).horizontalScroll(horizontal)) {
-                AsyncImage(url, description, contentScale = ContentScale.None, onSuccess = onLoaded)
-            }
-    }
-}
-
-/** One half of a double-page spread, as large as fits the window. */
-@Composable
-private fun SplitPage(url: Any, description: String, aspect: Float, showLeft: Boolean) {
-    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        // A half is twice as tall, relative to its width, as the whole spread.
-        val halfAspect = (aspect * 2).coerceAtLeast(0.1f)
-        val widthLimited = maxHeight / maxWidth > halfAspect
-        val halfWidth = if (widthLimited) maxWidth else maxHeight / halfAspect
-        val height = if (widthLimited) maxWidth * halfAspect else maxHeight
-        Box(Modifier.size(halfWidth, height).clipToBounds()) {
-            AsyncImage(
-                url,
-                "$description, ${if (showLeft) "left" else "right"} half",
-                Modifier.requiredSize(halfWidth * 2, height)
-                    .offset(x = if (showLeft) halfWidth / 2 else -halfWidth / 2),
-                contentScale = ContentScale.FillBounds,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ClickZone(fraction: Float, description: String, onClick: () -> Unit) {
-    Box(
-        Modifier.fillMaxHeight()
-            .fillMaxWidth(fraction)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            )
-            .semantics { contentDescription = description },
-    )
 }
 
 @Composable
