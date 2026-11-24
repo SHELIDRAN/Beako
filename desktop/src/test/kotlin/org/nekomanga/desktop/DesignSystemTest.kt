@@ -1,5 +1,6 @@
 package org.nekomanga.desktop
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FitScreen
 import androidx.compose.material.icons.outlined.Height
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -263,6 +265,30 @@ class DesignSystemTest {
             }
             onNodeWithContentDescription("Next chapter").performClick()
             assertEquals(1, clicks)
+        }
+    }
+
+    @Test
+    fun arrowButtonKeepsItsSizeInAWideRow() {
+        runComposeUiTest {
+            setContent {
+                BeakoTheme(BeakoAppearance(reduceMotion = true)) {
+                    androidx.compose.foundation.layout.Row(
+                        androidx.compose.ui.Modifier.width(1200.dp),
+                    ) {
+                        ArrowButton("Start reading", {}, style = ArrowStyle.ACCENT)
+                        androidx.compose.material3.Text("Download unread")
+                    }
+                }
+            }
+            // 0.1.4 stretched the button across the row and pushed its neighbours out of view.
+            onNodeWithText("Download unread").assertIsDisplayed()
+            val width =
+                onNodeWithText("Start reading", useUnmergedTree = true).fetchSemanticsNode().let {
+                    node ->
+                    node.parent?.size?.width ?: 0
+                }
+            assertTrue(width in 1..400, "button width $width px")
         }
     }
 }

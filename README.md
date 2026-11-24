@@ -1,64 +1,94 @@
 <div align="center">
-<a href="https://github.com/nekomangaorg/Neko"><img src="./.github/assets/logo.png" alt="Neko" width="200"></a>
 
-# Neko
+<img src="./.github/assets/beako-logo.png" alt="Beako" width="128">
 
-A Free, Open source unofficial manga reader for MangaDex
+# Beako
 
-If you got any questions, [join our Discord server](https://discord.gg/4vmK42QuKG).
+**A manga reader for Windows.** Discover with Comick's tags and charts, read from MangaDex and the sources you add, and track on Comick and AniList, in a neutral liquid-glass window.
 
-![](https://img.shields.io/github/downloads/nekomangaorg/neko/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)
-![](https://img.shields.io/github/actions/workflow/status/nekomangaorg/neko/ci-draft-release.yml?labelColor=27303D&style=flat)
-![](https://img.shields.io/github/stars/nekomangaorg/Neko.svg?label=stars&labelColor=27303D&color=0D1117&logo=github&style=flat)
+[![Latest release](https://img.shields.io/github/v/release/SHELIDRAN/Beako?label=Download&labelColor=0b0c0e&color=c8461f&style=for-the-badge)](https://github.com/SHELIDRAN/Beako/releases/latest)
 
-## Download
+![Downloads](https://img.shields.io/github/downloads/SHELIDRAN/Beako/total?label=downloads&labelColor=15161a&color=1d1e23&style=flat)
+![Windows build](https://img.shields.io/github/actions/workflow/status/SHELIDRAN/Beako/beako-desktop.yml?label=windows%20build&labelColor=15161a&style=flat)
+![License](https://img.shields.io/github/license/SHELIDRAN/Beako?labelColor=15161a&color=1d1e23&style=flat)
 
-[![](https://img.shields.io/github/v/release/nekomangaorg/neko.svg?maxAge=3600&label=Stable&labelColor=000000&color=ff124a&style=for-the-badge)](https://github.com/nekomangaorg/Neko/releases/latest)
-
-## Features include
-
-<div align="left">
-
-- [MangaDex](https://mangadex.org/) manga reader for Android 8+
-- Supports native login to MangaDex
-- Offline reading
-- MDList support
-- Tracker support: <a target="_blank" href="https://myanimelist.net/">MyAnimeList</a>, <a target="_blank" href="https://anilist.co/">AniList</a>, <a target="_blank" href="https://kitsu.app/">
-  Kitsu</a>, <a target="_blank" href="https://mangaupdates.com">MangaUpdates</a> and <a target="_blank" href="https://mangabaka.org/">MangaBaka</a>
-- Custom computer generated similar manga recommendations, as well as user recommendations from MyAnimeList, MangaUpdates, AniList
-- Syncing manga, and read statuses to and from MangaDex and Neko
-- Ability to merge missing chapters from MangaDex with other sources including <a target="_blank" href="https://atsu.moe/">Atsumaru</a>, <a target="_blank" href="https://toonily.com/">Toonily</a>, 
-  <a target="_blank" href="https://weebcentral.com/">Weeb Central</a>, <a target="_blank" href="https://projectsuki.com">Project Suki</a>, <a target="_blank" href="https://comix.to/">Comix</a>, <a target="_blank" href="https://github.com/Suwayomi/Suwayomi-Server">Suwayomi</a> and <a target="_blank" href="https://komga.org/">Komga</a>
-- Plus much more...
+<img src="./.github/assets/screenshots/browse.jpg" alt="Browse: ranked shelves of popular and new comics beside the Beako menu" width="860">
 
 </div>
 
-## A big thanks to all who have contributed
+## Install
 
-<a href="https://github.com/nekomangaorg/neko/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=nekomangaorg/neko"  width="600" />
-</a>
+1. Download **`Beako-<version>-windows-x64.msi`** from the [latest release](https://github.com/SHELIDRAN/Beako/releases/latest).
+2. Run it. New versions upgrade the installed one in place; your library and settings stay.
+3. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose **More info → Run anyway**. The `.sha256` file next to the installer lets you check the download.
 
-## Disclaimer
+Beako runs on 64-bit Windows 10 and 11 and bundles its own Java runtime, so there's nothing else to install.
 
-The developer(s) of this application do not have any affiliation with the content providers available, and this application hosts zero content.
+## Features
+
+### Discover
+- **Browse** two ranked shelves from [Comick](https://comick.dev), the most followed new comics and the most recent popular, over the last 7 days, month or three months.
+- **Search with tags you can include or exclude.** Included tags are all required, as on Comick, so "female lead + comedic misunderstanding" finds titles with both. Filter by genre, type, demographic, status, how recently a title was added and minimum score.
+- **MangaDex as a fallback.** When Comick can't answer (it's down, rate-limited or finds nothing), Beako searches MangaDex instead and says so, with a **Try Comick again** button.
+
+### Read
+- **One title page for every source.** MangaDex is built in; add Mangayomi-format JavaScript sources from a repository you choose. The **Reading from** picker shows every source's state (matched, no match, checking, failed), searches any of them by hand with the title's other names, and remembers your choice.
+- **Gaps filled automatically.** When the source you read from is missing a chapter, Beako takes it from another one and labels where it came from.
+- **A reader for both comics and webtoons:** paged (left-to-right or right-to-left) or a continuous strip, fit to screen, width or height, split double pages, borderless full screen, and keyboard controls you can rebind. Webtoons are detected for you.
+- **Downloads** for reading offline, with a queue you can pause.
+
+### Keep track
+- **Library** with categories, grouping, sorting and search across names, tags and genres.
+- **Latest updates**: Beako checks your library for new chapters on a schedule you set and notifies you.
+- **Reading history** by day, resuming where you stopped.
+- **Trackers:** sign in to **Comick** and **AniList** (two-way: import your lists, and progress is sent as you read), and **MangaDex** (import follows, mark chapters read).
+- **Backup and restore**, automatic daily backups, and import from a Neko (Android) backup.
+
+### Look and comfort
+- **Beako Glass**, a neutral liquid-glass design: the covers bring the colour, the interface stays out of their way.
+- Six colour schemes, including **Porcelain**, a light one. Glass strength, interface size (80–150%), and a menu that collapses to a slim rail or stays open.
+- **Reduce motion** and **Reduce transparency**, which also follow Windows' own settings. Every control works from the keyboard with a visible focus ring; Ctrl+K and Ctrl+F jump to search.
+- Discord Rich Presence (optional), DNS over HTTPS, MangaDex data saver and an incognito mode.
+
+<div align="center">
+<img src="./.github/assets/screenshots/search.jpg" alt="Search with include and exclude tag chips, genres and filters" width="420">
+<img src="./.github/assets/screenshots/title.jpg" alt="A title page with Start reading, downloads, library and source picker" width="420">
+<img src="./.github/assets/screenshots/library-porcelain.jpg" alt="The library in the light Porcelain colour scheme with the menu open" width="420">
+</div>
+
+## Sources and privacy
+
+- **Beako ships with no sources besides MangaDex.** You add a Mangayomi extension repository yourself (the [wotaku.wiki list](https://wotaku.wiki/ext/mangayomi) is a starting point) and install sources from it. Sources are **third-party code**: Beako runs them in a sandbox with no access to your files or local network, a time limit and size limits on what they download.
+- **Comick is used for discovery and tracking only.** Beako never reads chapters or page images from Comick, and never offers it as a reading source.
+- **Sign-ins stay on your PC.** Comick and AniList use their official sign-in pages; Beako keeps the refresh tokens in Windows Credential Manager and never stores your passwords. Each token is only ever sent to the service it belongs to.
+- If something goes wrong, `%APPDATA%\Beako\beako.log` records source failures and errors (never tokens or passwords); attach it to an [issue](https://github.com/SHELIDRAN/Beako/issues/new/choose).
+
+## Build from source
+
+You need JDK 21. The Android modules from upstream stay in the repository as porting source; `-PdesktopOnly` skips them, so no Android SDK is needed.
+
+```bash
+./gradlew -PdesktopOnly :desktop:run
+```
+
+```bash
+./gradlew -PdesktopOnly build
+```
+
+On Windows, build the installer with:
+
+```bash
+./gradlew -PdesktopOnly :desktop:packageMsi
+```
+
+The app is Kotlin with Compose Multiplatform for Desktop: `desktop/` holds the Windows app, `shared/` the API clients, extension runtime and other logic. `docs/PLAN.md` has the roadmap and `docs/design/beako-glass/` the design system.
+
+## Credits
+
+Beako is a port of **[Neko](https://github.com/nekomangaorg/Neko)**, the Android MangaDex reader, to Windows; thanks to everyone who built it. The extension bridge is adapted from **[Mangayomi](https://github.com/kodjodevf/mangayomi)**. Text is set in [Inter](https://rsms.me/inter/) (SIL OFL 1.1).
+
+Beako isn't affiliated with Comick, MangaDex, AniList, Mangayomi or Neko.
 
 ## License
 
-<pre>
-Copyright 2015 Javier Tomás
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-Modifications copyright (C) 2019 NekoMangaOrg
-</pre>
-</div>
+[Apache License 2.0](./LICENSE), like Neko. Upstream copyright notices are kept in the source.

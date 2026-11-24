@@ -340,7 +340,8 @@ private fun Head(expanded: Boolean, mode: SidebarMode, onModeChange: (SidebarMod
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         val logo = remember { appLogo() }
-        val logoModifier = Modifier.size(28.dp).clip(CircleShape)
+        // The logo carries its own rounded-square shape, so it is shown uncropped.
+        val logoModifier = Modifier.size(28.dp)
         if (!expanded) {
             // On the rail the logo is the expand control.
             Box(
@@ -397,12 +398,13 @@ private fun LogoImage(logo: ImageBitmap?) {
     }
 }
 
-/** The app icon, cropped to a circle where it is shown small. */
+/** The app icon (the Beako logo), for the menu header. */
 private fun appLogo(): ImageBitmap? = runCatching {
     val bytes =
-        Thread.currentThread().contextClassLoader.getResourceAsStream("neko-icon.png")!!.use {
-            it.readBytes()
-        }
+        Thread.currentThread()
+            .contextClassLoader
+            .getResourceAsStream(org.nekomanga.desktop.APP_ICON)!!
+            .use { it.readBytes() }
     SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
 }
     .getOrNull()

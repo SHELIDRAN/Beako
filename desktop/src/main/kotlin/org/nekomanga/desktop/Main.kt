@@ -57,8 +57,11 @@ import org.nekomanga.shared.library.Trackers
 import org.nekomanga.shared.model.Title
 import org.nekomanga.shared.model.webLink
 
-/** Classpath path of the window icon (the same artwork as the Rust prototype's icon). */
-const val APP_ICON = "neko-icon.png"
+/**
+ * Classpath path of the window and sidebar icon: the Beako logo (source:
+ * desktop/packaging/beako-logo.svg).
+ */
+const val APP_ICON = "beako-icon.png"
 
 fun main(args: Array<String>) {
     // `Beako.exe --self-test <report>`: checks the bundled runtime and exits (used by CI).

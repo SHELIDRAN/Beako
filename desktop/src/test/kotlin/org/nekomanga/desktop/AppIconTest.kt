@@ -8,7 +8,7 @@ class AppIconTest {
     @Test
     fun bundledIconDecodes() {
         val icon = loadAppIcon()
-        assertEquals(256, icon.width)
-        assertEquals(256, icon.height)
+        assertEquals(512, icon.width)
+        assertEquals(512, icon.height)
     }
 }

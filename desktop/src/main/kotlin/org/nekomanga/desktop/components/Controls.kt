@@ -219,9 +219,11 @@ fun ArrowButton(
             )
             .padding(start = 22.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        // As wide as its label (at least 208), the knob pushed to the end: never fill the row.
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, color = ink)
-        Spacer(Modifier.weight(1f).defaultMinSize(minWidth = 24.dp))
+        Spacer(Modifier.width(24.dp))
         Box(Modifier.size(Sizes.controlCta - 8.dp), contentAlignment = Alignment.Center) {
             Icon(
                 icon,
