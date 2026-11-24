@@ -1,0 +1,26 @@
+<!-- @dsCard group="Actions" height=130 -->
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0}.pane{padding:24px}.split{display:grid;grid-template-columns:1fr 1fr}.cap{margin:0 0 16px;color:var(--text-muted);font:600 11px/14px var(--font-sans);letter-spacing:.6px;text-transform:uppercase}</style></head>
+<body>
+<div class="split"><div class="bk-stage pane"><p class="cap">Neutral</p><div style="display:flex;gap:16px;align-items:center">
+<button class="bk-toggle-icon" aria-pressed="false" aria-label="Add to library"><span class="bk-toggle-icon__glyph"></span></button>
+<button class="bk-toggle-icon" aria-pressed="true" aria-label="Remove from library"><span class="bk-toggle-icon__glyph"></span></button>
+<button class="bk-toggle-icon bk-toggle-icon--ghost" aria-pressed="false" aria-label="Follow series"><span class="bk-toggle-icon__glyph"></span></button>
+<span class="bk-t-body-s bk-muted">Click to toggle</span>
+</div></div><div class="bk-stage pane" data-theme="porcelain"><p class="cap">Porcelain</p><div style="display:flex;gap:16px;align-items:center">
+<button class="bk-toggle-icon" aria-pressed="false" aria-label="Add to library"><span class="bk-toggle-icon__glyph"></span></button>
+<button class="bk-toggle-icon" aria-pressed="true" aria-label="Remove from library"><span class="bk-toggle-icon__glyph"></span></button>
+<button class="bk-toggle-icon bk-toggle-icon--ghost" aria-pressed="false" aria-label="Follow series"><span class="bk-toggle-icon__glyph"></span></button>
+<span class="bk-t-body-s bk-muted">Click to toggle</span>
+</div></div></div>
+<script>
+document.querySelectorAll('.bk-toggle-icon').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var on = b.getAttribute('aria-pressed') !== 'true';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false'); if (!on) b.setAttribute('data-was-on', '');
+    if (b.dataset.on === undefined) { b.dataset.on = on ? b.getAttribute('aria-label').replace(/^Add to/, 'Remove from') : b.getAttribute('aria-label').replace(/^Remove from/, 'Add to'); }
+    var next = b.dataset.on; b.dataset.on = b.getAttribute('aria-label'); b.setAttribute('aria-label', next);
+  });
+});
+</script>
+</body></html>

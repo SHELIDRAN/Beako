@@ -1,0 +1,44 @@
+<!-- @dsCard height=320 -->
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; }
+  body { width: 960px; height: 320px; position: relative; overflow: hidden; background: radial-gradient(1400px circle at 120px 0, var(--ground-glow), var(--ground)); font-family: var(--font-sans); }
+  svg { position: absolute; inset: 0; }
+  .slab { fill: var(--text); }
+  .gold { fill: var(--gold); }
+  .silver { fill: var(--silver); }
+  .bronze { fill: var(--bronze); }
+  .pill { fill: none; stroke: var(--rim-bright); stroke-width: 1; }
+  .drop { fill: var(--droplet-top); stroke: var(--droplet-top); stroke-width: 1; }
+  .accent { fill: var(--accent); }
+  .text { position: absolute; left: 32px; bottom: 32px; max-width: 440px; }
+  h1 { margin: 0; color: var(--text); font-weight: 700; font-size: 120px; line-height: .95; letter-spacing: -2.25px; }
+  p { margin: 8px 0 0; color: var(--text-muted); font-size: 14px; line-height: 20px; }
+</style></head>
+<body>
+<svg width="960" height="320" viewBox="0 0 960 320" aria-hidden="true">
+  <!--
+    blocks: text slab 120×320 (radius-pill = 60), gold 144×216 (2:3, radius-card 18), silver 168×96 (radius-card, bleeds right), bronze 96×96 (radius-field 12)
+    arrangement: a tall white pill bleeding off the top, then the podium trio — gold as a 2:3 cover, silver bleeding off the right edge, bronze beneath it
+    pattern: soft, pill-shaped — "every selection is the same clear glass droplet": a segmented track of six pills, one holding the droplet
+    accent: one orange knob (accent, the ArrowButton knob) half off the right edge — the single signal
+    scales: gaps space-xl 24 / space-xxl 32; pills segment-width 64 × control-sm 32, 8 px apart, rx 16; radii radius-pill, radius-card, radius-field
+  -->
+  <rect class="slab" x="504" y="-60" width="120" height="320" rx="60"/>
+  <rect class="gold" x="648" y="32" width="144" height="216" rx="18"/>
+  <rect class="silver" x="816" y="32" width="168" height="96" rx="18"/>
+  <rect class="bronze" x="816" y="152" width="96" height="96" rx="12"/>
+  <circle class="accent" cx="960" cy="200" r="24"/>
+  <rect class="pill" x="504.5" y="272.5" width="64" height="32" rx="16"/>
+  <rect class="pill" x="576.5" y="272.5" width="64" height="32" rx="16"/>
+  <rect class="drop" x="648.5" y="272.5" width="64" height="32" rx="16"/>
+  <rect class="pill" x="720.5" y="272.5" width="64" height="32" rx="16"/>
+  <rect class="pill" x="792.5" y="272.5" width="64" height="32" rx="16"/>
+  <rect class="pill" x="864.5" y="272.5" width="64" height="32" rx="16"/>
+</svg>
+<div class="text">
+  <h1>Beako Glass</h1>
+  <p>Neutral liquid glass for a Windows manga reader — dark or porcelain, with one orange signal.</p>
+</div>
+</body></html>

@@ -1,0 +1,21 @@
+<!-- @dsCard group="Inputs" height=130 -->
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0}</style></head>
+<body class="bk-stage">
+<div style="padding:24px;display:flex;flex-wrap:wrap;gap:8px">
+  <button class="bk-tri" data-use="included" aria-label="Female lead, Included"><span class="bk-tri__mark">✓</span><span class="bk-tri__label">Female lead</span></button><button class="bk-tri" data-use="included" aria-label="Comedic misunderstanding, Included"><span class="bk-tri__mark">✓</span><span class="bk-tri__label">Comedic misunderstanding</span></button><button class="bk-tri" data-use="excluded" aria-label="Gore, Excluded"><span class="bk-tri__mark">✕</span><span class="bk-tri__label">Gore</span></button><button class="bk-tri" data-use="none" aria-label="Male lead, Not selected"><span class="bk-tri__label">Male lead</span></button><button class="bk-tri" data-use="none" aria-label="Isekai, Not selected"><span class="bk-tri__label">Isekai</span></button><button class="bk-tri" data-use="none" aria-label="Romance, Not selected"><span class="bk-tri__label">Romance</span></button>
+</div>
+<script>
+
+var order = ['none', 'included', 'excluded'], marks = {none: '', included: '✓', excluded: '✕'}, names = {none: 'Not selected', included: 'Included', excluded: 'Excluded'};
+document.querySelectorAll('.bk-tri').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var next = order[(order.indexOf(b.dataset.use) + 1) % 3], label = b.querySelector('.bk-tri__label').textContent;
+    b.dataset.use = next;
+    var m = b.querySelector('.bk-tri__mark'); if (m) m.remove();
+    if (marks[next]) { var s = document.createElement('span'); s.className = 'bk-tri__mark'; s.textContent = marks[next]; b.prepend(s); }
+    b.setAttribute('aria-label', label + ', ' + names[next]);
+  });
+});
+</script>
+</body></html>
