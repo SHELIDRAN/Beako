@@ -6,12 +6,14 @@ import com.sun.jna.WString
 import com.sun.jna.ptr.IntByReference
 import com.sun.jna.win32.StdCallLibrary
 
-/** What Windows asks apps to do about motion and transparency. */
+/** What Windows asks apps to do: motion, transparency, light or dark mode, accent colour. */
 data class SystemComfort(
     val reduceMotion: Boolean = false,
     val reduceTransparency: Boolean = false,
     /** Windows' app mode: true light, false dark, null unknown (off Windows). */
     val lightMode: Boolean? = null,
+    /** Windows' accent colour as 0xRRGGBB, or null when unknown. */
+    val accentRgb: Int? = null,
 )
 
 /**
@@ -30,6 +32,7 @@ object SystemPreferences {
             reduceTransparency = runCatching { !transparencyOn() }.getOrDefault(false),
             lightMode =
                 runCatching { personalize("AppsUseLightTheme")?.let { it != 0 } }.getOrNull(),
+            accentRgb = runCatching { dword(DWM, "AccentColor")?.let(::abgrToRgb) }.getOrNull(),
         )
     }
 
@@ -44,13 +47,16 @@ object SystemPreferences {
         personalize("EnableTransparency")?.let { it != 0 } ?: true
 
     /** A DWORD under the Personalize key, or null when it isn't there. */
-    private fun personalize(name: String): Int? {
+    private fun personalize(name: String): Int? = dword(PERSONALIZE, name)
+
+    /** A DWORD value under HKEY_CURRENT_USER\\[key], or null when it isn't there. */
+    private fun dword(key: String, name: String): Int? {
         val value = IntByReference(0)
         val size = IntByReference(4)
         val status =
             Advapi32.INSTANCE.RegGetValueW(
                 HKEY_CURRENT_USER,
-                WString(PERSONALIZE),
+                WString(key),
                 WString(name),
                 RRF_RT_REG_DWORD,
                 null,
@@ -62,6 +68,7 @@ object SystemPreferences {
 
     private const val SPI_GETCLIENTAREAANIMATION = 0x1042
     private const val RRF_RT_REG_DWORD = 0x00000010
+    private const val DWM = "Software\\Microsoft\\Windows\\DWM"
     private const val PERSONALIZE =
         "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"
     /** (HKEY)(LONG)0x80000001, sign-extended as Windows does. */
@@ -92,4 +99,12 @@ object SystemPreferences {
             val INSTANCE: Advapi32 by lazy { Native.load("advapi32", Advapi32::class.java) }
         }
     }
+}
+
+/** Windows stores colours as 0xAABBGGRR; this gives 0xRRGGBB. */
+internal fun abgrToRgb(abgr: Int): Int {
+    val r = abgr and 0xFF
+    val g = (abgr shr 8) and 0xFF
+    val b = (abgr shr 16) and 0xFF
+    return (r shl 16) or (g shl 8) or b
 }

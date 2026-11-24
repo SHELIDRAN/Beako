@@ -79,7 +79,8 @@ internal fun ThemePicker(
             )
         }
         Text(
-            "Kitsune Fire, Miami Vice and the other named schemes come from Neko on Android.",
+            "Dynamic takes its colour from your Windows accent colour (Settings → Personalization → " +
+                "Colors). Kitsune Fire, Miami Vice and the other named schemes come from Neko on Android.",
             style = MaterialTheme.typography.bodySmall,
             color = BeakoColors.TextMuted,
         )
