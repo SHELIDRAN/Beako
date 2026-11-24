@@ -173,6 +173,11 @@ fun main(args: Array<String>) {
                     screen = { AppScreen(state, it) },
                     accounts = accountSlots(state),
                     onAccountClick = { state.navigator.show(Destination.MORE) },
+                    counts = menuCounts(state),
+                    newestUpdateAt = newestUpdate(state),
+                    onSidebarMode = { mode ->
+                        container.settings.update { it.copy(sidebarMode = mode.name) }
+                    },
                 )
             }
         }
@@ -334,6 +339,26 @@ fun loadAppIcon(): ImageBitmap {
 }
 
 /** The sidebar's account avatars: Comick and MangaDex always, AniList once connected. */
+/** Library size and unread new chapters, for the menu. */
+@Composable
+private fun menuCounts(state: AppState): Map<Destination, Int> {
+    val data by state.container.library.data.collectAsState()
+    return remember(data) {
+        mapOf(
+            Destination.LIBRARY to data.entries.size,
+            Destination.UPDATES to data.entries.sumOf { it.newChapters.size },
+        )
+    }
+}
+
+@Composable
+private fun newestUpdate(state: AppState): Long {
+    val data by state.container.library.data.collectAsState()
+    return remember(data) {
+        data.entries.flatMap { it.newChapters }.maxOfOrNull { it.foundAt } ?: 0L
+    }
+}
+
 @Composable
 private fun accountSlots(state: AppState): List<AccountSlot> {
     val comick by state.accounts.comick.account.collectAsState()

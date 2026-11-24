@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,7 @@ import org.nekomanga.desktop.components.DefaultAccountSlots
 import org.nekomanga.desktop.components.Destination
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.Sidebar
+import org.nekomanga.desktop.components.SidebarPanelReserve
 import org.nekomanga.desktop.components.SidebarRailWidth
 import org.nekomanga.desktop.state.Navigator
 import org.nekomanga.desktop.state.Page
@@ -51,6 +53,7 @@ import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.BeakoTheme
 import org.nekomanga.desktop.theme.LocalHazeState
+import org.nekomanga.desktop.theme.SidebarMode
 
 const val APP_NAME = "Beako"
 
@@ -64,8 +67,20 @@ fun BeakoApp(
     screen: @Composable (Destination) -> Unit = { PlaceholderScreen(it) },
     accounts: List<AccountSlot> = DefaultAccountSlots,
     onAccountClick: (String) -> Unit = {},
+    /** Counts shown in the menu, e.g. new chapters on Latest updates. */
+    counts: Map<Destination, Int> = emptyMap(),
+    /**
+     * When the newest unread update was found (epoch ms); newer than the last visit shows a dot.
+     */
+    newestUpdateAt: Long = 0L,
+    /** Saves a new Sidebar setting (the menu's collapse and keep-open controls). */
+    onSidebarMode: (SidebarMode) -> Unit = {},
 ) {
     var destination by remember { mutableStateOf(start) }
+    var updatesSeenAt by remember { mutableStateOf(0L) }
+    LaunchedEffect(destination, newestUpdateAt) {
+        if (destination == Destination.UPDATES) updatesSeenAt = newestUpdateAt
+    }
     navigator.requestedDestination?.let {
         destination = it
         navigator.requestedDestination = null
@@ -88,6 +103,12 @@ fun BeakoApp(
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                     val target = shortcutDestination(event.key)
                     when {
+                        // Ctrl+K: the menu's search.
+                        event.isCtrlPressed && event.key == Key.K && !immersive -> {
+                            if (openPage !is Page.Search) navigator.open(Page.Search())
+                            destination = Destination.BROWSE
+                            true
+                        }
                         event.isCtrlPressed && target != null && !immersive -> {
                             navigator.clear()
                             destination = target
@@ -102,7 +123,15 @@ fun BeakoApp(
             Box(
                 Modifier.fillMaxSize()
                     .hazeSource(haze)
-                    .padding(start = if (immersive) 0.dp else SidebarRailWidth),
+                    .padding(
+                        start =
+                            when {
+                                immersive -> 0.dp
+                                appearance.sidebarMode == SidebarMode.ALWAYS_EXPANDED ->
+                                    SidebarPanelReserve
+                                else -> SidebarRailWidth
+                            },
+                    ),
             ) {
                 AnimatedContent(
                     targetState = openPage to destination,
@@ -121,10 +150,20 @@ fun BeakoApp(
                             navigator.clear()
                             destination = it
                         },
+                        searchOpen = openPage is Page.Search,
+                        onSearch = {
+                            if (openPage !is Page.Search) navigator.open(Page.Search())
+                            destination = Destination.BROWSE
+                        },
+                        counts = counts,
+                        fresh =
+                            if (newestUpdateAt > updatesSeenAt) setOf(Destination.UPDATES)
+                            else emptySet(),
+                        onModeChange = onSidebarMode,
                         modifier =
                             Modifier.align(Alignment.CenterStart)
-                                .padding(start = 8.dp)
-                                .fillMaxHeight(0.86f),
+                                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp)
+                                .fillMaxHeight(),
                     )
                 }
             }
