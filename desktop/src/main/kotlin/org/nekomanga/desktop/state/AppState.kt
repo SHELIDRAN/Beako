@@ -39,6 +39,7 @@ class AppState(
         LibraryModel(
             container.library,
             downloadedKeys = { container.downloads.downloadedTitleKeys() },
+            ignoreArticles = { container.settings.current.sortIgnoreArticles },
         )
     val updates =
         UpdateChecker(
@@ -48,8 +49,24 @@ class AppState(
             container.discovery,
             intervalHours = { container.settings.current.updateIntervalHours },
             languages = { container.settings.current.languages },
-            skip = { entry -> UpdateChecker.skips(container.settings.current.updateSkip, entry) },
+            skip = { entry ->
+                val s = container.settings.current
+                UpdateChecker.skips(s.updateSkip, entry) ||
+                    !UpdateChecker.inCategories(
+                        s.updateCategories,
+                        s.updateExcludedCategories,
+                        entry,
+                    )
+            },
             extensionChapters = { source, url -> container.readingSources.chapters(source, url) },
+            localChapters = {
+                if (container.settings.current.localManga) container.local::chapters else null
+            },
+            canRunAutomatically = {
+                !container.settings.current.updateOnlyOnPower ||
+                    org.nekomanga.desktop.platform.Power.pluggedIn()
+            },
+            refreshDetails = { container.settings.current.refreshDetailsOnUpdate },
             onFound = onUpdates,
         )
 
@@ -69,6 +86,11 @@ class AppState(
                 languages = { container.settings.current.languages },
                 onChaptersRead = { chapters -> accounts.chaptersRead(title, chapters) },
                 readingSources = container.readingSources,
+                local = container.local.takeIf { container.settings.current.localManga },
+                groupFilter = { container.settings.current.groupFilter },
+                skipDuplicates = { container.settings.current.reader.skipDuplicates },
+                dynamicCovers = { container.settings.current.dynamicCovers },
+                defaultCategory = { container.settings.current.defaultCategory },
             )
         }
 
@@ -111,7 +133,24 @@ class AppState(
                 },
                 autoWebtoon = { container.settings.current.reader.autoWebtoon },
                 splitWidePages = { container.settings.current.reader.splitWidePages },
-                pageSource = { chapter -> container.readingSources.pages(chapter) },
+                pageSource = { chapter ->
+                    if (chapter.source == org.nekomanga.shared.model.Sources.LOCAL) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            org.nekomanga.shared.model.PageList(
+                                container.local.pages(chapter).map { LOCAL_PAGE + it.absolutePath },
+                            )
+                        }
+                    } else container.readingSources.pages(chapter)
+                },
+                defaultMode =
+                    container.settings.current.reader.defaultMode.let { name ->
+                        ReadingMode.entries.firstOrNull { it.name == name }
+                    },
+                isRead = { chapter ->
+                    chapter.id in container.library.entry(page.title)?.readChapterIds.orEmpty()
+                },
+                skipRead = { container.settings.current.reader.skipRead },
+                transitions = { container.settings.current.reader.chapterTransition },
             )
         reader = page to model
         return model

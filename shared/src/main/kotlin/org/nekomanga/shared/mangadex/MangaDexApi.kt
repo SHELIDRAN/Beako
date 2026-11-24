@@ -79,6 +79,42 @@ class MangaDexApi(
         return toTitle(get("manga/$id", params, MangaDto.serializer()).data)
     }
 
+    /**
+     * The title's cover for each volume, by volume number ("1", "2"…), for showing the cover of the
+     * volume being read. Volumes without a number are left out.
+     */
+    suspend fun volumeCovers(id: String): Map<String, String> {
+        limiter.acquire()
+        val json =
+            http.getJson(
+                SERVICE,
+                buildUrl(
+                    baseUrl,
+                    "cover",
+                    listOf("manga[]" to id, "limit" to "100", "order[volume]" to "asc"),
+                ),
+            )
+        val data = (json as? kotlinx.serialization.json.JsonObject)?.get("data")
+        return (data as? kotlinx.serialization.json.JsonArray)
+            .orEmpty()
+            .mapNotNull { item ->
+                val attributes =
+                    (item as? kotlinx.serialization.json.JsonObject)?.get("attributes")
+                        as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                val volume =
+                    (attributes["volume"] as? kotlinx.serialization.json.JsonPrimitive)
+                        ?.takeIf { it.isString }
+                        ?.content
+                        ?.trimStart('0')
+                        ?.ifEmpty { "0" } ?: return@mapNotNull null
+                val file =
+                    (attributes["fileName"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        ?: return@mapNotNull null
+                volume to "$COVERS/$id/$file.512.jpg"
+            }
+            .toMap()
+    }
+
     /** One page of a title's chapters, newest first. */
     suspend fun chapters(
         mangaId: String,

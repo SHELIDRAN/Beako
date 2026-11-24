@@ -834,15 +834,38 @@ object BeakoColors {
      * The brand orange: icons, the tab underline, unread dots, carets. Never body text (3.2:1 on
      * Porcelain, 5.2:1 on Neutral).
      */
+    /**
+     * A colour taken from the open title's cover ("Theme buttons based on cover"); null uses the
+     * scheme's accent. Accents built from it keep the scheme's contrast rules.
+     */
+    var coverAccent by mutableStateOf<Color?>(null)
+
+    private val coverAccents =
+        java.util.concurrent.ConcurrentHashMap<Pair<Color, Palette>, Triple<Color, Color, Color>>()
+
+    /** (accent, fill, ink) from [coverAccent] on this palette. */
+    private fun fromCover(color: Color): Triple<Color, Color, Color> =
+        coverAccents.getOrPut(color to palette) {
+            val accent =
+                readable(
+                    color,
+                    listOf(palette.ground, palette.surface),
+                    if (light) Color.Black else Color.White,
+                    3.0,
+                )
+            val (fill, ink) = DynamicScheme.button(color)
+            Triple(accent, fill, ink)
+        }
+
     val Accent: Color
-        get() = palette.accent
+        get() = coverAccent?.let { fromCover(it).first } ?: palette.accent
 
     /** Fill of accent buttons, so white [AccentInk] holds 4.8:1. */
     val AccentFill: Color
-        get() = palette.accentFill
+        get() = coverAccent?.let { fromCover(it).second } ?: palette.accentFill
 
     val AccentInk: Color
-        get() = palette.accentInk
+        get() = coverAccent?.let { fromCover(it).third } ?: palette.accentInk
 
     val AccentSoft: Color
         get() = Accent.copy(alpha = if (light) 0.12f else 0.16f)

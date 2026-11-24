@@ -78,6 +78,53 @@ class LibraryStore(
         else data.copy(categories = data.categories + clean)
     }
 
+    /** Renames a category everywhere it's used. */
+    fun renameCategory(from: String, to: String) = update { data ->
+        val clean = to.trim()
+        if (clean.isEmpty() || clean == from || clean in data.categories) data
+        else
+            data.copy(
+                categories = data.categories.map { if (it == from) clean else it },
+                entries =
+                    data.entries.map { e ->
+                        if (from in e.categories)
+                            e.copy(categories = e.categories.map { if (it == from) clean else it })
+                        else e
+                    },
+            )
+    }
+
+    /** Moves a category one place up ([by] -1) or down (+1) in the list. */
+    fun moveCategory(name: String, by: Int) = update { data ->
+        val list = data.categories.toMutableList()
+        val from = list.indexOf(name)
+        val to = from + by
+        if (from < 0 || to !in list.indices) data
+        else {
+            list.add(to, list.removeAt(from))
+            data.copy(categories = list)
+        }
+    }
+
+    /**
+     * Updates a title's details (cover, status, description…) after a refresh, keeping its
+     * identity, progress and links.
+     */
+    fun refreshTitle(key: String, fresh: Title) = update { data ->
+        data.withEntry(key) { entry ->
+            entry.copy(
+                title =
+                    entry.title.copy(
+                        coverUrl = fresh.coverUrl ?: entry.title.coverUrl,
+                        status = fresh.status ?: entry.title.status,
+                        description = fresh.description.ifBlank { entry.title.description },
+                        altTitles = (entry.title.altTitles + fresh.altTitles).distinct(),
+                        tags = fresh.tags.ifEmpty { entry.title.tags },
+                    ),
+            )
+        }
+    }
+
     /** Removes a category and takes it off every title. */
     fun deleteCategory(name: String) = update { data ->
         data.copy(

@@ -78,6 +78,9 @@ fun MoreScreen(
     sources: (@Composable () -> Unit)? = null,
     /** Windows' own settings, which Beako follows whatever its switches say. */
     systemComfort: SystemComfort = SystemComfort(),
+    /** The local manga folder in use, and the default one. */
+    localFolder: File = File("."),
+    defaultLocalFolder: File = File("."),
 ) {
     val settings by settingsStore.settings.collectAsState()
     val data by library.data.collectAsState()
@@ -110,6 +113,12 @@ fun MoreScreen(
             if (accounts != null) item("accounts") { accounts() }
             item("discord") { DiscordSection(settingsStore) }
         }
+        if (tab == MoreTab.LIBRARY) {
+            item("library-settings") {
+                LibrarySettings(settingsStore, library, localFolder, defaultLocalFolder)
+            }
+        }
+        if (tab == MoreTab.READER) item("reader-settings") { ReaderSettings(settingsStore) }
         if (tab == MoreTab.SOURCES && sources != null) item("sources") { sources() }
         if (tab == MoreTab.DATA && backup != null) item("backup") { backup() }
         if (tab == MoreTab.GENERAL) {
@@ -245,6 +254,21 @@ fun MoreScreen(
                             it.copy(updateIntervalHours = UpdateIntervals[index].first)
                         }
                     }
+                    ToggleRow(
+                        "Only while plugged in",
+                        "Skip the automatic checks while the PC runs on battery. Check now still works.",
+                        settings.updateOnlyOnPower,
+                    ) {
+                        settingsStore.update { s -> s.copy(updateOnlyOnPower = it) }
+                    }
+                    ToggleRow(
+                        "Refresh details and covers",
+                        "Update titles’ covers, status and descriptions from MangaDex during checks. " +
+                            "Slower; off checks for chapters only.",
+                        settings.refreshDetailsOnUpdate,
+                    ) {
+                        settingsStore.update { s -> s.copy(refreshDetailsOnUpdate = it) }
+                    }
                     SkipRules.forEach { (rule, title, detail) ->
                         ToggleRow(title, detail, rule in settings.updateSkip) { on ->
                             settingsStore.update {
@@ -255,6 +279,7 @@ fun MoreScreen(
                             }
                         }
                     }
+                    UpdateCategories(settingsStore, data.categories)
                     val dnsOptions =
                         listOf(
                             DnsMode.AUTOMATIC to "Automatic (recommended)",
@@ -403,6 +428,8 @@ fun MoreScreen(
 /** The tabs of the More screen; ones whose section isn't available are hidden. */
 private enum class MoreTab(val label: String) {
     GENERAL("General"),
+    LIBRARY("Library"),
+    READER("Reader"),
     ACCOUNTS("Accounts"),
     SOURCES("Sources"),
     DATA("Backup");
@@ -410,6 +437,8 @@ private enum class MoreTab(val label: String) {
     fun shown(accounts: Boolean, sources: Boolean, backup: Boolean) =
         when (this) {
             GENERAL,
+            LIBRARY,
+            READER,
             ACCOUNTS -> true
             SOURCES -> sources
             DATA -> backup
@@ -528,7 +557,7 @@ private fun SliderRow(
 }
 
 @Composable
-private fun LabeledMenu(
+internal fun LabeledMenu(
     title: String,
     current: String,
     options: List<String>,
@@ -573,5 +602,10 @@ private val SkipRules =
             "NOT_STARTED",
             "Skip series you haven’t started",
             "Leave out titles with nothing read yet.",
+        ),
+        Triple(
+            "DROPPED",
+            "Skip series you’ve dropped",
+            "Leave out titles marked Dropped on a tracker.",
         ),
     )

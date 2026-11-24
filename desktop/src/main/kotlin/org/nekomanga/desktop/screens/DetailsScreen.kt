@@ -2,7 +2,9 @@ package org.nekomanga.desktop.screens
 
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -33,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,14 +45,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import org.nekomanga.desktop.components.ArrowButton
 import org.nekomanga.desktop.components.ArrowStyle
 import org.nekomanga.desktop.components.Chip
@@ -67,9 +79,12 @@ import org.nekomanga.desktop.state.DetailsModel
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.TitleTracking
 import org.nekomanga.desktop.state.displayName
+import org.nekomanga.desktop.state.pageModel
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.CoverColour
 import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.shared.download.DownloadState
+import org.nekomanga.shared.library.Settings
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.Title
 
@@ -83,6 +98,7 @@ fun DetailsScreen(
     onRead: (chapters: List<Chapter>, index: Int, page: Int) -> Unit,
     tracking: TitleTracking? = null,
     onOpenTitle: (Title) -> Unit = {},
+    settings: Settings = Settings(),
 ) {
     LaunchedEffect(model) { model.start() }
     val libraryData by model.libraryData.collectAsState()
@@ -95,6 +111,17 @@ fun DetailsScreen(
     val excluded = model.excludedGroups
     val readingOrder = remember(chapters, excluded) { model.readingOrder() }
     val visible = remember(chapters, excluded) { model.visibleChapters() }
+    // The cover of the volume being read, with "Dynamic covers".
+    val cover = remember(chapters, entry, model.volumeCovers) { model.coverUrl() }
+    // "Theme buttons based on cover": the page's accents take the cover's colour.
+    LaunchedEffect(cover, settings.themeFromCover) {
+        BeakoColors.coverAccent =
+            if (settings.themeFromCover && cover != null)
+                runCatching { CoverColour.of(pageModel(cover), cover) }.getOrNull()
+            else null
+    }
+    DisposableEffect(Unit) { onDispose { BeakoColors.coverAccent = null } }
+    val isLocal = title.source == org.nekomanga.shared.model.Sources.LOCAL
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -102,124 +129,130 @@ fun DetailsScreen(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item("header") {
-            Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                GlassIconButton(
-                    Icons.AutoMirrored.Outlined.ArrowBack,
-                    "Back",
-                    onBack,
-                    swingFrom = -90f,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                    Cover(
-                        title.coverUrl,
-                        Modifier.size(width = 220.dp, height = 330.dp)
-                            .shadow(18.dp, RoundedCornerShape(18.dp), spotColor = Color.Black)
-                            .clip(RoundedCornerShape(18.dp)),
+            Box {
+                Backdrop(cover, settings.backdrop)
+                Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    GlassIconButton(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        "Back",
+                        onBack,
+                        swingFrom = -90f,
                     )
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            title.title,
-                            style = MaterialTheme.typography.displaySmall,
-                            color = BeakoColors.Text,
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
+                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        Cover(
+                            cover,
+                            Modifier.size(width = 220.dp, height = 330.dp)
+                                .shadow(18.dp, RoundedCornerShape(18.dp), spotColor = Color.Black)
+                                .clip(RoundedCornerShape(18.dp)),
                         )
-                        if (title.altTitles.isNotEmpty()) {
+                        Column(
+                            Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
                             Text(
-                                title.altTitles.take(4).joinToString(" · "),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = BeakoColors.TextMuted,
-                                maxLines = 2,
+                                title.title,
+                                style = MaterialTheme.typography.displaySmall,
+                                color = BeakoColors.Text,
+                                maxLines = 3,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                        }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            title.type?.let { Chip(it.label) }
-                            title.status?.let { Chip(it.label) }
-                            title.year?.let { Chip(it.toString()) }
-                            title.demographic?.let { Chip(it.replaceFirstChar(Char::uppercase)) }
-                            title.rating?.let {
-                                Chip("★ ${formatScore(it)}", ink = BeakoColors.Gold)
+                            if (title.altTitles.isNotEmpty()) {
+                                AltTitles(title.altTitles, wrap = settings.wrapAltTitles)
                             }
-                            title.follows?.let { Chip("${formatCount(it)} follows") }
-                        }
-                        if (title.description.isNotBlank()) {
-                            Text(
-                                title.description,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = BeakoColors.TextMuted,
-                                maxLines = if (expanded) Int.MAX_VALUE else 5,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier =
-                                    Modifier.clickable(
-                                        role = Role.Button,
-                                        onClickLabel = if (expanded) "Show less" else "Show more",
-                                    ) {
-                                        expanded = !expanded
-                                    },
-                            )
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            if (readingOrder.isNotEmpty()) {
-                                val resume = remember(entry, readingOrder) { model.continueIndex() }
-                                val saved = entry?.progress
-                                ArrowButton(
-                                    if (resume == null) "Start reading"
-                                    else "Continue ${readingOrder[resume].displayName()}",
-                                    onClick = {
-                                        val index = resume ?: 0
-                                        val page =
-                                            if (
-                                                saved != null &&
-                                                    readingOrder[index].id == saved.chapterId
-                                            )
-                                                saved.page
-                                            else 0
-                                        onRead(readingOrder, index, page)
-                                    },
-                                    style = ArrowStyle.ACCENT,
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                title.type?.let { Chip(it.label) }
+                                title.status?.let { Chip(it.label) }
+                                title.year?.let { Chip(it.toString()) }
+                                title.demographic?.let {
+                                    Chip(it.replaceFirstChar(Char::uppercase))
+                                }
+                                title.rating?.let {
+                                    Chip("★ ${formatScore(it)}", ink = BeakoColors.Gold)
+                                }
+                                title.follows?.let { Chip("${formatCount(it)} follows") }
+                            }
+                            if (title.description.isNotBlank()) {
+                                Text(
+                                    title.description,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = BeakoColors.TextMuted,
+                                    maxLines = if (expanded) Int.MAX_VALUE else 5,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier =
+                                        Modifier.clickable(
+                                            role = Role.Button,
+                                            onClickLabel =
+                                                if (expanded) "Show less" else "Show more",
+                                        ) {
+                                            expanded = !expanded
+                                        },
                                 )
                             }
-                            if (readingOrder.isNotEmpty()) {
-                                GlassButton(
-                                    "Download unread",
-                                    onClick = { model.download(model.unreadChapters()) },
-                                    icon = Icons.Outlined.Download,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                if (readingOrder.isNotEmpty()) {
+                                    val resume =
+                                        remember(entry, readingOrder) { model.continueIndex() }
+                                    val saved = entry?.progress
+                                    ArrowButton(
+                                        if (resume == null) "Start reading"
+                                        else "Continue ${readingOrder[resume].displayName()}",
+                                        onClick = {
+                                            val index = resume ?: 0
+                                            val page =
+                                                if (
+                                                    saved != null &&
+                                                        readingOrder[index].id == saved.chapterId
+                                                )
+                                                    saved.page
+                                                else 0
+                                            onRead(readingOrder, index, page)
+                                        },
+                                        style = ArrowStyle.ACCENT,
+                                    )
+                                }
+                                // Local manga is already on this PC.
+                                if (readingOrder.isNotEmpty() && !isLocal) {
+                                    GlassButton(
+                                        "Download unread",
+                                        onClick = { model.download(model.unreadChapters()) },
+                                        icon = Icons.Outlined.Download,
+                                        iconOnly = settings.hideButtonText,
+                                    )
+                                }
+                                LibraryButton(
+                                    model,
+                                    inLibrary = entry != null,
+                                    categories = entry?.categories.orEmpty(),
+                                    allCategories = libraryData.categories,
                                 )
+                                AvailableOn(model, iconOnly = settings.hideButtonText)
                             }
-                            LibraryButton(
-                                model,
-                                inLibrary = entry != null,
-                                categories = entry?.categories.orEmpty(),
-                                allCategories = libraryData.categories,
-                            )
-                            AvailableOn(model)
+                            if (tracking != null) TrackingPanel(tracking, entry)
                         }
-                        if (tracking != null) TrackingPanel(tracking, entry)
                     }
-                }
-                val total = (chapters as? Loadable.Ready)?.value?.size ?: 0
-                Row(
-                    Modifier.padding(top = 8.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        when {
-                            total == 0 -> "Chapters"
-                            visible.size < total -> "Chapters · ${visible.size} of $total"
-                            else -> "Chapters · $total"
-                        },
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = BeakoColors.Text,
-                    )
-                    GroupFilter(model, remember(chapters) { model.groups() }, excluded)
+                    val total = (chapters as? Loadable.Ready)?.value?.size ?: 0
+                    Row(
+                        Modifier.padding(top = 8.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            when {
+                                total == 0 -> "Chapters"
+                                visible.size < total -> "Chapters · ${visible.size} of $total"
+                                else -> "Chapters · $total"
+                            },
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = BeakoColors.Text,
+                        )
+                        GroupFilter(model, remember(chapters) { model.groups() }, excluded)
+                    }
                 }
             }
         }
@@ -364,7 +397,7 @@ private fun GroupFilter(model: DetailsModel, groups: List<String>, excluded: Set
  * its chapters; Comick is never listed (Beako doesn't read from it).
  */
 @Composable
-private fun AvailableOn(model: DetailsModel) {
+private fun AvailableOn(model: DetailsModel, iconOnly: Boolean = false) {
     var open by remember { mutableStateOf(false) }
     val selected = model.availableOn.firstOrNull { it.sourceId == model.selectedSource }
     val text =
@@ -379,6 +412,7 @@ private fun AvailableOn(model: DetailsModel) {
         text + (if (failures > 0) " · $failures failed" else ""),
         onClick = { open = true },
         icon = Icons.Outlined.ExpandMore,
+        iconOnly = iconOnly,
     )
     if (open) SourcePicker(model, onClose = { open = false })
 }
@@ -399,8 +433,8 @@ private fun LibraryButton(
         ToggleIconButton(
             checked = inLibrary,
             onClick = {
-                if (!inLibrary) model.addToLibrary()
-                open = true
+                // "Default category" decides whether to ask.
+                open = if (!inLibrary) model.addWithDefaultCategory() else true
             },
             offLabel = "Add to library",
             onLabel = "In library: change categories or remove",
@@ -527,6 +561,108 @@ private fun ChapterRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = BeakoColors.TextMuted,
             )
+        }
+    }
+}
+
+/** The cover, blurred and faded, behind the top of the title page ("backdrop size"). */
+@Composable
+private fun Backdrop(cover: String?, size: String) {
+    val height =
+        when (size) {
+            "OFF" -> return
+            "SMALL" -> 260.dp
+            "LARGE" -> 520.dp
+            else -> 380.dp
+        }
+    if (cover == null) return
+    val ground = BeakoColors.Ground
+    Box(
+        Modifier.fillMaxWidth()
+            .height(height)
+            // Out to the window's edges, past the page's 32 dp side margins.
+            .layout { measurable, constraints ->
+                val extra = 64.dp.roundToPx()
+                val width = constraints.maxWidth + extra
+                val placeable =
+                    measurable.measure(
+                        constraints.copy(minWidth = width, maxWidth = width),
+                    )
+                layout(constraints.maxWidth, placeable.height) {
+                    placeable.place(-extra / 2, -28.dp.roundToPx())
+                }
+            },
+    ) {
+        AsyncImage(
+            model = pageModel(cover),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier.fillMaxSize()
+                    // Fades out toward the bottom so it melts into whatever is behind the page.
+                    .graphicsLayer(
+                        compositingStrategy =
+                            androidx.compose.ui.graphics.CompositingStrategy.Offscreen,
+                    )
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            Brush.verticalGradient(
+                                0f to Color.Black,
+                                0.55f to Color.Black.copy(alpha = 0.6f),
+                                1f to Color.Transparent,
+                            ),
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn,
+                        )
+                    }
+                    .blur(48.dp)
+                    .alpha(0.5f),
+        )
+        // A light wash of the ground keeps text over the backdrop readable.
+        Box(
+            Modifier.fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            ground.copy(alpha = 0.35f),
+                            ground.copy(alpha = 0.15f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+    }
+}
+
+/** Alternative names: wrapped in full, or one line you can scroll sideways. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AltTitles(names: List<String>, wrap: Boolean) {
+    val chip: @Composable (String) -> Unit = { name ->
+        Text(
+            name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = BeakoColors.TextMuted,
+            maxLines = 1,
+            modifier =
+                Modifier.clip(RoundedCornerShape(8.dp))
+                    .background(BeakoColors.ChipFill)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+        )
+    }
+    if (wrap) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            names.forEach { chip(it) }
+        }
+    } else {
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            names.forEach { chip(it) }
         }
     }
 }

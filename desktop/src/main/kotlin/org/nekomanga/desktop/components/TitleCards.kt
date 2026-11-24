@@ -80,7 +80,8 @@ fun Cover(url: String?, modifier: Modifier = Modifier) {
     Box(modifier.background(BeakoColors.SurfaceRaised)) {
         if (url != null) {
             AsyncImage(
-                model = url,
+                // Local manga covers are files on this PC.
+                model = org.nekomanga.desktop.state.pageModel(url),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

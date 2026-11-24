@@ -281,6 +281,14 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.browse,
                 onSearch = { state.navigator.open(Page.Search()) },
                 onOpen = { state.navigator.open(Page.Details(it)) },
+                localTitles =
+                    if (state.container.settings.settings.collectAsState().value.localManga) {
+                        {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                state.container.local.titles()
+                            }
+                        }
+                    } else null,
             )
         Destination.LIBRARY ->
             LibraryScreen(
@@ -316,6 +324,14 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.container.downloads,
                 state.container.dirs.downloads,
                 systemComfort = state.systemComfort,
+                localFolder =
+                    state.container.settings.settings
+                        .collectAsState()
+                        .value
+                        .localFolder
+                        .takeIf { it.isNotBlank() }
+                        ?.let { java.io.File(it) } ?: state.container.defaultLocalFolder,
+                defaultLocalFolder = state.container.defaultLocalFolder,
                 accounts = {
                     AccountsSection(
                         state.accounts,
@@ -349,6 +365,7 @@ private fun AppPage(state: AppState, page: Page) {
                 },
                 tracking = state.tracking(page.title),
                 onOpenTitle = { state.navigator.open(Page.Details(it)) },
+                settings = state.container.settings.settings.collectAsState().value,
             )
         is Page.Reader -> {
             val settings by state.container.settings.settings.collectAsState()

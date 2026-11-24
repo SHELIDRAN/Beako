@@ -105,7 +105,7 @@ internal object DynamicScheme {
      * The accent button: the accent itself with white or black ink, whichever reads, nudged if
      * needed.
      */
-    private fun button(a: Color): Pair<Color, Color> {
+    fun button(a: Color): Pair<Color, Color> {
         val ink = if (a.luminance() > 0.22f) Color.Black else Color.White
         val fill =
             readable(a, listOf(ink), if (ink == Color.White) Color.Black else Color.White, 4.6)

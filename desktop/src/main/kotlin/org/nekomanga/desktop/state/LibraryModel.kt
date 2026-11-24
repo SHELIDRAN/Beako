@@ -32,6 +32,8 @@ class LibraryModel(
     val store: LibraryStore,
     /** Titles ("source:id") with downloaded chapters. */
     private val downloadedKeys: () -> Set<String> = { emptySet() },
+    /** Sort by title ignoring a leading "a", "an" or "the". */
+    private val ignoreArticles: () -> Boolean = { false },
 ) {
     /** Shows only titles with downloaded chapters (the "Downloaded only" mode). */
     var downloadedOnly by mutableStateOf(false)
@@ -99,7 +101,11 @@ class LibraryModel(
                         it.newChapters.maxOfOrNull { n -> n.chapter.publishedAt }
                             ?: it.title.lastUploadedAt.orEmpty()
                     }
-                LibrarySort.TITLE -> compareBy { it.title.title.lowercase() }
+                LibrarySort.TITLE ->
+                    compareBy {
+                        val name = it.title.title.lowercase()
+                        if (ignoreArticles()) withoutArticle(name) else name
+                    }
                 LibrarySort.DATE_ADDED -> compareBy { it.addedAt }
                 LibrarySort.UNREAD -> compareBy { it.unreadCount }
             }
@@ -109,4 +115,13 @@ class LibraryModel(
     companion object {
         const val UNCATEGORISED = "No category"
     }
+}
+
+/** "the apothecary diaries" → "apothecary diaries": articles don't decide alphabetical order. */
+fun withoutArticle(name: String): String {
+    for (article in listOf("the ", "an ", "a ")) {
+        if (name.startsWith(article) && name.length > article.length)
+            return name.removePrefix(article)
+    }
+    return name
 }

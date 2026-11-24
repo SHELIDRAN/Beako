@@ -125,6 +125,20 @@ fun BoxScope.ReaderSettingsPanel(
                         label = "Page fit",
                     )
                 }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Page layout",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = BeakoColors.Text,
+                    )
+                    val layouts = listOf("SINGLE" to "Single", "DOUBLE" to "Two", "AUTO" to "Auto")
+                    DropletSegmented(
+                        layouts.map { it.second },
+                        layouts.indexOfFirst { it.first == prefs.pageLayout }.coerceAtLeast(0),
+                        { onPrefs(prefs.copy(pageLayout = layouts[it].first)) },
+                        label = "Page layout",
+                    )
+                }
                 ToggleRow(
                     "Split wide pages",
                     "Show double-page spreads one half at a time.",
@@ -148,6 +162,16 @@ fun BoxScope.ReaderSettingsPanel(
                 }
             }
             ToggleRow(
+                "Crop borders",
+                "Trim plain white or black margins around pages.",
+                prefs.cropBorders,
+            ) {
+                onPrefs(prefs.copy(cropBorders = it))
+            }
+            ToggleRow("Grayscale", "Show pages in grey.", prefs.grayscale) {
+                onPrefs(prefs.copy(grayscale = it))
+            }
+            ToggleRow(
                 "Detect webtoons",
                 "Switch to Webtoon when a series’ pages are long strips, unless you picked a mode for it.",
                 prefs.autoWebtoon,
@@ -155,7 +179,8 @@ fun BoxScope.ReaderSettingsPanel(
                 onPrefs(prefs.copy(autoWebtoon = it))
             }
             Text(
-                "Beako remembers the reading mode you pick for each series.",
+                "Beako remembers the reading mode you pick for each series. More options are in " +
+                    "More → Reader.",
                 style = MaterialTheme.typography.bodySmall,
                 color = BeakoColors.TextMuted,
             )

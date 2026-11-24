@@ -1,5 +1,6 @@
 package org.nekomanga.desktop.state
 
+import java.io.File
 import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -140,6 +141,20 @@ class AppContainer(
 
     /** Runs work that outlives any one screen, such as downloads. */
     val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Manga in a folder on this PC (More → Library → Local manga). */
+    val local =
+        org.nekomanga.shared.local.LocalSource(
+            root = {
+                settings.current.localFolder.takeIf { it.isNotBlank() }?.let(::File)
+                    ?: defaultLocalFolder
+            },
+            cacheDir = dirs.cache.resolve("local"),
+        )
+
+    /** Documents\Beako Local (or, with BEAKO_HOME, a folder beside the downloads). */
+    val defaultLocalFolder: File
+        get() = dirs.downloads.parentFile.resolve("Beako Local")
 
     val downloads =
         DownloadManager(

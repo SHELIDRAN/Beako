@@ -4,11 +4,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
@@ -78,7 +80,9 @@ class ReaderScreenTest {
         assertEquals(ReadingMode.LEFT_TO_RIGHT, model.mode)
 
         // The right-hand zone turns forward in left-to-right mode.
-        onNodeWithContentDescription("Right side: turn the page").performClick()
+        onNodeWithContentDescription(org.nekomanga.desktop.screens.PAGE_AREA).performMouseInput {
+            click(androidx.compose.ui.geometry.Offset(width * 0.9f, height / 2f))
+        }
         waitForIdle()
         assertEquals(1, model.page)
         onNodeWithText("2 of 3").assertIsDisplayed()
