@@ -1,9 +1,6 @@
 package org.nekomanga.desktop.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -38,14 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.components.Banner
 import org.nekomanga.desktop.components.DropletSegmented
@@ -55,6 +44,7 @@ import org.nekomanga.desktop.components.ResultRow
 import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.components.Skeleton
 import org.nekomanga.desktop.components.StateMessage
+import org.nekomanga.desktop.components.TriState
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.SearchModel
 import org.nekomanga.desktop.theme.BeakoColors
@@ -481,52 +471,16 @@ private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-/**
- * A chip with three states: none, included (✓) and excluded (✕ with a strikethrough), so state is
- * never shown by colour alone.
- */
+/** The design system's tri-state chip for a Comick filter use. */
 @Composable
 private fun TriStateChip(label: String, use: ComickFilters.Use, onClick: () -> Unit) {
-    val shape = CircleShape
-    val (fill, rim) =
+    org.nekomanga.desktop.components.TriStateChip(
+        label,
         when (use) {
-            ComickFilters.Use.NONE -> Color(0x0FFFFFFF) to BeakoColors.Rim
-            ComickFilters.Use.INCLUDED -> Color(0x33FFFFFF) to Color(0x80FFFFFF)
-            ComickFilters.Use.EXCLUDED -> Color(0x14FF8A80) to BeakoColors.Danger.copy(alpha = 0.6f)
-        }
-    val state =
-        when (use) {
-            ComickFilters.Use.NONE -> "Not selected"
-            ComickFilters.Use.INCLUDED -> "Included"
-            ComickFilters.Use.EXCLUDED -> "Excluded"
-        }
-    Row(
-        Modifier.height(32.dp)
-            .clip(shape)
-            .background(fill)
-            .border(1.dp, rim, shape)
-            .clickable(role = Role.Checkbox, onClick = onClick)
-            .semantics(mergeDescendants = true) {
-                contentDescription = label
-                stateDescription = state
-            }
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        when (use) {
-            ComickFilters.Use.INCLUDED ->
-                Text("✓", style = MaterialTheme.typography.labelMedium, color = BeakoColors.Text)
-            ComickFilters.Use.EXCLUDED ->
-                Text("✕", style = MaterialTheme.typography.labelMedium, color = BeakoColors.Danger)
-            ComickFilters.Use.NONE -> Unit
-        }
-        Text(
-            label,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (use == ComickFilters.Use.NONE) BeakoColors.TextMuted else BeakoColors.Text,
-            textDecoration =
-                if (use == ComickFilters.Use.EXCLUDED) TextDecoration.LineThrough else null,
-        )
-    }
+            ComickFilters.Use.NONE -> TriState.NONE
+            ComickFilters.Use.INCLUDED -> TriState.INCLUDED
+            ComickFilters.Use.EXCLUDED -> TriState.EXCLUDED
+        },
+        onClick,
+    )
 }

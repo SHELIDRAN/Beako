@@ -1,11 +1,13 @@
 package org.nekomanga.desktop.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -49,12 +50,16 @@ import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.LocalAppearance
 import org.nekomanga.desktop.theme.LocalHazeState
+import org.nekomanga.desktop.theme.ShadowSpec
+import org.nekomanga.desktop.theme.dropShadows
 import org.nekomanga.desktop.theme.dropletSpec
+import org.nekomanga.desktop.theme.easeOutSpec
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.model.Title
 
 private val CardShape = RoundedCornerShape(18.dp)
-private val TextShadow = Shadow(Color(0x8C000000), blurRadius = 6f)
+private val TextShadow: Shadow
+    get() = Shadow(BeakoColors.TextShadow, blurRadius = 6f)
 
 fun formatScore(score: Double): String = String.format(Locale.US, "%.1f", score)
 
@@ -98,7 +103,11 @@ fun TitleCard(
     val hovered by hover.collectIsHoveredAsState()
     val reduceMotion = LocalAppearance.current.reduceMotion
     val haze = remember { HazeState() }
-    val lift by animateFloatAsState(if (hovered && !reduceMotion) 1f else 0f, dropletSpec())
+    val focused by hover.collectIsFocusedAsState()
+    val raised = hovered || focused
+    val lift by animateFloatAsState(if (raised && !reduceMotion) 1f else 0f, dropletSpec())
+    // The shadow deepens even with Reduce motion; only the movement is dropped.
+    val shadow by animateFloatAsState(if (raised) 1f else 0f, easeOutSpec())
     Box(
         modifier
             .size(width = 172.dp, height = 258.dp)
@@ -107,11 +116,16 @@ fun TitleCard(
                 scaleX = 1f + 0.015f * lift
                 scaleY = 1f + 0.015f * lift
             }
-            .shadow(10.dp, CardShape, ambientColor = Color.Black, spotColor = Color.Black)
+            .dropShadows(CardShape, ShadowSpec.card(shadow))
             .clip(CardShape)
             .border(1.dp, BeakoColors.Rim, CardShape)
             .hoverable(hover)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = hover,
+                indication = LocalIndication.current,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .semantics(mergeDescendants = true) { contentDescription = title.title },
     ) {
         // The caption blurs this card's own cover.
@@ -120,7 +134,9 @@ fun TitleCard(
         Box(
             Modifier.fillMaxWidth()
                 .height(56.dp)
-                .background(Brush.verticalGradient(listOf(Color(0x2EFFFFFF), Color.Transparent))),
+                .background(
+                    Brush.verticalGradient(listOf(BeakoColors.CardHighlight, Color.Transparent)),
+                ),
         )
         if (rank != null) RankChip(rank, Modifier.align(Alignment.TopStart).padding(10.dp))
         if (badge != null) {
@@ -176,24 +192,6 @@ fun TitleCard(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RankChip(rank: Int, modifier: Modifier = Modifier) {
-    val (fill, ink) =
-        when (rank) {
-            1 -> BeakoColors.Gold.copy(alpha = 0.85f) to Color(0xFF3A2A00)
-            2 -> BeakoColors.Silver.copy(alpha = 0.85f) to Color(0xFF1C1D20)
-            3 -> BeakoColors.Bronze.copy(alpha = 0.85f) to Color(0xFF3A1A06)
-            else -> Color(0x660A0A0C) to BeakoColors.Text
-        }
-    val shape = RoundedCornerShape(12.dp)
-    Box(
-        modifier.size(34.dp).clip(shape).background(fill).border(1.dp, Color(0x47FFFFFF), shape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(rank.toString(), style = MaterialTheme.typography.titleMedium, color = ink)
     }
 }
 
@@ -269,15 +267,19 @@ fun Shelf(
 @Composable
 fun ResultRow(rank: Int, title: Title, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val hover = remember { MutableInteractionSource() }
-    val hovered by hover.collectIsHoveredAsState()
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(if (hovered) Color(0x12FFFFFF) else Color.Transparent)
+            .hoverSweep(hover)
             .hoverable(hover)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = hover,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .semantics(mergeDescendants = true) { contentDescription = title.title }
             .padding(10.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),

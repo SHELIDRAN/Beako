@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -61,7 +60,7 @@ fun SourcePicker(model: DetailsModel, onClose: () -> Unit) {
         Column(
             Modifier.width(640.dp)
                 .heightIn(max = 680.dp)
-                .glass(RoundedCornerShape(22.dp), tint = Color(0xE6101114))
+                .glass(RoundedCornerShape(22.dp), tint = BeakoColors.GlassSolid.copy(alpha = 0.92f))
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

@@ -2,11 +2,9 @@ package org.nekomanga.desktop.screens
 
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,13 +23,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.LibraryAdd
-import androidx.compose.material.icons.outlined.LibraryAddCheck
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -54,6 +49,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import org.nekomanga.desktop.components.ArrowButton
+import org.nekomanga.desktop.components.ArrowStyle
 import org.nekomanga.desktop.components.Chip
 import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
@@ -62,8 +59,10 @@ import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.components.Shelf
 import org.nekomanga.desktop.components.Skeleton
 import org.nekomanga.desktop.components.StateMessage
+import org.nekomanga.desktop.components.ToggleIconButton
 import org.nekomanga.desktop.components.formatCount
 import org.nekomanga.desktop.components.formatScore
+import org.nekomanga.desktop.components.hoverSweep
 import org.nekomanga.desktop.state.DetailsModel
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.TitleTracking
@@ -164,7 +163,7 @@ fun DetailsScreen(
                             if (readingOrder.isNotEmpty()) {
                                 val resume = remember(entry, readingOrder) { model.continueIndex() }
                                 val saved = entry?.progress
-                                GlassButton(
+                                ArrowButton(
                                     if (resume == null) "Start reading"
                                     else "Continue ${readingOrder[resume].displayName()}",
                                     onClick = {
@@ -178,8 +177,7 @@ fun DetailsScreen(
                                             else 0
                                         onRead(readingOrder, index, page)
                                     },
-                                    icon = Icons.AutoMirrored.Outlined.MenuBook,
-                                    primary = true,
+                                    style = ArrowStyle.ACCENT,
                                 )
                             }
                             if (readingOrder.isNotEmpty()) {
@@ -390,16 +388,18 @@ private fun LibraryButton(
     var open by remember { mutableStateOf(false) }
     var newCategory by remember { mutableStateOf("") }
     Box {
-        GlassButton(
-            if (inLibrary) "In library" else "Add to library",
+        // + adds the title and offers categories; − opens the same menu, where removing is one
+        // deliberate step, so a stray click never drops a series and its progress.
+        ToggleIconButton(
+            checked = inLibrary,
             onClick = {
-                if (inLibrary) open = true
-                else {
-                    model.addToLibrary()
-                    open = true
-                }
+                if (!inLibrary) model.addToLibrary()
+                open = true
             },
-            icon = if (inLibrary) Icons.Outlined.LibraryAddCheck else Icons.Outlined.LibraryAdd,
+            offLabel = "Add to library",
+            onLabel = "In library: change categories or remove",
+            ghost = true,
+            role = Role.Button,
         )
         DropdownMenu(open, onDismissRequest = { open = false }) {
             Text(
@@ -463,14 +463,18 @@ private fun ChapterRow(
     onClick: () -> Unit,
 ) {
     val hover = remember { MutableInteractionSource() }
-    val hovered by hover.collectIsHoveredAsState()
     val name = chapter.displayName()
     Row(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (hovered) Color(0x12FFFFFF) else Color.Transparent)
+            .hoverSweep(hover)
             .hoverable(hover)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = hover,
+                indication = null,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .semantics(mergeDescendants = true) { contentDescription = name }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

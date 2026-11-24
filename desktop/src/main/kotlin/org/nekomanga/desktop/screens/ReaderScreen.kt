@@ -36,12 +36,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.FitScreen
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.FullscreenExit
+import androidx.compose.material.icons.outlined.Height
+import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.WidthFull
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -86,6 +91,7 @@ import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.state.pageModel
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.LocalAppearance
+import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.library.ReaderPrefs
 
@@ -109,6 +115,13 @@ fun ReaderScreen(
     keys: KeyBindings = KeyBindings(emptyMap()),
 ) {
     LaunchedEffect(model) { model.start() }
+    // The reader's background is fixed (black, gray or white) whatever the app's palette, so its
+    // text and controls take the palette whose ink reads on it.
+    val chosen = BeakoColors.chosenPalette
+    DisposableEffect(prefs.background, chosen) {
+        BeakoColors.override = readerPalette(prefs.background, chosen)
+        onDispose { BeakoColors.override = null }
+    }
     val window = LocalWindowControl.current
     val focus = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -254,7 +267,10 @@ fun ReaderScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = BeakoColors.Text,
                     modifier =
-                        Modifier.glass(RoundedCornerShape(14.dp), tint = Color(0xB3101114))
+                        Modifier.glass(
+                                RoundedCornerShape(14.dp),
+                                tint = BeakoColors.GlassSolid.copy(alpha = 0.78f),
+                            )
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                 )
             }
@@ -388,11 +404,11 @@ private fun PagedView(
 }
 
 /** How a page fits the window in the paged modes. */
-enum class PageFit(val label: String) {
-    SCREEN("Fit screen"),
-    WIDTH("Fit width"),
-    HEIGHT("Fit height"),
-    ORIGINAL("Original size");
+enum class PageFit(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    SCREEN("Fit screen", Icons.Outlined.FitScreen),
+    WIDTH("Fit width", Icons.Outlined.WidthFull),
+    HEIGHT("Fit height", Icons.Outlined.Height),
+    ORIGINAL("Original size", Icons.Outlined.PhotoSizeSelectActual);
 
     companion object {
         fun of(name: String) = entries.firstOrNull { it.name == name } ?: SCREEN
@@ -502,7 +518,7 @@ private fun BoxScope.ReaderControls(
         Row(
             Modifier.padding(12.dp)
                 .fillMaxWidth()
-                .glass(shape, tint = Color(0xB3101114))
+                .glass(shape, tint = BeakoColors.GlassSolid.copy(alpha = 0.78f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -551,7 +567,7 @@ private fun BoxScope.ReaderControls(
     AnimatedVisibility(visible, Modifier.align(Alignment.BottomCenter), enter, exit) {
         Row(
             Modifier.padding(16.dp)
-                .glass(shape, tint = Color(0xB3101114))
+                .glass(shape, tint = BeakoColors.GlassSolid.copy(alpha = 0.78f))
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -580,6 +596,14 @@ private fun BoxScope.ReaderControls(
         }
     }
 }
+
+/** The palette whose ink reads on reader background [name], given the user's [chosen] one. */
+internal fun readerPalette(name: String, chosen: Palette): Palette? =
+    when {
+        name == "WHITE" -> if (chosen.light) null else Palette.PORCELAIN
+        chosen.light -> Palette.NEUTRAL
+        else -> null
+    }
 
 private fun readerBackground(name: String): Color =
     when (name) {

@@ -52,13 +52,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.awt.Desktop
 import java.io.File
+import org.nekomanga.desktop.components.Alert
+import org.nekomanga.desktop.components.AlertKind
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.components.SoftCard
+import org.nekomanga.desktop.components.SoftElevation
+import org.nekomanga.desktop.components.Tabs
 import org.nekomanga.desktop.state.DnsMode
 import org.nekomanga.desktop.state.DohProvider
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.Palette
+import org.nekomanga.desktop.theme.Radius
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.download.DownloadManager
 import org.nekomanga.shared.download.DownloadState
@@ -83,6 +89,11 @@ fun MoreScreen(
     val queue by downloads.queue.collectAsState()
     var paused by remember { mutableStateOf(downloads.paused) }
     val chaptersRead = remember(data) { data.entries.sumOf { it.readChapterIds.size } }
+    var picked by remember { mutableStateOf(MoreTab.GENERAL) }
+    val tabs =
+        MoreTab.entries.filter { it.shown(accounts != null, sources != null, backup != null) }
+    // A tab whose section went away falls back to General, for the tabs and the content alike.
+    val tab = picked.takeIf { it in tabs } ?: MoreTab.GENERAL
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -92,242 +103,287 @@ fun MoreScreen(
         item("title") {
             Text("More", style = MaterialTheme.typography.displaySmall, color = BeakoColors.Text)
         }
-        item("stats") {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                StatTile("${data.entries.size}", "Series")
-                StatTile("$chaptersRead", "Chapters read")
-                StatTile("${data.categories.size}", "Categories")
-            }
+        item("tabs") {
+            Tabs(
+                tabs.map { it.label },
+                tabs.indexOf(tab).coerceAtLeast(0),
+                { picked = tabs[it] },
+                Modifier.padding(bottom = 6.dp),
+            )
         }
-        if (accounts != null) item("accounts") { accounts() }
-        item("modes") {
-            Section("Modes") {
-                ToggleRow(
-                    "Downloaded only",
-                    "Show only titles with downloaded chapters in the library.",
-                    settings.downloadedOnly,
+        if (tab == MoreTab.ACCOUNTS) {
+            if (accounts != null) item("accounts") { accounts() }
+            item("discord") { DiscordSection(settingsStore) }
+        }
+        if (tab == MoreTab.SOURCES && sources != null) item("sources") { sources() }
+        if (tab == MoreTab.DATA && backup != null) item("backup") { backup() }
+        if (tab == MoreTab.GENERAL) {
+            item("stats") {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    settingsStore.update { s -> s.copy(downloadedOnly = it) }
-                }
-                ToggleRow(
-                    "Incognito mode",
-                    "Pause reading history and progress.",
-                    settings.incognito,
-                ) {
-                    settingsStore.update { s -> s.copy(incognito = it) }
+                    StatTile("${data.entries.size}", "Series")
+                    StatTile("$chaptersRead", "Chapters read")
+                    StatTile("${data.categories.size}", "Categories")
                 }
             }
-        }
-        item("appearance") {
-            Section("Appearance") {
-                ToggleRow(
-                    "Reduce motion",
-                    "Make transitions and slides instant.",
-                    settings.reduceMotion,
-                ) {
-                    settingsStore.update { s -> s.copy(reduceMotion = it) }
+            item("modes") {
+                Section("Modes") {
+                    ToggleRow(
+                        "Downloaded only",
+                        "Show only titles with downloaded chapters in the library.",
+                        settings.downloadedOnly,
+                    ) {
+                        settingsStore.update { s -> s.copy(downloadedOnly = it) }
+                    }
+                    ToggleRow(
+                        "Incognito mode",
+                        "Pause reading history and progress.",
+                        settings.incognito,
+                    ) {
+                        settingsStore.update { s -> s.copy(incognito = it) }
+                    }
                 }
-                ToggleRow(
-                    "Reduce transparency",
-                    "Use solid panels instead of glass.",
-                    settings.reduceTransparency,
-                ) {
-                    settingsStore.update { s -> s.copy(reduceTransparency = it) }
+            }
+            item("appearance") {
+                Section("Appearance") {
+                    ToggleRow(
+                        "Reduce motion",
+                        "Make transitions and slides instant.",
+                        settings.reduceMotion,
+                    ) {
+                        settingsStore.update { s -> s.copy(reduceMotion = it) }
+                    }
+                    ToggleRow(
+                        "Reduce transparency",
+                        "Use solid panels instead of glass.",
+                        settings.reduceTransparency,
+                    ) {
+                        settingsStore.update { s -> s.copy(reduceTransparency = it) }
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            "Sidebar",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = BeakoColors.Text,
+                            modifier = Modifier.width(180.dp),
+                        )
+                        Menu(
+                            sidebarLabel(settings.sidebarMode),
+                            SidebarModes.map { it.second },
+                        ) { index ->
+                            settingsStore.update {
+                                it.copy(sidebarMode = SidebarModes[index].first)
+                            }
+                        }
+                    }
+                    PaletteRow(settings.palette) { name ->
+                        settingsStore.update { it.copy(palette = name) }
+                    }
+                    SliderRow(
+                        "Glass strength",
+                        "${(settings.glassStrength * 100).toInt()}%",
+                        settings.glassStrength,
+                        0.5f..1.5f,
+                    ) { value ->
+                        settingsStore.update { it.copy(glassStrength = value) }
+                    }
+                    SliderRow(
+                        "Interface size",
+                        "${(settings.uiScale * 100).toInt()}%",
+                        settings.uiScale,
+                        0.8f..1.5f,
+                        steps = 6,
+                    ) { value ->
+                        settingsStore.update { it.copy(uiScale = value) }
+                    }
                 }
+            }
+            item("general") {
+                Section("Library updates and network") {
+                    LabeledMenu(
+                        "Check for new chapters",
+                        UpdateIntervals.firstOrNull { it.first == settings.updateIntervalHours }
+                            ?.second ?: "Every ${settings.updateIntervalHours} hours",
+                        UpdateIntervals.map { it.second },
+                    ) { index ->
+                        settingsStore.update {
+                            it.copy(updateIntervalHours = UpdateIntervals[index].first)
+                        }
+                    }
+                    SkipRules.forEach { (rule, title, detail) ->
+                        ToggleRow(title, detail, rule in settings.updateSkip) { on ->
+                            settingsStore.update {
+                                it.copy(
+                                    updateSkip =
+                                        if (on) it.updateSkip + rule else it.updateSkip - rule,
+                                )
+                            }
+                        }
+                    }
+                    val dnsOptions =
+                        listOf(
+                            DnsMode.AUTOMATIC to "Automatic (recommended)",
+                            DnsMode.SYSTEM to "Windows DNS only",
+                        ) + DohProvider.entries.map { it.name to "${it.label} only" }
+                    LabeledMenu(
+                        "DNS",
+                        dnsOptions.firstOrNull { it.first == settings.dnsOverHttps }?.second
+                            ?: "Automatic (recommended)",
+                        dnsOptions.map { it.second },
+                    ) { index ->
+                        settingsStore.update { it.copy(dnsOverHttps = dnsOptions[index].first) }
+                    }
+                    Text(
+                        "Automatic looks sites up with DNS over HTTPS (like your browser’s secure DNS), which gets " +
+                            "past networks that block sites, and uses Windows DNS when that’s unavailable. " +
+                            "Changes apply to new connections at once.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BeakoColors.TextMuted,
+                    )
+                }
+            }
+            item("reading") {
+                Section("Reading and downloads") {
+                    ToggleRow(
+                        "Data saver",
+                        "Read and download MangaDex’s smaller, compressed images.",
+                        settings.dataSaver,
+                    ) {
+                        settingsStore.update { s -> s.copy(dataSaver = it) }
+                    }
+                }
+            }
+            item("queue-head") {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Text(
-                        "Sidebar",
-                        style = MaterialTheme.typography.titleMedium,
+                        if (queue.isEmpty()) "Download queue" else "Download queue · ${queue.size}",
+                        style = MaterialTheme.typography.headlineSmall,
                         color = BeakoColors.Text,
-                        modifier = Modifier.width(180.dp),
+                        modifier = Modifier.weight(1f),
                     )
-                    Menu(
-                        sidebarLabel(settings.sidebarMode),
-                        SidebarModes.map { it.second },
-                    ) { index ->
-                        settingsStore.update { it.copy(sidebarMode = SidebarModes[index].first) }
+                    if (queue.isNotEmpty()) {
+                        GlassButton(
+                            if (paused) "Resume" else "Pause",
+                            onClick = {
+                                if (paused) downloads.resume() else downloads.pause()
+                                paused = downloads.paused
+                            },
+                            icon = if (paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
+                        )
                     }
-                }
-                PaletteRow(settings.palette) { name ->
-                    settingsStore.update { it.copy(palette = name) }
-                }
-                SliderRow(
-                    "Glass strength",
-                    "${(settings.glassStrength * 100).toInt()}%",
-                    settings.glassStrength,
-                    0.5f..1.5f,
-                ) { value ->
-                    settingsStore.update { it.copy(glassStrength = value) }
-                }
-                SliderRow(
-                    "Interface size",
-                    "${(settings.uiScale * 100).toInt()}%",
-                    settings.uiScale,
-                    0.8f..1.5f,
-                    steps = 6,
-                ) { value ->
-                    settingsStore.update { it.copy(uiScale = value) }
-                }
-            }
-        }
-        item("general") {
-            Section("Library updates and network") {
-                LabeledMenu(
-                    "Check for new chapters",
-                    UpdateIntervals.firstOrNull { it.first == settings.updateIntervalHours }?.second
-                        ?: "Every ${settings.updateIntervalHours} hours",
-                    UpdateIntervals.map { it.second },
-                ) { index ->
-                    settingsStore.update {
-                        it.copy(updateIntervalHours = UpdateIntervals[index].first)
-                    }
-                }
-                SkipRules.forEach { (rule, title, detail) ->
-                    ToggleRow(title, detail, rule in settings.updateSkip) { on ->
-                        settingsStore.update {
-                            it.copy(
-                                updateSkip = if (on) it.updateSkip + rule else it.updateSkip - rule,
-                            )
-                        }
-                    }
-                }
-                val dnsOptions =
-                    listOf(
-                        DnsMode.AUTOMATIC to "Automatic (recommended)",
-                        DnsMode.SYSTEM to "Windows DNS only",
-                    ) + DohProvider.entries.map { it.name to "${it.label} only" }
-                LabeledMenu(
-                    "DNS",
-                    dnsOptions.firstOrNull { it.first == settings.dnsOverHttps }?.second
-                        ?: "Automatic (recommended)",
-                    dnsOptions.map { it.second },
-                ) { index ->
-                    settingsStore.update { it.copy(dnsOverHttps = dnsOptions[index].first) }
-                }
-                Text(
-                    "Automatic looks sites up with DNS over HTTPS (like your browser’s secure DNS), which gets " +
-                        "past networks that block sites, and uses Windows DNS when that’s unavailable. " +
-                        "Changes apply to new connections at once.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = BeakoColors.TextMuted,
-                )
-            }
-        }
-        item("reading") {
-            Section("Reading and downloads") {
-                ToggleRow(
-                    "Data saver",
-                    "Read and download MangaDex’s smaller, compressed images.",
-                    settings.dataSaver,
-                ) {
-                    settingsStore.update { s -> s.copy(dataSaver = it) }
-                }
-            }
-        }
-        item("queue-head") {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    if (queue.isEmpty()) "Download queue" else "Download queue · ${queue.size}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = BeakoColors.Text,
-                    modifier = Modifier.weight(1f),
-                )
-                if (queue.isNotEmpty()) {
                     GlassButton(
-                        if (paused) "Resume" else "Pause",
-                        onClick = {
-                            if (paused) downloads.resume() else downloads.pause()
-                            paused = downloads.paused
-                        },
-                        icon = if (paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
+                        "Open downloads folder",
+                        onClick = { openFolder(downloadsFolder) },
+                        icon = Icons.Outlined.FolderOpen,
                     )
-                    if (queue.any { it.state == DownloadState.FAILED }) {
+                }
+            }
+            val failed = queue.count { it.state == DownloadState.FAILED }
+            if (failed > 0) {
+                item("queue-failed") {
+                    // Needs the reader's attention, so it is the accent alert (one per screen).
+                    Alert(
+                        if (failed == 1) "1 download failed. Its error is shown below."
+                        else "$failed downloads failed. Their errors are shown below.",
+                        kind = AlertKind.ACCENT,
+                    ) {
                         GlassButton("Clear failed", onClick = downloads::clearFailed)
                     }
                 }
-                GlassButton(
-                    "Open downloads folder",
-                    onClick = { openFolder(downloadsFolder) },
-                    icon = Icons.Outlined.FolderOpen,
-                )
             }
-        }
-        if (queue.isEmpty()) {
-            item("queue-empty") {
-                Text(
-                    "Nothing downloading. Download chapters from a title’s page, or right-click a chapter.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = BeakoColors.TextMuted,
-                )
-            }
-        }
-        items(queue, key = { it.key }) { job ->
-            Row(
-                Modifier.fillMaxWidth()
-                    .glass(RoundedCornerShape(14.dp), tint = BeakoColors.Rim)
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (queue.isEmpty()) {
+                item("queue-empty") {
                     Text(
-                        "${job.title.title} · ${job.chapter.displayName()}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = BeakoColors.Text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        "Nothing downloading. Download chapters from a title’s page, or right-click a chapter.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = BeakoColors.TextMuted,
                     )
-                    when (job.state) {
-                        DownloadState.FAILED ->
-                            Text(
-                                "Failed: ${job.error}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = BeakoColors.Danger,
-                            )
-                        DownloadState.DOWNLOADING ->
-                            LinearProgressIndicator(
-                                progress = {
-                                    if (job.total == 0) 0f else job.done.toFloat() / job.total
-                                },
-                                modifier = Modifier.fillMaxWidth().height(4.dp),
-                                color = BeakoColors.Text,
-                                trackColor = BeakoColors.Rim,
-                            )
-                        DownloadState.QUEUED ->
-                            Text(
-                                "Waiting",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = BeakoColors.TextMuted,
-                            )
-                    }
                 }
-                GlassIconButton(Icons.Outlined.Close, "Cancel download", { downloads.cancel(job) })
             }
-        }
-        if (sources != null) item("sources") { sources() }
-        item("keyboard") { KeyboardSection(settingsStore) }
-        item("discord") { DiscordSection(settingsStore) }
-        if (backup != null) item("backup") { backup() }
-        item("about") {
-            Section("About") {
-                Text(
-                    "Beako ${System.getProperty("beako.version") ?: "dev"} — a manga reader for Windows, based on Neko (Apache-2.0). " +
-                        "Discovery by Comick and MangaDex. Beako isn’t affiliated with either.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = BeakoColors.TextMuted,
-                )
+            items(queue, key = { it.key }) { job ->
+                Row(
+                    Modifier.fillMaxWidth()
+                        .glass(RoundedCornerShape(14.dp), tint = BeakoColors.Rim)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "${job.title.title} · ${job.chapter.displayName()}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = BeakoColors.Text,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        when (job.state) {
+                            DownloadState.FAILED ->
+                                Text(
+                                    "Failed: ${job.error}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = BeakoColors.Danger,
+                                )
+                            DownloadState.DOWNLOADING ->
+                                LinearProgressIndicator(
+                                    progress = {
+                                        if (job.total == 0) 0f else job.done.toFloat() / job.total
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(4.dp),
+                                    color = BeakoColors.Text,
+                                    trackColor = BeakoColors.Rim,
+                                )
+                            DownloadState.QUEUED ->
+                                Text(
+                                    "Waiting",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = BeakoColors.TextMuted,
+                                )
+                        }
+                    }
+                    GlassIconButton(
+                        Icons.Outlined.Close,
+                        "Cancel download",
+                        { downloads.cancel(job) },
+                    )
+                }
+            }
+            item("keyboard") { KeyboardSection(settingsStore) }
+            item("about") {
+                Section("About") {
+                    Text(
+                        "Beako ${System.getProperty("beako.version") ?: "dev"} — a manga reader for Windows, based on Neko (Apache-2.0). " +
+                            "Discovery by Comick and MangaDex. Beako isn’t affiliated with either.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = BeakoColors.TextMuted,
+                    )
+                }
             }
         }
     }
+}
+
+/** The tabs of the More screen; ones whose section isn't available are hidden. */
+private enum class MoreTab(val label: String) {
+    GENERAL("General"),
+    ACCOUNTS("Accounts"),
+    SOURCES("Sources"),
+    DATA("Backup");
+
+    fun shown(accounts: Boolean, sources: Boolean, backup: Boolean) =
+        when (this) {
+            GENERAL,
+            ACCOUNTS -> true
+            SOURCES -> sources
+            DATA -> backup
+        }
 }
 
 private val SidebarModes =
@@ -349,27 +405,22 @@ internal fun openFolder(folder: File) {
 
 @Composable
 private fun StatTile(value: String, label: String) {
-    Column(
-        Modifier.width(200.dp)
-            .glass(RoundedCornerShape(18.dp), tint = BeakoColors.Rim)
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(value, style = MaterialTheme.typography.headlineMedium, color = BeakoColors.Text)
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = BeakoColors.TextMuted)
+    SoftCard(Modifier.width(200.dp), SoftElevation.RAISED, RoundedCornerShape(Radius.card)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(value, style = MaterialTheme.typography.headlineMedium, color = BeakoColors.Text)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = BeakoColors.TextMuted)
+        }
     }
 }
 
 @Composable
 internal fun Section(title: String, content: @Composable () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth()
-            .glass(RoundedCornerShape(20.dp), tint = BeakoColors.Rim)
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = BeakoColors.Text)
-        content()
+    // Grouped settings rest on the plain ground, so they use soft elevation rather than glass.
+    SoftCard(Modifier.fillMaxWidth(), SoftElevation.RAISED, RoundedCornerShape(Radius.menu)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, color = BeakoColors.Text)
+            content()
+        }
     }
 }
 

@@ -20,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.nekomanga.desktop.components.Alert
+import org.nekomanga.desktop.components.AlertKind
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassTextField
 import org.nekomanga.desktop.state.AccountsModel
@@ -258,11 +260,7 @@ private fun ServiceRow(
             }
         }
         status?.message?.let {
-            Text(
-                it,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (status.isError) BeakoColors.Danger else BeakoColors.TextMuted,
-            )
+            Alert(it, kind = if (status.isError) AlertKind.DANGER else AlertKind.QUIET)
         }
     }
 }

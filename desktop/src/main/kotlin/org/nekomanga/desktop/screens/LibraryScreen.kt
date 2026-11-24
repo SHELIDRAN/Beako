@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.components.GlassButton
-import org.nekomanga.desktop.components.SearchField
+import org.nekomanga.desktop.components.MorphSelect
+import org.nekomanga.desktop.components.SoftField
 import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.TitleCard
 import org.nekomanga.desktop.state.GroupBy
@@ -86,11 +86,12 @@ fun LibraryScreen(
                     style = MaterialTheme.typography.displaySmall,
                     color = BeakoColors.Text,
                 )
-                SearchField(
+                // The library sits on the plain ground, so its search is the soft field.
+                SoftField(
                     model.query,
                     { model.query = it },
                     "Search library by name, tag or genre",
-                    Modifier.fillMaxWidth(),
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -106,10 +107,12 @@ fun LibraryScreen(
                     Menu("Sort: ${model.sort.label}", LibrarySort.entries.map { it.label }) {
                         model.sort = LibrarySort.entries[it]
                     }
-                    GlassButton(
-                        if (model.descending) "Descending" else "Ascending",
-                        onClick = { model.descending = !model.descending },
-                        icon = Icons.Outlined.SwapVert,
+                    MorphSelect(
+                        listOf("Ascending", "Descending"),
+                        if (model.descending) 1 else 0,
+                        { model.descending = it == 1 },
+                        label = "Sort order",
+                        modifier = Modifier.align(Alignment.CenterVertically),
                     )
                 }
             }

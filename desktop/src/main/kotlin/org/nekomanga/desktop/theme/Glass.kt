@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -30,7 +30,8 @@ import dev.chrisbanes.haze.hazeEffect
  */
 val LocalHazeState = staticCompositionLocalOf<HazeState?> { null }
 
-private val RimBrush = Brush.verticalGradient(listOf(BeakoColors.RimBright, BeakoColors.Rim))
+private val rimBrush: Brush
+    get() = Brush.verticalGradient(listOf(BeakoColors.RimBright, BeakoColors.Rim))
 
 /**
  * Neutral liquid glass: what is behind is blurred and saturated under a light dark tint, with a
@@ -62,7 +63,7 @@ fun Modifier.glass(shape: Shape, tint: Color = BeakoColors.GlassTint, blur: Dp =
                 )
             else -> Modifier.background(tint)
         }
-    return this.clip(shape).then(fill).border(1.dp, RimBrush, shape)
+    return this.clip(shape).then(fill).border(1.dp, rimBrush, shape)
 }
 
 @Composable
@@ -75,7 +76,10 @@ fun GlassSurface(
     Box(
         modifier =
             modifier
-                .shadow(elevation, shape, ambientColor = Color.Black, spotColor = Color.Black)
+                .then(
+                    if (elevation > 0.dp) Modifier.dropShadow(shape, ShadowSpec.glass())
+                    else Modifier,
+                )
                 .glass(shape),
         content = content,
     )
@@ -89,10 +93,12 @@ fun GlassSurface(
 fun Droplet(modifier: Modifier = Modifier, shape: Shape = CircleShape) {
     Box(
         modifier
-            .shadow(6.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
+            .dropShadow(shape, ShadowSpec.droplet())
             .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color(0x3DFFFFFF), Color(0x14FFFFFF))))
-            .border(1.dp, Color(0x3DFFFFFF), shape),
+            .background(
+                Brush.verticalGradient(listOf(BeakoColors.DropletTop, BeakoColors.DropletBottom)),
+            )
+            .border(1.dp, BeakoColors.DropletTop, shape),
     )
 }
 
