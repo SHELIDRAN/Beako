@@ -41,6 +41,7 @@ import org.nekomanga.desktop.components.hoverSweep
 import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.shared.library.LibraryStore
 import org.nekomanga.shared.model.Chapter
 import org.nekomanga.shared.model.Title
@@ -166,6 +167,7 @@ private fun UpdateRowView(row: UpdateRow, onClick: () -> Unit) {
     val hover = remember { MutableInteractionSource() }
     Row(
         Modifier.fillMaxWidth()
+            .focusRing(hover, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
             .hoverSweep(hover)
             .hoverable(hover)

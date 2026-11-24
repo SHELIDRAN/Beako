@@ -1,5 +1,7 @@
 package org.nekomanga.desktop.state
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
 import org.nekomanga.shared.library.LibraryEntry
 import org.nekomanga.shared.model.Title
@@ -11,6 +13,12 @@ class AppState(
     onUpdates: (List<TitleUpdate>) -> Unit = {},
     openBrowser: (String) -> Unit = ::openInBrowser,
 ) {
+    /** Windows' own animation and transparency settings, read now and then. */
+    var systemComfort by
+        androidx.compose.runtime.mutableStateOf(
+            org.nekomanga.desktop.platform.SystemComfort(),
+        )
+
     val navigator = Navigator()
     val extensions = ExtensionsModel(scope, container.extensions)
     val backups = BackupModel(scope, container.library, container.settings, container.dirs.backups)

@@ -7,6 +7,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.nekomanga.desktop.platform.SystemComfort
+import org.nekomanga.desktop.platform.SystemPreferences
+import org.nekomanga.desktop.platform.WindowsBackdrop
 import org.nekomanga.desktop.platform.WindowsFullscreen
 import org.nekomanga.desktop.platform.WindowsVault
 import org.nekomanga.desktop.state.FullscreenDriver
@@ -73,5 +76,33 @@ class WindowControlTest {
         } finally {
             frame.dispose()
         }
+    }
+
+    /** Windows only (CI): the frame calls succeed on a real window, and nothing throws. */
+    @Test
+    fun theFrameFollowsThePaletteAndWindowsSettingsAreRead() {
+        assumeTrue(WindowsVault.isWindows && !GraphicsEnvironment.isHeadless())
+        val frame =
+            Frame("Beako backdrop test").apply {
+                setBounds(100, 100, 400, 300)
+                isVisible = true
+            }
+        try {
+            Thread.sleep(200)
+            val result = WindowsBackdrop.apply(frame, dark = true, mica = true)
+            // Every supported Windows has the dark title bar; Mica needs Windows 11.
+            assertTrue(result.darkTitleBar, "dark title bar applied")
+            WindowsBackdrop.apply(frame, dark = false, mica = false)
+            // Reading Windows' comfort settings works (whatever they are on the runner).
+            SystemPreferences.read()
+        } finally {
+            frame.dispose()
+        }
+    }
+
+    @Test
+    fun offWindowsNothingIsAskedOrChanged() {
+        assumeTrue(!WindowsVault.isWindows)
+        assertEquals(SystemComfort(), SystemPreferences.read())
     }
 }

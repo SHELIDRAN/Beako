@@ -45,6 +45,7 @@ import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.hoverSweep
 import org.nekomanga.desktop.state.displayName
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.shared.library.HistoryEntry
 import org.nekomanga.shared.library.LibraryStore
 
@@ -148,6 +149,7 @@ private fun HistoryRow(entry: HistoryEntry, onResume: () -> Unit, onRemove: () -
             .format(DateTimeFormatter.ofPattern("HH:mm"))
     Row(
         Modifier.fillMaxWidth()
+            .focusRing(hover, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
             .hoverSweep(hover)
             .hoverable(hover)

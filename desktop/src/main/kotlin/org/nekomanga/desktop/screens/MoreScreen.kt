@@ -59,6 +59,7 @@ import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.SoftCard
 import org.nekomanga.desktop.components.SoftElevation
 import org.nekomanga.desktop.components.Tabs
+import org.nekomanga.desktop.platform.SystemComfort
 import org.nekomanga.desktop.state.DnsMode
 import org.nekomanga.desktop.state.DohProvider
 import org.nekomanga.desktop.state.displayName
@@ -83,6 +84,8 @@ fun MoreScreen(
     accounts: (@Composable () -> Unit)? = null,
     backup: (@Composable () -> Unit)? = null,
     sources: (@Composable () -> Unit)? = null,
+    /** Windows' own settings, which Beako follows whatever its switches say. */
+    systemComfort: SystemComfort = SystemComfort(),
 ) {
     val settings by settingsStore.settings.collectAsState()
     val data by library.data.collectAsState()
@@ -150,15 +153,29 @@ fun MoreScreen(
                 Section("Appearance") {
                     ToggleRow(
                         "Reduce motion",
-                        "Make transitions and slides instant.",
-                        settings.reduceMotion,
+                        if (systemComfort.reduceMotion)
+                            "Windows has animation effects turned off, so Beako keeps motion reduced."
+                        else "Make transitions and slides instant.",
+                        settings.reduceMotion || systemComfort.reduceMotion,
                     ) {
                         settingsStore.update { s -> s.copy(reduceMotion = it) }
                     }
+                    if (System.getProperty("os.name").orEmpty().startsWith("Windows")) {
+                        ToggleRow(
+                            "Mica window frame",
+                            "On Windows 11 the title bar takes on the desktop’s colours. Windows 10 " +
+                                "keeps a title bar that matches the colour scheme.",
+                            settings.windowBackdrop,
+                        ) {
+                            settingsStore.update { s -> s.copy(windowBackdrop = it) }
+                        }
+                    }
                     ToggleRow(
                         "Reduce transparency",
-                        "Use solid panels instead of glass.",
-                        settings.reduceTransparency,
+                        if (systemComfort.reduceTransparency)
+                            "Windows has transparency effects turned off, so Beako uses solid panels."
+                        else "Use solid panels instead of glass.",
+                        settings.reduceTransparency || systemComfort.reduceTransparency,
                     ) {
                         settingsStore.update { s -> s.copy(reduceTransparency = it) }
                     }

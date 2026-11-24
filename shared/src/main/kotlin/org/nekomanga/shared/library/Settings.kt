@@ -19,6 +19,8 @@ data class Settings(
     val sidebarMode: String = "AUTO_COLLAPSE",
     /** Colour scheme name ("NEUTRAL", "MIDNIGHT", "WARM", "FOREST", "OLED"). */
     val palette: String = "NEUTRAL",
+    /** Windows 11's Mica material in the window frame (with a title bar matching the palette). */
+    val windowBackdrop: Boolean = true,
     /** Glass blur and tint strength, 0.5–1.5. */
     val glassStrength: Float = 1f,
     /** Interface size, 0.8–1.5. */

@@ -113,6 +113,7 @@ import org.nekomanga.desktop.theme.Sizes
 import org.nekomanga.desktop.theme.dropShadows
 import org.nekomanga.desktop.theme.dropletSpec
 import org.nekomanga.desktop.theme.easeOutSpec
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.desktop.theme.innerShadows
 import org.nekomanga.desktop.theme.press
 import org.nekomanga.desktop.theme.sweepSpec
@@ -194,6 +195,7 @@ fun ArrowButton(
             .dropShadow(shape, ShadowSpec.accentGlow(glow))
             .defaultMinSize(minWidth = 208.dp)
             .height(Sizes.controlCta)
+            .focusRing(interaction, shape)
             .clip(shape)
             .background(rest)
             .drawBehind {
@@ -262,6 +264,7 @@ fun ToggleIconButton(
             .press(interaction)
             .size(Sizes.controlCta)
             .dropShadow(CircleShape, ShadowSpec.droplet())
+            .focusRing(interaction, CircleShape)
             .clip(CircleShape)
             .background(if (ghost) BeakoColors.Surface else BeakoColors.AccentFill)
             .clickable(
@@ -355,6 +358,7 @@ fun TriStateChip(
         modifier
             .press(interaction)
             .height(Sizes.controlSm)
+            .focusRing(interaction, shape)
             .clip(shape)
             .background(under)
             .drawBehind { drawRect(over, size = Size(size.width * sweep.value, size.height)) }
@@ -498,6 +502,7 @@ fun Tabs(
             val selected = index == selectedIndex
             Box(
                 Modifier.press(interaction)
+                    .focusRing(interaction, RoundedCornerShape(6.dp))
                     .height(Sizes.controlLg)
                     .onGloballyPositioned {
                         val x = it.positionInParent().x
@@ -682,7 +687,10 @@ fun SoftCard(
         }
     Box(
         modifier
-            .then(if (onClick != null) Modifier.press(interaction) else Modifier)
+            .then(
+                if (onClick != null) Modifier.press(interaction).focusRing(interaction, shape)
+                else Modifier,
+            )
             .then(look)
             .then(
                 if (onClick != null)
@@ -912,6 +920,7 @@ fun IconToggleGroup(
                     Box(
                         Modifier.press(interaction)
                             .size(56.dp, 48.dp)
+                            .focusRing(interaction, RoundedCornerShape(Radius.field))
                             .clip(RoundedCornerShape(Radius.field))
                             .background(
                                 if (hovered && !selected) BeakoColors.Hover else Color.Transparent,
@@ -985,6 +994,7 @@ fun MorphSelect(
                 .alpha(triggerAlpha)
                 .height(Sizes.controlSm)
                 .focusRequester(trigger)
+                .focusRing(interaction, CircleShape)
                 .clip(CircleShape)
                 .background(BeakoColors.Surface)
                 .border(1.dp, BeakoColors.Rim, CircleShape)
@@ -1084,6 +1094,7 @@ fun MorphSelect(
                                 .press(actionPress)
                                 .fillMaxWidth()
                                 .height(Sizes.controlLg)
+                                .focusRing(actionPress, CircleShape)
                                 .clip(CircleShape)
                                 .border(1.dp, BeakoColors.Rim, CircleShape)
                                 .clickable(
@@ -1129,6 +1140,7 @@ fun MorphSelect(
                                     Modifier.press(optionPress)
                                         .width(segWidth)
                                         .height(Sizes.controlLg)
+                                        .focusRing(optionPress, CircleShape)
                                         .clip(CircleShape)
                                         .clickable(
                                             interactionSource = optionPress,
@@ -1188,10 +1200,14 @@ private class CenteredOverAnchor : PopupPositionProvider {
     }
 }
 
-/** Shows [text] as a tooltip on hover. */
+/** Shows [text] as a tooltip on hover; with null [text] just the content. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun Tooltip(text: String, content: @Composable () -> Unit) {
+internal fun Tooltip(text: String?, content: @Composable () -> Unit) {
+    if (text == null) {
+        content()
+        return
+    }
     androidx.compose.foundation.TooltipArea(
         tooltip = {
             Text(

@@ -1,6 +1,7 @@
 package org.nekomanga.desktop.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -49,13 +50,14 @@ import dev.chrisbanes.haze.hazeSource
 import java.util.Locale
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.desktop.theme.GlassBackdrop
 import org.nekomanga.desktop.theme.LocalAppearance
 import org.nekomanga.desktop.theme.LocalHazeState
 import org.nekomanga.desktop.theme.ShadowSpec
 import org.nekomanga.desktop.theme.dropShadows
 import org.nekomanga.desktop.theme.dropletSpec
 import org.nekomanga.desktop.theme.easeOutSpec
-import org.nekomanga.desktop.theme.glass
+import org.nekomanga.desktop.theme.focusRing
 import org.nekomanga.shared.model.Title
 
 private val CardShape = RoundedCornerShape(18.dp)
@@ -132,6 +134,7 @@ fun TitleCard(
                 scaleY = 1f + 0.015f * lift
             }
             .dropShadows(CardShape, ShadowSpec.card(shadow))
+            .focusRing(hover, CardShape)
             .clip(CardShape)
             .border(1.dp, BeakoColors.Rim, CardShape)
             .hoverable(hover)
@@ -168,41 +171,43 @@ fun TitleCard(
             )
         }
         CompositionLocalProvider(LocalHazeState provides haze) {
-            Column(
-                Modifier.align(Alignment.BottomCenter)
-                    .padding(8.dp)
-                    .fillMaxWidth()
-                    .glass(RoundedCornerShape(13.dp))
-                    .padding(horizontal = 11.dp, vertical = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    title.title,
-                    style = MaterialTheme.typography.titleSmall.copy(shadow = TextShadow),
-                    color = BeakoColors.Text,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+            Box(Modifier.align(Alignment.BottomCenter).padding(8.dp).fillMaxWidth()) {
+                // The frosted caption: blur plus saturation behind, the text above it.
+                GlassBackdrop(RoundedCornerShape(13.dp), Modifier.matchParentSize())
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    title.type?.let { Chip(it.label) }
-                    title.rating?.let {
-                        Text(
-                            "★ ${formatScore(it)}",
-                            style = MaterialTheme.typography.labelSmall.copy(shadow = TextShadow),
-                            color = BeakoColors.Text,
-                        )
-                    }
-                    title.follows?.let {
-                        Text(
-                            formatCount(it),
-                            style = MaterialTheme.typography.labelSmall.copy(shadow = TextShadow),
-                            color = BeakoColors.Text,
-                            modifier = Modifier.weight(1f),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                        )
+                    Text(
+                        title.title,
+                        style = MaterialTheme.typography.titleSmall.copy(shadow = TextShadow),
+                        color = BeakoColors.Text,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        title.type?.let { Chip(it.label) }
+                        title.rating?.let {
+                            Text(
+                                "★ ${formatScore(it)}",
+                                style =
+                                    MaterialTheme.typography.labelSmall.copy(shadow = TextShadow),
+                                color = BeakoColors.Text,
+                            )
+                        }
+                        title.follows?.let {
+                            Text(
+                                formatCount(it),
+                                style =
+                                    MaterialTheme.typography.labelSmall.copy(shadow = TextShadow),
+                                color = BeakoColors.Text,
+                                modifier = Modifier.weight(1f),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                            )
+                        }
                     }
                 }
             }
@@ -280,12 +285,27 @@ fun Shelf(
 
 /** One search result: rank, cover, title, details and description, as a glass row. */
 @Composable
-fun ResultRow(rank: Int, title: Title, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ResultRow(
+    rank: Int,
+    title: Title,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    /** Right-click actions (Add to library, Track on Comick, Copy link); none shows no menu. */
+    menu: () -> List<ContextMenuItem> = { emptyList() },
+) {
+    androidx.compose.foundation.ContextMenuArea(items = menu) {
+        ResultRowContent(rank, title, onClick, modifier)
+    }
+}
+
+@Composable
+private fun ResultRowContent(rank: Int, title: Title, onClick: () -> Unit, modifier: Modifier) {
     val hover = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier
             .fillMaxWidth()
+            .focusRing(hover, shape)
             .clip(shape)
             .hoverSweep(hover)
             .hoverable(hover)

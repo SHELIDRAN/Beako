@@ -1,6 +1,7 @@
 package org.nekomanga.desktop.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.components.Banner
 import org.nekomanga.desktop.components.DropletSegmented
@@ -47,6 +47,7 @@ import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.TriState
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.SearchModel
+import org.nekomanga.desktop.state.rememberSearchShortcut
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.comick.ComickFilters
@@ -71,9 +72,11 @@ fun SearchScreen(
     initialQuery: String,
     onBack: () -> Unit,
     onOpen: (Title) -> Unit,
+    /** A result's right-click menu. */
+    menu: (Title) -> List<ContextMenuItem> = { emptyList() },
 ) {
     LaunchedEffect(model) { model.start(initialQuery) }
-    val focus = remember { FocusRequester() }
+    val focus = rememberSearchShortcut()
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     // Open the filters when browsing; keep them out of the way of keyword results.
     var showFilters by remember { mutableStateOf(initialQuery.isBlank()) }
@@ -181,7 +184,7 @@ fun SearchScreen(
                 }
                 itemsIndexed(model.titles, key = { _, t -> "${t.source}:${t.id}" }) { index, title
                     ->
-                    ResultRow(index + 1, title, onClick = { onOpen(title) })
+                    ResultRow(index + 1, title, onClick = { onOpen(title) }, menu = { menu(title) })
                 }
                 if (model.loadingMore) {
                     item("more") { Skeleton(Modifier.fillMaxWidth().height(146.dp), 16) }

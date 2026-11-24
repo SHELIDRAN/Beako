@@ -16,7 +16,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
@@ -75,14 +78,78 @@ fun GlassSurface(
 ) {
     Box(
         modifier =
-            modifier
-                .then(
-                    if (elevation > 0.dp) Modifier.dropShadow(shape, ShadowSpec.glass())
-                    else Modifier,
-                )
-                .glass(shape),
-        content = content,
+            modifier.then(
+                if (elevation > 0.dp) Modifier.dropShadow(shape, ShadowSpec.glass()) else Modifier,
+            ),
+    ) {
+        GlassBackdrop(shape, Modifier.matchParentSize())
+        Box(Modifier.clip(shape), content = content)
+    }
+}
+
+/**
+ * The glass behind large panels: the blurred backdrop drawn on its own layer with the saturation
+ * boost liquid glass calls for, so colour behind the panel stays vivid instead of washing out. Text
+ * and icons are drawn above it, untouched. Haze has no saturation setting, so the layer applies a
+ * colour matrix to what Haze draws.
+ */
+@Composable
+fun GlassBackdrop(
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    tint: Color = BeakoColors.GlassTint,
+    blur: Dp = 24.dp,
+) {
+    val appearance = LocalAppearance.current
+    val saturate = !appearance.reduceTransparency && LocalHazeState.current != null
+    Box(
+        modifier
+            .then(
+                if (saturate) Modifier.graphicsLayer { renderEffect = SaturationEffect }
+                else Modifier,
+            )
+            .glass(shape, tint, blur),
     )
+}
+
+/** How much the backdrop's colour is boosted under large glass (1 = unchanged). */
+const val GLASS_SATURATION = 1.6f
+
+private val SaturationEffect: RenderEffect by lazy {
+    val s = GLASS_SATURATION
+    // Rec. 709 luma weights: the boost leaves greys grey.
+    val r = 0.2126f * (1 - s)
+    val g = 0.7152f * (1 - s)
+    val b = 0.0722f * (1 - s)
+    val matrix =
+        org.jetbrains.skia.ColorMatrix(
+            r + s,
+            g,
+            b,
+            0f,
+            0f,
+            r,
+            g + s,
+            b,
+            0f,
+            0f,
+            r,
+            g,
+            b + s,
+            0f,
+            0f,
+            0f,
+            0f,
+            0f,
+            1f,
+            0f,
+        )
+    org.jetbrains.skia.ImageFilter.makeColorFilter(
+            org.jetbrains.skia.ColorFilter.makeMatrix(matrix),
+            null,
+            null,
+        )
+        .asComposeRenderEffect()
 }
 
 /**
