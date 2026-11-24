@@ -1,5 +1,5 @@
 name: 🐞 Issue report
-description: Report an issue or bug in Neko
+description: Report a problem in Beako
 labels: [ bug ]
 body:
 
@@ -7,12 +7,12 @@ body:
     id: reproduce-steps
     attributes:
       label: Steps to reproduce
-      description: Provide an example of the issue.
+      description: What did you do before the problem showed up?
       placeholder: |
         Example:
-          1. First step
-          2. Second step
-          3. Issue here
+          1. Open a title from Browse
+          2. Choose "Reading from MangaDex" and pick another source
+          3. The chapter list stays empty
     validations:
       required: true
 
@@ -20,10 +20,10 @@ body:
     id: expected-behavior
     attributes:
       label: Expected behavior
-      description: Explain what you should expect to happen.
+      description: What should have happened?
       placeholder: |
         Example:
-          "This should happen..."
+          "The chapters from the other source should be listed."
     validations:
       required: true
 
@@ -31,69 +31,65 @@ body:
     id: actual-behavior
     attributes:
       label: Actual behavior
-      description: Explain what actually happens.
+      description: What happened instead? Screenshots help.
       placeholder: |
         Example:
-          "This happened instead..."
+          "The list stayed empty and the picker said '1 failed'."
     validations:
       required: true
 
   - type: textarea
-    id: crash-logs
+    id: log
     attributes:
-      label: Crash logs
+      label: Beako log
       description: |
-        If you're experiencing crashes, share the crash logs from **More → Settings → Advanced** then press **Dump crash logs**.
+        Attach `beako.log` from `%APPDATA%\Beako` (paste that into the File Explorer address bar). It records source failures, images that didn't load and crashes. It never contains passwords, tokens or sign-in details.
       placeholder: |
-        You can paste the crash logs in pure text or upload it as an attachment.
+        Drag beako.log here, or paste the lines around the problem.
 
   - type: input
-    id: tachiyomi-version
+    id: beako-version
     attributes:
-      label: Neko version
-      description: You can find your Neko version in **More → About**.
+      label: Beako version
+      description: You can find it in **More → General → About**.
       placeholder: |
-        Example: "2.8.0.2"
+        Example: "0.1.4"
     validations:
       required: true
 
   - type: input
-    id: android-version
+    id: windows-version
     attributes:
-      label: Android version
-      description: You can find this somewhere in your Android settings.
+      label: Windows version
+      description: Settings → System → About → Windows specifications.
       placeholder: |
-        Example: "Android 12"
+        Example: "Windows 11 24H2"
     validations:
       required: true
 
   - type: input
-    id: device
+    id: source
     attributes:
-      label: Device
-      description: List your device and model.
+      label: Source (if the problem is with reading)
+      description: MangaDex, or the installed source and the repository you added it from.
       placeholder: |
-        Example: "Google Pixel 6"
-    validations:
-      required: true
+        Example: "Weeb Central from the m2k3a repository"
 
   - type: textarea
     id: other-details
     attributes:
       label: Other details
       placeholder: |
-        Additional details and attachments.
+        Anything else that might help.
 
   - type: checkboxes
     id: acknowledgements
     attributes:
       label: Acknowledgements
-      description: Read this carefully, we will close and ignore your issue if you skimmed through this.
       options:
-        - label: I have searched the existing issues and this is a new ticket, **NOT** a duplicate or related to another open issue.
+        - label: I have searched the existing issues and this isn't a duplicate.
           required: true
-        - label: I have written a short but informative title.
-        - label: I have updated the app to the newest version **[Latest](https://github.com/nekomangaorg/Neko/releases/latest)**.
+        - label: I'm on the **[latest Beako release](https://github.com/SHELIDRAN/Beako/releases/latest)**.
           required: true
-        - label: I have filled out all of the requested information in this form.
+        - label: I understand that installed sources are third-party code, and problems on a source's own site may need its maintainer.
           required: true

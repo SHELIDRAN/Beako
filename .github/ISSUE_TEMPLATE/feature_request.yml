@@ -1,5 +1,5 @@
 name: 🌟 Feature request
-description: Suggest a feature to improve Neko
+description: Suggest something that would make Beako better
 labels: [ feature ]
 body:
 
@@ -7,10 +7,10 @@ body:
     id: feature-description
     attributes:
       label: Describe your suggested feature
-      description: How can Neko be improved?
+      description: What would you like Beako to do, and why?
       placeholder: |
         Example:
-          "It should work like this..."
+          "Let me save a set of tag filters and reuse it from Browse..."
     validations:
       required: true
 
@@ -19,21 +19,14 @@ body:
     attributes:
       label: Other details
       placeholder: |
-        Additional details and attachments.
+        Mock-ups, apps that do it well, or anything else that helps.
 
   - type: checkboxes
     id: acknowledgements
     attributes:
       label: Acknowledgements
-      description: Read this carefully, we will close and ignore your issue if you skimmed through this.
       options:
-        - label: I have searched the existing issues and this is a new ticket, **NOT** a duplicate or related to another open issue.
+        - label: I have searched the existing issues and this isn't a duplicate.
           required: true
-        - label: I have written a short but informative title.
-          required: true
-        - label: I have updated the app to the newest version **[Latest](https://github.com/nekomangaorg/Neko/releases/latest)**.
-          required: true
-        - label: I have checked through the app settings for my feature.
-          required: true
-        - label: I will fill out all of the requested information in this form.
+        - label: I'm on the **[latest Beako release](https://github.com/SHELIDRAN/Beako/releases/latest)** and checked its settings.
           required: true
