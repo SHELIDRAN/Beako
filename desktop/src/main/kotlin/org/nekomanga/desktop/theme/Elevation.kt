@@ -74,21 +74,15 @@ object ShadowSpec {
     fun card(hover: Float): List<Shadow> {
         val strong = if (light) 0.16f else 0.7f
         val contact = if (light) 0.06f else 0.5f
+        // Two layers (contact and drop): every card draws these, so they're kept cheap.
         return listOf(
             shadow(lerp(2.dp, 4.dp, hover), Color.Black.copy(alpha = contact), y = 1.dp),
             shadow(
-                lerp(14.dp, 28.dp, hover),
-                Color.Black.copy(alpha = strong * lerp(0.85f, 1f, hover)),
-                x = lerp(4.dp, 6.dp, hover),
-                y = lerp(6.dp, 14.dp, hover),
-                spread = lerp((-2).dp, (-6).dp, hover),
-            ),
-            shadow(
-                lerp(32.dp, 56.dp, hover),
-                Color.Black.copy(alpha = strong * lerp(1f, 1.15f, hover).coerceAtMost(1f)),
-                x = lerp(4.dp, 8.dp, hover),
-                y = lerp(16.dp, 32.dp, hover),
-                spread = lerp((-12).dp, (-16).dp, hover),
+                lerp(16.dp, 32.dp, hover),
+                Color.Black.copy(alpha = strong * lerp(0.9f, 1f, hover)),
+                x = lerp(4.dp, 7.dp, hover),
+                y = lerp(8.dp, 20.dp, hover),
+                spread = lerp((-4).dp, (-10).dp, hover),
             ),
         )
     }

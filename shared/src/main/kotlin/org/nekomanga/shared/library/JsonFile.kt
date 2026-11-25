@@ -60,7 +60,8 @@ class DebouncedWriter(private val file: File, private val delayMillis: Long = 40
     private val executor = Executors.newSingleThreadScheduledExecutor { runnable ->
         Thread(runnable, "beako-save-${file.name}").apply { isDaemon = true }
     }
-    private var pending: String? = null
+    /** What to write: the text, or how to make it (worked out on the save thread). */
+    private var pending: (() -> String)? = null
     private var scheduled: ScheduledFuture<*>? = null
 
     /** The last failed write, if any. */
@@ -68,9 +69,15 @@ class DebouncedWriter(private val file: File, private val delayMillis: Long = 40
     var lastError: IOException? = null
         private set
 
+    @Synchronized fun write(text: String) = writeLater { text }
+
+    /**
+     * Saves what [produce] returns, calling it on the save thread: turning a large library into
+     * JSON happens once per save, not on every change and never on the UI thread.
+     */
     @Synchronized
-    fun write(text: String) {
-        pending = text
+    fun writeLater(produce: () -> String) {
+        pending = produce
         if (scheduled == null || scheduled!!.isDone) {
             scheduled = executor.schedule({ writePending() }, delayMillis, TimeUnit.MILLISECONDS)
         }
@@ -80,14 +87,15 @@ class DebouncedWriter(private val file: File, private val delayMillis: Long = 40
     fun flush() = writePending()
 
     private fun writePending() {
-        val text = synchronized(this) { pending.also { pending = null } } ?: return
+        val produce = synchronized(this) { pending.also { pending = null } } ?: return
+        val text = produce()
         try {
             writeAtomically(file, text)
             lastError = null
         } catch (e: IOException) {
             lastError = e
             // Keep the change so the next write or flush tries again.
-            synchronized(this) { if (pending == null) pending = text }
+            synchronized(this) { if (pending == null) pending = { text } }
         }
     }
 }

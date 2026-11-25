@@ -317,7 +317,8 @@ class LibraryStore(
     private fun update(change: (LibraryData) -> LibraryData) {
         val before = state.value
         val after = change(before)
-        if (after == before) return
+        // Identity, not equality: comparing the whole library on every change was itself slow.
+        if (after === before) return
         state.value = after
         save(after)
     }
@@ -353,7 +354,8 @@ class LibraryStore(
 
     private fun save(data: LibraryData) {
         if (loadError != null) return
-        writer.write(BeakoJson.encodeToString(LibraryData.serializer(), data))
+        // The data is immutable, so the save thread can encode this snapshot later.
+        writer.writeLater { BeakoJson.encodeToString(LibraryData.serializer(), data) }
     }
 
     /** Writes any pending change now. */

@@ -90,7 +90,13 @@ fun main(args: Array<String>) {
     }
     application {
         val icon = remember { BitmapPainter(loadAppIcon()) }
-        val windowState = rememberWindowState(width = 1280.dp, height = 800.dp)
+        // Maximised underneath, so leaving full screen (F11) still fills the screen.
+        val windowState =
+            rememberWindowState(
+                placement = androidx.compose.ui.window.WindowPlacement.Maximized,
+                width = 1280.dp,
+                height = 800.dp,
+            )
         // A tray icon carries Windows notifications for new chapters.
         val trayState = rememberTrayState()
         if (isTraySupported) {
@@ -126,6 +132,13 @@ fun main(args: Array<String>) {
             onPreviewKeyEvent = keyRouter::dispatch,
         ) {
             awtFrame = window
+            // Full screen by default (More → Appearance → Start in full screen; F11 switches).
+            LaunchedEffect(window) {
+                if (container.settings.current.startFullscreen) {
+                    kotlinx.coroutines.delay(150) // once the window is on screen
+                    windowControl.setFullscreen(true)
+                }
+            }
             val scope = rememberCoroutineScope()
             val state = remember {
                 AppState(

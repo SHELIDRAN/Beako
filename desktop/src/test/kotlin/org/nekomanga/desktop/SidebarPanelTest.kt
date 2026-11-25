@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -89,6 +90,39 @@ class SidebarPanelTest {
             assertEquals(0, onAllNodesWithTextCount("Beako"))
             onNodeWithContentDescription("Keep menu open").performClick()
             assertEquals(SidebarMode.ALWAYS_EXPANDED, mode)
+        }
+    }
+}
+
+@OptIn(ExperimentalTestApi::class)
+class SidebarAutoCollapseTest {
+    @Test
+    fun autoCollapseClosesAfterPickingADestination() {
+        runComposeUiTest {
+            var selected by mutableStateOf(Destination.BROWSE)
+            setContent {
+                BeakoTheme(
+                    BeakoAppearance(reduceMotion = true, sidebarMode = SidebarMode.AUTO_COLLAPSE),
+                ) {
+                    Sidebar(selected, { selected = it })
+                }
+            }
+            mainClock.autoAdvance = false
+            // Hovering opens the panel after its short wait.
+            onNodeWithContentDescription("Main menu").performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(400)
+            assertEquals(1, onAllNodesWithTextCount("Beako"))
+            // Picking a destination closes it, though the pointer and the click's focus remain.
+            onNodeWithContentDescription("Library").performClick()
+            mainClock.advanceTimeBy(800)
+            assertEquals(Destination.LIBRARY, selected)
+            assertEquals(0, onAllNodesWithTextCount("Beako"))
+            // Leaving and coming back opens it again.
+            onNodeWithContentDescription("Main menu").performMouseInput { exit() }
+            mainClock.advanceTimeBy(800)
+            onNodeWithContentDescription("Main menu").performMouseInput { moveTo(center) }
+            mainClock.advanceTimeBy(400)
+            assertEquals(1, onAllNodesWithTextCount("Beako"))
         }
     }
 }

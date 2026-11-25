@@ -24,6 +24,8 @@ data class Settings(
     val darkPalette: String = "NEUTRAL",
     /** Use [lightPalette] or [darkPalette] to match Windows' app mode. */
     val followSystemTheme: Boolean = false,
+    /** Open Beako in full screen (F11 switches). */
+    val startFullscreen: Boolean = true,
     /** Windows 11's Mica material in the window frame (with a title bar matching the palette). */
     val windowBackdrop: Boolean = true,
     /** Glass blur and tint strength, 0.5–1.5. */

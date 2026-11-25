@@ -119,8 +119,11 @@ fun ReaderScreen(
         runCatching { focus.requestFocus() }
     }
 
+    // Full screen from before the reader opened (e.g. Beako starting in full screen) stays on
+    // when it closes; only full screen the reader turned on is undone.
+    val wasFullscreen = remember { window?.isFullscreen == true }
     fun close() {
-        window?.setFullscreen(false)
+        if (!wasFullscreen) window?.setFullscreen(false)
         onClose()
     }
     fun scroll(pagesOfWindow: Float) {
@@ -136,7 +139,7 @@ fun ReaderScreen(
         if (event.key == Key.Escape) {
             when {
                 settingsOpen -> settingsOpen = false
-                window?.isFullscreen == true -> window.setFullscreen(false)
+                window?.isFullscreen == true && !wasFullscreen -> window.setFullscreen(false)
                 else -> close()
             }
             return true

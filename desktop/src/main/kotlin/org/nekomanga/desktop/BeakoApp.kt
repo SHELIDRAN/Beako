@@ -37,6 +37,9 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
@@ -54,6 +57,7 @@ import org.nekomanga.desktop.state.SearchShortcut
 import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.BeakoTheme
+import org.nekomanga.desktop.theme.KeyboardNavigation
 import org.nekomanga.desktop.theme.LocalHazeState
 import org.nekomanga.desktop.theme.SidebarMode
 
@@ -92,6 +96,7 @@ fun BeakoApp(
     val immersive = openPage is Page.Reader
     val haze = remember { HazeState() }
     val searchShortcut = remember { SearchShortcut() }
+    val windowControl = org.nekomanga.desktop.state.LocalWindowControl.current
     BeakoTheme(appearance) {
         CompositionLocalProvider(LocalSearchShortcut provides searchShortcut) {
             Box(
@@ -103,11 +108,29 @@ fun BeakoApp(
                             radius = 1400f,
                         ),
                     )
+                    // A mouse press ends keyboard navigation (focus rings hide, the menu may
+                    // collapse).
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                if (event.type == PointerEventType.Press) {
+                                    KeyboardNavigation.active = false
+                                }
+                            }
+                        }
+                    }
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        if (event.key in NavigationKeys) KeyboardNavigation.active = true
                         val target = shortcutDestination(event.key)
                         when {
                             // Ctrl+F: this screen's search box, or Search when it has none.
+                            // F11: full screen on or off (the reader has its own keys).
+                            event.key == Key.F11 && !immersive -> {
+                                windowControl?.toggleFullscreen()
+                                true
+                            }
                             event.isCtrlPressed && event.key == Key.F && !immersive -> {
                                 if (!searchShortcut.focus()) {
                                     if (openPage !is Page.Search) navigator.open(Page.Search())
@@ -225,3 +248,15 @@ internal fun PlaceholderPage(name: String, onBack: () -> Unit) {
         Text(name, style = MaterialTheme.typography.displaySmall, color = BeakoColors.Text)
     }
 }
+
+/** Keys that mean the user is moving around with the keyboard. */
+private val NavigationKeys =
+    setOf(
+        Key.Tab,
+        Key.DirectionUp,
+        Key.DirectionDown,
+        Key.DirectionLeft,
+        Key.DirectionRight,
+        Key.PageUp,
+        Key.PageDown,
+    )

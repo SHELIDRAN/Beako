@@ -50,7 +50,6 @@ import dev.chrisbanes.haze.hazeSource
 import java.util.Locale
 import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.theme.BeakoColors
-import org.nekomanga.desktop.theme.GlassBackdrop
 import org.nekomanga.desktop.theme.LocalAppearance
 import org.nekomanga.desktop.theme.LocalHazeState
 import org.nekomanga.desktop.theme.ShadowSpec
@@ -58,6 +57,7 @@ import org.nekomanga.desktop.theme.dropShadows
 import org.nekomanga.desktop.theme.dropletSpec
 import org.nekomanga.desktop.theme.easeOutSpec
 import org.nekomanga.desktop.theme.focusRing
+import org.nekomanga.desktop.theme.glass
 import org.nekomanga.shared.model.Title
 
 private val CardShape = RoundedCornerShape(18.dp)
@@ -174,7 +174,9 @@ fun TitleCard(
         CompositionLocalProvider(LocalHazeState provides haze) {
             Box(Modifier.align(Alignment.BottomCenter).padding(8.dp).fillMaxWidth()) {
                 // The frosted caption: blur plus saturation behind, the text above it.
-                GlassBackdrop(RoundedCornerShape(13.dp), Modifier.matchParentSize())
+                // Plain glass here: a colour layer on every card cost too much when scrolling
+                // (the large menu panel keeps it).
+                Box(Modifier.matchParentSize().glass(RoundedCornerShape(13.dp)))
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 11.dp, vertical = 9.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
