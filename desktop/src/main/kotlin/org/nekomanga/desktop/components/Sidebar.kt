@@ -165,12 +165,31 @@ fun Sidebar(
     val hover = remember { MutableInteractionSource() }
     val hovered by hover.collectIsHoveredAsState()
     var focused by remember { mutableStateOf(false) }
+    // After picking somewhere to go, Auto-collapse closes the menu until the pointer leaves it.
+    var dismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(hovered) { if (!hovered) dismissed = false }
+    // Focus only holds the menu open while moving around with the keyboard, not after a click.
+    val keyboardFocus = focused && org.nekomanga.desktop.theme.KeyboardNavigation.active
     val wantExpanded =
         when (appearance.sidebarMode) {
             SidebarMode.ALWAYS_EXPANDED -> true
             SidebarMode.ICONS_ONLY -> false
-            SidebarMode.AUTO_COLLAPSE -> hovered || focused
+            SidebarMode.AUTO_COLLAPSE -> (hovered || keyboardFocus) && !dismissed
         }
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    // Going somewhere from the menu: drop its focus and, in Auto-collapse, close it.
+    fun went() {
+        if (!org.nekomanga.desktop.theme.KeyboardNavigation.active) focusManager.clearFocus()
+        if (appearance.sidebarMode == SidebarMode.AUTO_COLLAPSE) dismissed = true
+    }
+    val go: (Destination) -> Unit = {
+        onSelect(it)
+        went()
+    }
+    val goSearch: () -> Unit = {
+        onSearch()
+        went()
+    }
     var expanded by remember { mutableStateOf(wantExpanded) }
     LaunchedEffect(wantExpanded, appearance.sidebarMode) {
         if (appearance.sidebarMode == SidebarMode.AUTO_COLLAPSE) {
@@ -245,7 +264,7 @@ fun Sidebar(
             Column(Modifier.fillMaxHeight().padding(horizontal = 12.dp, vertical = 16.dp)) {
                 Head(expanded, appearance.sidebarMode, onModeChange)
                 Spacer(Modifier.height(8.dp))
-                SearchRow(expanded, onSearch)
+                SearchRow(expanded, goSearch)
                 Spacer(Modifier.height(12.dp))
                 Column(
                     Modifier.weight(1f).verticalScroll(rememberScrollState()).selectableGroup(),
@@ -265,12 +284,12 @@ fun Sidebar(
                                 place = place,
                                 onParent = {
                                     if (selected != Destination.BROWSE || searchOpen) {
-                                        onSelect(Destination.BROWSE)
+                                        go(Destination.BROWSE)
                                         browseOpen = true
                                     } else browseOpen = !browseOpen
                                 },
-                                onDiscover = { onSelect(Destination.BROWSE) },
-                                onSearch = onSearch,
+                                onDiscover = { go(Destination.BROWSE) },
+                                onSearch = goSearch,
                             )
                             continue
                         }
@@ -278,7 +297,7 @@ fun Sidebar(
                             label = destination.label,
                             expanded = expanded,
                             index = counter.next(),
-                            onClick = { onSelect(destination) },
+                            onClick = { go(destination) },
                             modifier = place(destination.name),
                             leading = { RowIcon(destination.icon, destination == selected) },
                             selected = destination == selected,
@@ -314,7 +333,7 @@ fun Sidebar(
                     selected = selected == Destination.MORE,
                     index = counter.next(),
                     modifier = place(Rows.FOOT),
-                    onClick = { onSelect(Destination.MORE) },
+                    onClick = { go(Destination.MORE) },
                 )
             }
         }

@@ -161,6 +161,13 @@ fun MoreScreen(
                     ) {
                         settingsStore.update { s -> s.copy(reduceMotion = it) }
                     }
+                    ToggleRow(
+                        "Start in full screen",
+                        "Open Beako in full screen. F11 switches full screen on or off at any time.",
+                        settings.startFullscreen,
+                    ) {
+                        settingsStore.update { s -> s.copy(startFullscreen = it) }
+                    }
                     if (System.getProperty("os.name").orEmpty().startsWith("Windows")) {
                         ToggleRow(
                             "Mica window frame",
