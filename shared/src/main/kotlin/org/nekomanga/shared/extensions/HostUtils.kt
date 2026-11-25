@@ -99,14 +99,53 @@ internal object HostUtils {
             }
     }
 
-    /** Dates in [format] (Java/ICU pattern) as epoch-millisecond strings; "" when unparseable. */
-    fun parseDates(values: List<String>, format: String, locale: String): List<String> {
+    /**
+     * Dates in [format] (Java/ICU pattern) as epoch-millisecond strings; "" when unparseable.
+     * Mangayomi locales are written `en_us`; relative dates ("3 days ago", "yesterday") count from
+     * [now], as Mangayomi reads them.
+     */
+    fun parseDates(
+        values: List<String>,
+        format: String,
+        locale: String,
+        now: Long = System.currentTimeMillis(),
+    ): List<String> {
+        val tag = locale.ifBlank { "en" }.replace('_', '-')
         val parser = runCatching {
-            SimpleDateFormat(format, Locale.forLanguageTag(locale.ifBlank { "en" }))
+            SimpleDateFormat(format, Locale.forLanguageTag(tag))
         }
             .getOrNull()
         return values.map { value ->
-            parser?.let { runCatching { it.parse(value)?.time?.toString() }.getOrNull() }.orEmpty()
+            relative(value, now)?.toString()
+                ?: parser?.let {
+                    runCatching { it.parse(value.trim())?.time?.toString() }.getOrNull()
+                }
+                ?: ""
         }
     }
+
+    private val ago =
+        Regex("""(\d+|an?|one)\s+(sec|min|hour|day|week|month|year)""", RegexOption.IGNORE_CASE)
+
+    private fun relative(value: String, now: Long): Long? {
+        val text = value.trim().lowercase()
+        if (text == "today" || text == "just now") return now
+        if (text == "yesterday") return now - DAY
+        if (!text.contains("ago")) return null
+        val match = ago.find(text) ?: return null
+        val count = match.groupValues[1].toLongOrNull() ?: 1L
+        val unit =
+            when (match.groupValues[2]) {
+                "sec" -> 1_000L
+                "min" -> 60_000L
+                "hour" -> 3_600_000L
+                "day" -> DAY
+                "week" -> 7 * DAY
+                "month" -> 30 * DAY
+                else -> 365 * DAY
+            }
+        return now - count * unit
+    }
+
+    private const val DAY = 86_400_000L
 }

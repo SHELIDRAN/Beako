@@ -2,7 +2,10 @@ package org.nekomanga.shared.extensions
 
 import kotlinx.serialization.Serializable
 
-/** Mangayomi's code languages: Dart sources need a helper Beako doesn't have yet. */
+/**
+ * Mangayomi's code languages. Beako runs JavaScript sources, and Dart sources built on a template
+ * it has ported to JavaScript ([Templates]).
+ */
 object CodeLanguage {
     const val DART = 0
     const val JAVASCRIPT = 1

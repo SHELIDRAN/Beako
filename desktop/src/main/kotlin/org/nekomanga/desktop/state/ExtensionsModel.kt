@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.nekomanga.shared.extensions.ExtensionInfo
 import org.nekomanga.shared.extensions.ExtensionManager
+import org.nekomanga.shared.extensions.isRunnable
 
 /** More → Sources: repositories, the sources they offer, and installed sources. */
 class ExtensionsModel(private val scope: CoroutineScope, val manager: ExtensionManager) {
@@ -65,7 +66,7 @@ class ExtensionsModel(private val scope: CoroutineScope, val manager: ExtensionM
     fun addRepository(pasted: String) = work {
         val sources = manager.addRepository(pasted)
         manager.data.value.repositories.lastOrNull()?.let { catalog[it] = Loadable.Ready(sources) }
-        val usable = sources.count { it.isJavaScript }
+        val usable = sources.count { it.isRunnable }
         "Added a repository with ${sources.size} sources ($usable Beako can run now)."
     }
 
