@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import java.awt.FileDialog
 import java.io.File
@@ -54,11 +55,24 @@ fun BackupSection(model: BackupModel, settingsStore: SettingsStore) {
             GlassButton(
                 "Restore from file…",
                 onClick = {
-                    chooseFile("Restore a Beako or Neko backup", FileDialog.LOAD)
+                    chooseFile(
+                            "Restore a Beako or Neko backup, or a Neko Desktop library.json",
+                            FileDialog.LOAD,
+                        )
                         ?.let(model::restore)
                 },
                 icon = Icons.Outlined.Restore,
             )
+            // Neko Desktop, the earlier prototype, kept its library in AppData; offer it when it's
+            // there. Restore from file also accepts its library.json.
+            val prototype = remember { org.nekomanga.shared.backup.PrototypeLibrary.defaultFile() }
+            if (prototype != null) {
+                GlassButton(
+                    "Import from Neko Desktop",
+                    onClick = { model.restore(prototype) },
+                    icon = Icons.Outlined.Restore,
+                )
+            }
             GlassButton(
                 "Open automatic backups",
                 onClick = { openFolder(model.folder) },

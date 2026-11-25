@@ -59,6 +59,10 @@ object Backups {
         // Beako backups are JSON objects; a Neko protobuf can't start with '{' (its first byte is a
         // field tag), but try it anyway if the JSON doesn't parse.
         if (bytes.isNotEmpty() && bytes[0] == '{'.code.toByte()) {
+            // Neko Desktop (the Rust prototype) kept a plain library.json.
+            val json = runCatching { PrototypeLibrary.parse(bytes.decodeToString()) }.getOrNull()
+            if (json != null && PrototypeLibrary.looksLikeOne(json))
+                return PrototypeLibrary.toLibrary(json) to null
             val backup =
                 try {
                     BeakoJson.decodeFromString(BeakoBackup.serializer(), bytes.decodeToString())
