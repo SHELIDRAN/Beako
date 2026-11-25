@@ -1,13 +1,18 @@
 Beako is a manga reader for Windows, based on the [Neko](https://github.com/nekomangaorg/Neko) Android app (Apache-2.0).
 
-## Beako 0.1.6
+## Beako 0.1.7
 
-**Install:** download `Beako-0.1.6-windows-x64.msi` below and run it; it upgrades earlier versions in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
+**Install:** download `Beako-0.1.7-windows-x64.msi` below and run it; it upgrades earlier versions in place. The installer isn't code-signed yet, so Windows SmartScreen may warn you: choose *More info → Run anyway*. The `.sha256` file lets you check the download.
 
 ### New
-- **Dynamic colour scheme**, light and dark, in More → Appearance. It's built from your Windows accent colour (Settings → Personalization → Colors): the background takes a light tint of it, and unread dots, the tab underline, focus rings and the main button use it. Change the accent in Windows and Beako follows within half a minute. Text stays easy to read whatever colour you pick. It works with "Follow Windows light or dark mode" too.
+More has two new tabs, **Library** and **Reader**, with settings brought over from Neko on Android.
 
-0.1.5 brought 27 colour schemes from Neko, following Windows' light or dark mode, the new Beako logo, a right-click menu on search results, Ctrl+F, visible keyboard focus and a Mica title bar on Windows 11.
+- **Read manga from your PC.** Point Beako at a folder (More → Library → Local manga; `Documents\Beako Local` by default). Each folder in it is a series, and each folder of images or `.cbz`/`.zip` file inside is a chapter. Your series show on Browse under "On this PC" and work like any other title, update checks included.
+- **Reader:** two pages side by side (or automatically when the window is wider than tall), crop plain borders, grayscale, a page between chapters showing what's next, skip chapters you've read or duplicate uploads, slide between pages, click-zone layouts (Kindle, edges, L-shaped or off), pages loaded ahead, keep the screen awake, a page number while the controls are hidden, a default reading mode and opening in full screen.
+- **Title page:** buttons tinted with the cover's colour, the cover of the volume you're reading (MangaDex), a blurred cover behind the header (off, small, default or large), icon-only buttons, and every alternative title wrapped or on one scrolling line.
+- **Library:** sort ignoring "a", "an" and "the", hide a chapter by several groups when any or all of them are hidden, a default category for new titles, and a category editor to rename, reorder and delete.
+- **Library updates:** only while plugged in, skip series you've dropped, refresh covers and details from MangaDex, and choose which categories to check.
+- **A new loading animation** for chapters and pages.
 
 ### Still to come
 - Dart-based Mangayomi sources (most sources in the big repositories); JavaScript ones work.
