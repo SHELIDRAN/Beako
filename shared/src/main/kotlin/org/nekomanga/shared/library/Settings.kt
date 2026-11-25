@@ -31,6 +31,8 @@ data class Settings(
     /** "Later" on the update notice: that version stays quiet until [appUpdateSnoozedUntil]. */
     val appUpdateSnoozedVersion: String = "",
     val appUpdateSnoozedUntil: Long = 0,
+    /** Where the window was and how big, for the next start; null until it has been moved. */
+    val window: WindowBounds? = null,
     /** Open Beako in full screen (F11 switches). */
     val startFullscreen: Boolean = true,
     /** Windows 11's Mica material in the window frame (with a title bar matching the palette). */
@@ -196,3 +198,15 @@ class SettingsStore(private val file: File) {
         }
     }
 }
+
+/**
+ * The window's last normal (not maximised) position and size in dp, and whether it was maximised.
+ */
+@Serializable
+data class WindowBounds(
+    val x: Float,
+    val y: Float,
+    val width: Float,
+    val height: Float,
+    val maximized: Boolean = true,
+)

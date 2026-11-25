@@ -11,7 +11,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
@@ -91,12 +90,14 @@ fun main(args: Array<String>) {
     }
     application {
         val icon = remember { BitmapPainter(loadAppIcon()) }
-        // Maximised underneath, so leaving full screen (F11) still fills the screen.
+        // Where it was last time maximised by default, so leaving full screen
+        // still fills the screen.
+        val savedWindow = remember { container.settings.current.window }
         val windowState =
             rememberWindowState(
-                placement = androidx.compose.ui.window.WindowPlacement.Maximized,
-                width = 1280.dp,
-                height = 800.dp,
+                placement = org.nekomanga.desktop.state.WindowMemory.placement(savedWindow),
+                position = org.nekomanga.desktop.state.WindowMemory.position(savedWindow),
+                size = org.nekomanga.desktop.state.WindowMemory.size(savedWindow),
             )
         // A tray icon carries Windows notifications for new chapters.
         val trayState = rememberTrayState()
@@ -133,6 +134,12 @@ fun main(args: Array<String>) {
             onPreviewKeyEvent = keyRouter::dispatch,
         ) {
             awtFrame = window
+            org.nekomanga.desktop.state.RememberWindowBounds(
+                windowState,
+                fullscreen = { windowControl.isFullscreen },
+                saved = { container.settings.current.window },
+                save = { bounds -> container.settings.update { it.copy(window = bounds) } },
+            )
             // Full screen by default (More → Appearance → Start in full screen; F11 switches).
             LaunchedEffect(window) {
                 if (container.settings.current.startFullscreen) {
