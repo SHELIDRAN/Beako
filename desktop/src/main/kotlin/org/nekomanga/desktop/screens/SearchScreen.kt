@@ -41,6 +41,7 @@ import org.nekomanga.desktop.components.Banner
 import org.nekomanga.desktop.components.DropletSegmented
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
+import org.nekomanga.desktop.components.GlassTextField
 import org.nekomanga.desktop.components.ResultRow
 import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.components.Skeleton
@@ -330,6 +331,22 @@ private fun FilterPanel(model: SearchModel) {
                     }
                 }
             }
+            FilterGroup("Released") {
+                NumberBox("From year", filters.fromYear, digits = 4) { year ->
+                    model.update { it.copy(fromYear = year) }
+                }
+                NumberBox("To year", filters.toYear, digits = 4) { year ->
+                    model.update { it.copy(toYear = year) }
+                }
+            }
+            FilterGroup("Chapters") {
+                NumberBox("At least", filters.minChapters, digits = 5) { n ->
+                    model.update { it.copy(minChapters = n) }
+                }
+                NumberBox("At most", filters.maxChapters, digits = 5) { n ->
+                    model.update { it.copy(maxChapters = n) }
+                }
+            }
             FilterGroup("Min score") {
                 listOf(6.0, 7.0, 8.0, 9.0).forEach { score ->
                     ToggleChip("≥ ${score.toInt()}", filters.minRating == score) {
@@ -365,6 +382,26 @@ private fun FilterGroup(name: String, content: @Composable () -> Unit) {
             content()
         }
     }
+}
+
+/**
+ * A small number field: digits only, up to [digits] of them; empty clears the filter. Keeps what is
+ * typed locally, so a half-typed year doesn't jump.
+ */
+@Composable
+private fun NumberBox(label: String, value: Int?, digits: Int, onValue: (Int?) -> Unit) {
+    var text by remember(value) { mutableStateOf(value?.toString().orEmpty()) }
+    GlassTextField(
+        label,
+        text,
+        { typed ->
+            val clean = typed.filter(Char::isDigit).take(digits)
+            text = clean
+            val number = clean.toIntOrNull()
+            if (clean.isEmpty() || number != null) onValue(number?.takeIf { it > 0 })
+        },
+        Modifier.width(104.dp),
+    )
 }
 
 /** One entry of a tri-state picker. */
