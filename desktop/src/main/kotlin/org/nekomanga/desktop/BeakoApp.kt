@@ -186,6 +186,14 @@ fun BeakoApp(
                                 destination = it
                             },
                             searchOpen = openPage is Page.Search,
+                            mangaDexOpen = openPage is Page.MangaDex,
+                            onMangaDex = {
+                                if (openPage !is Page.MangaDex) {
+                                    navigator.clear()
+                                    navigator.open(Page.MangaDex)
+                                }
+                                destination = Destination.BROWSE
+                            },
                             onSearch = {
                                 if (openPage !is Page.Search) navigator.open(Page.Search())
                                 destination = Destination.BROWSE

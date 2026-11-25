@@ -270,6 +270,10 @@ private suspend fun openForDevelopment(state: AppState, request: String?) {
         state.navigator.open(Page.Search(query))
         return
     }
+    if (kind == "page" && query == "mangadex") {
+        state.navigator.open(Page.MangaDex)
+        return
+    }
     val title =
         runCatching { state.container.mangaDex.search(query, limit = 1).items.firstOrNull() }
             .getOrNull() ?: return
@@ -368,6 +372,21 @@ private fun AppPage(state: AppState, page: Page) {
                 onBack = { state.navigator.back() },
                 onOpen = { state.navigator.open(Page.Details(it)) },
                 menu = { title -> resultMenu(state, title) },
+            )
+        Page.MangaDex ->
+            org.nekomanga.desktop.screens.MangaDexScreen(
+                state.mangaDexPage,
+                onBack = { state.navigator.back() },
+                onOpen = { state.navigator.open(Page.Details(it)) },
+                onRead = { title, chapter ->
+                    state.mangaDexPage.read(
+                        title,
+                        chapter,
+                        open = { state.navigator.open(it) },
+                        failed = { state.navigator.open(Page.Details(it)) },
+                    )
+                },
+                onConnect = { state.navigator.show(Destination.MORE) },
             )
         is Page.Details ->
             DetailsScreen(

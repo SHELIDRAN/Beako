@@ -56,17 +56,22 @@ class MangaDexApi(
         order: MangaDexOrder = MangaDexOrder.RELEVANCE,
         contentRatings: Set<String> = DEFAULT_RATINGS,
         translatedLanguage: String? = "en",
+        /** Titles with chapters in any of these languages; defaults to [translatedLanguage]. */
+        translatedLanguages: List<String> = listOfNotNull(translatedLanguage),
+        /** Only titles added to MangaDex since this time (`yyyy-MM-ddTHH:mm:ss`, UTC). */
+        createdAtSince: String? = null,
     ): Paged<Title> {
         val params = buildList {
             if (!query.isNullOrBlank()) add("title" to query.trim())
+            createdAtSince?.let { add("createdAtSince" to it) }
             add("limit" to limit.toString())
             add("offset" to offset.toString())
             add("order[${order.key}]" to "desc")
             add("includes[]" to "cover_art")
             contentRatings.forEach { add("contentRating[]" to it) }
             // Only titles that have chapters in the reader's language.
-            translatedLanguage?.let {
-                add("availableTranslatedLanguage[]" to it)
+            if (translatedLanguages.isNotEmpty()) {
+                translatedLanguages.forEach { add("availableTranslatedLanguage[]" to it) }
                 add("hasAvailableChapters" to "true")
             }
         }
@@ -77,6 +82,24 @@ class MangaDexApi(
     suspend fun title(id: String): Title {
         val params = listOf("includes[]" to "cover_art")
         return toTitle(get("manga/$id", params, MangaDto.serializer()).data)
+    }
+
+    /** The titles with these ids, with covers, in the order given; unknown ids are left out. */
+    suspend fun titles(ids: List<String>): List<Title> {
+        val wanted = ids.distinct()
+        if (wanted.isEmpty()) return emptyList()
+        val found =
+            wanted.chunked(100).flatMap { chunk ->
+                val params = buildList {
+                    chunk.forEach { add("ids[]" to it) }
+                    add("limit" to chunk.size.toString())
+                    add("includes[]" to "cover_art")
+                    ALL_RATINGS.forEach { add("contentRating[]" to it) }
+                }
+                get("manga", params, MangaListDto.serializer()).data.map(::toTitle)
+            }
+        val byId = found.associateBy { it.id }
+        return wanted.mapNotNull { byId[it] }
     }
 
     /**
