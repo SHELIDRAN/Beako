@@ -158,6 +158,15 @@ fun TitleCard(
                 ),
         )
         if (rank != null) RankChip(rank, Modifier.align(Alignment.TopStart).padding(10.dp))
+        // The country flag sits in the top corner the rank chip and badge leave free.
+        CountryFlag(
+            title.country,
+            Modifier.align(if (rank == null) Alignment.TopStart else Alignment.TopEnd)
+                .padding(10.dp)
+                .then(
+                    if (rank != null && badge != null) Modifier.padding(top = 26.dp) else Modifier,
+                ),
+        )
         if (badge != null) {
             Text(
                 badge,
@@ -330,10 +339,13 @@ private fun ResultRowContent(rank: Int, title: Title, onClick: () -> Unit, modif
             modifier = Modifier.width(44.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        Cover(
-            title.coverUrl,
-            Modifier.size(width = 84.dp, height = 126.dp).clip(RoundedCornerShape(10.dp)),
-        )
+        Box {
+            Cover(
+                title.coverUrl,
+                Modifier.size(width = 84.dp, height = 126.dp).clip(RoundedCornerShape(10.dp)),
+            )
+            CountryFlag(title.country, Modifier.align(Alignment.TopStart).padding(6.dp))
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(
                 title.title,
