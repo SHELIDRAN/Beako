@@ -133,6 +133,7 @@ private const val WidthMillis = 260
 private object Rows {
     const val SEARCH_CHILD = "browse/search"
     const val DISCOVER = "browse/discover"
+    const val MANGADEX = "browse/mangadex"
     const val FOOT = "more"
 }
 
@@ -155,6 +156,9 @@ fun Sidebar(
     /** True while the Search page is open over Browse. */
     searchOpen: Boolean = false,
     onSearch: () -> Unit = {},
+    /** True while the MangaDex page is open over Browse. */
+    mangaDexOpen: Boolean = false,
+    onMangaDex: () -> Unit = {},
     /** Small counts shown at the end of a row, e.g. new chapters on Latest updates. */
     counts: Map<Destination, Int> = emptyMap(),
     /** Destinations with something new since they were last opened: an accent dot on the icon. */
@@ -190,6 +194,10 @@ fun Sidebar(
         onSearch()
         went()
     }
+    val goMangaDex: () -> Unit = {
+        onMangaDex()
+        went()
+    }
     var expanded by remember { mutableStateOf(wantExpanded) }
     LaunchedEffect(wantExpanded, appearance.sidebarMode) {
         if (appearance.sidebarMode == SidebarMode.AUTO_COLLAPSE) {
@@ -210,6 +218,8 @@ fun Sidebar(
         when {
             selected == Destination.BROWSE && searchOpen ->
                 if (treeShown) Rows.SEARCH_CHILD else Destination.BROWSE.name
+            selected == Destination.BROWSE && mangaDexOpen ->
+                if (treeShown) Rows.MANGADEX else Destination.BROWSE.name
             selected == Destination.BROWSE -> if (treeShown) Rows.DISCOVER else selected.name
             selected == Destination.MORE -> Rows.FOOT
             else -> selected.name
@@ -283,13 +293,16 @@ fun Sidebar(
                                 counter = counter,
                                 place = place,
                                 onParent = {
-                                    if (selected != Destination.BROWSE || searchOpen) {
+                                    if (
+                                        selected != Destination.BROWSE || searchOpen || mangaDexOpen
+                                    ) {
                                         go(Destination.BROWSE)
                                         browseOpen = true
                                     } else browseOpen = !browseOpen
                                 },
                                 onDiscover = { go(Destination.BROWSE) },
                                 onSearch = goSearch,
+                                onMangaDex = goMangaDex,
                             )
                             continue
                         }
@@ -709,6 +722,7 @@ private fun ColumnScope.BrowseGroup(
     onParent: () -> Unit,
     onDiscover: () -> Unit,
     onSearch: () -> Unit,
+    onMangaDex: () -> Unit,
 ) {
     val reduceMotion = LocalAppearance.current.reduceMotion
     val index = counter.next()
@@ -723,7 +737,19 @@ private fun ColumnScope.BrowseGroup(
         if (!want) delay(200)
         flyout = want
     }
-    val pages = listOf("Discover" to Rows.DISCOVER, "Search with filters" to Rows.SEARCH_CHILD)
+    val pages =
+        listOf(
+            "Discover" to Rows.DISCOVER,
+            "MangaDex" to Rows.MANGADEX,
+            "Search with filters" to Rows.SEARCH_CHILD,
+        )
+    val pick: (String) -> Unit = { key ->
+        when (key) {
+            Rows.DISCOVER -> onDiscover()
+            Rows.MANGADEX -> onMangaDex()
+            else -> onSearch()
+        }
+    }
     Box {
         MenuRow(
             label = Destination.BROWSE.label,
@@ -750,7 +776,7 @@ private fun ColumnScope.BrowseGroup(
             val gap = with(LocalDensity.current) { 8.dp.roundToPx() }
             Popup(popupPositionProvider = remember(gap) { RightOfAnchor(gap) }) {
                 Flyout(pages, current, flyoutHover) { key ->
-                    if (key == Rows.DISCOVER) onDiscover() else onSearch()
+                    pick(key)
                     flyout = false
                 }
             }
@@ -799,7 +825,7 @@ private fun ColumnScope.BrowseGroup(
                         label = name,
                         expanded = expanded,
                         index = counter.next(),
-                        onClick = { if (key == Rows.DISCOVER) onDiscover() else onSearch() },
+                        onClick = { pick(key) },
                         modifier = place(key),
                         height = 36.dp,
                         selected = isCurrent,

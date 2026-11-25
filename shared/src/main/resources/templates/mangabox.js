@@ -101,8 +101,12 @@ class DefaultExtension extends MProvider {
 
     async getPageList(url) {
         const doc = await this.html(url);
+        // Images on this converter host load only through the weserv proxy, as in the Dart template.
         return doc.xpath('//div[@class="container-chapter-reader" or @class="panel-read-story"]/img/@src')
-            .filter((u) => u);
+            .filter((u) => u)
+            .map((u) => u.startsWith("https://convert_image_digi.mgicdn.com")
+                ? "https://images.weserv.nl/?url=" + u.substring(u.indexOf("//") + 2)
+                : u);
     }
 
     getFilterList() { return []; }

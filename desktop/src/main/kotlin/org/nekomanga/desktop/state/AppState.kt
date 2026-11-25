@@ -35,6 +35,13 @@ class AppState(
         )
     val browse = BrowseModel(scope, container.comick, container.mangaDex)
     val search = SearchModel(scope, container.discovery, container.comick)
+    val mangaDexPage =
+        MangaDexModel(
+            scope,
+            container.mangaDex,
+            container.mangaDexAccount,
+            languages = { container.settings.current.languages },
+        )
     val libraryScreen =
         LibraryModel(
             container.library,

@@ -1,5 +1,6 @@
 package org.nekomanga.shared.mangadex
 
+import eu.kanade.tachiyomi.source.online.models.dto.ChapterListDto
 import eu.kanade.tachiyomi.source.online.models.dto.MangaListDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,15 +13,21 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.nekomanga.shared.auth.SecretVault
+import org.nekomanga.shared.model.Chapter
+import org.nekomanga.shared.model.Paged
 import org.nekomanga.shared.model.Title
 import org.nekomanga.shared.net.ApiError
 import org.nekomanga.shared.net.BeakoJson
 import org.nekomanga.shared.net.HttpRequest
 import org.nekomanga.shared.net.HttpTransport
 import org.nekomanga.shared.net.RateLimiter
+import org.nekomanga.shared.net.buildUrl
 import org.nekomanga.shared.net.int
 import org.nekomanga.shared.net.sendJson
 import org.nekomanga.shared.net.str
+
+/** One chapter in the follow feed and the id of its title. */
+data class MangaDexFeedItem(val mangaId: String, val chapter: Chapter)
 
 /** What a MangaDex personal API client sign-in needs. The password is used once, never stored. */
 data class MangaDexCredentials(
@@ -115,6 +122,42 @@ class MangaDexAccount(
             if (page.data.isEmpty() || offset >= page.total || offset >= MAX_FOLLOWS) break
         }
         return all
+    }
+
+    /**
+     * New chapters of followed titles, newest first: MangaDex's follow feed. Each chapter comes
+     * with its title's id; the titles themselves are looked up separately ([MangaDexApi.titles]).
+     */
+    suspend fun feed(
+        offset: Int = 0,
+        limit: Int = 50,
+        languages: List<String> = listOf("en"),
+        contentRatings: Set<String> = MangaDexApi.ALL_RATINGS,
+    ): Paged<MangaDexFeedItem> {
+        val params = buildList {
+            add("limit" to limit.toString())
+            add("offset" to offset.toString())
+            add("order[readableAt]" to "desc")
+            add("includes[]" to "scanlation_group")
+            add("includeFutureUpdates" to "0")
+            languages.forEach { add("translatedLanguage[]" to it) }
+            contentRatings.forEach { add("contentRating[]" to it) }
+        }
+        val json =
+            send(HttpRequest("GET", buildUrl(API, "user/follows/manga/feed", params)))
+                ?: return Paged(emptyList(), false)
+        val page =
+            try {
+                BeakoJson.decodeFromJsonElement(ChapterListDto.serializer(), json)
+            } catch (e: SerializationException) {
+                throw ApiError.Unreadable(SERVICE, e)
+            }
+        val items =
+            page.data.mapNotNull { data ->
+                val manga = data.relationships.firstOrNull { it.type == "manga" }?.id
+                manga?.let { MangaDexFeedItem(it, MangaDexApi.toChapter(data)) }
+            }
+        return Paged(items, page.offset + page.data.size < page.total)
     }
 
     /** Marks chapters read on MangaDex. */

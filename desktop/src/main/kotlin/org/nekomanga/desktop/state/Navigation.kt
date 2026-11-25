@@ -21,6 +21,9 @@ sealed interface Loadable<out T> {
 sealed interface Page {
     data class Search(val query: String = "") : Page
 
+    /** Browse › MangaDex: MangaDex's catalog in tabs and the follow feed. */
+    data object MangaDex : Page
+
     data class Details(val title: Title) : Page
 
     /** [chapters] are in reading order; [index] is the one to open. */
