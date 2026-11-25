@@ -51,17 +51,18 @@ class SidebarPanelTest {
             onNodeWithText("ACCOUNTS").assertIsDisplayed()
             onNodeWithText("12").assertIsDisplayed()
             onNodeWithContentDescription("new", useUnmergedTree = true).assertIsDisplayed()
-            // Browse is open on its Discover page.
+            // Browse is open on Comick, with each catalog's search one step in.
             onNodeWithContentDescription("Browse").assertIsSelected()
-            onNodeWithText("Discover").assertIsDisplayed()
-            onNodeWithText("Search with filters").performClick()
+            onAllNodes(androidx.compose.ui.test.hasText("Comick"))[0].assertIsDisplayed()
+            onNodeWithText("Search MangaDex").assertIsDisplayed()
+            onNodeWithText("Search with tags").performClick()
             assertEquals(1, searched)
             onNodeWithContentDescription("Search Comick (Ctrl+K)").performClick()
             assertEquals(2, searched)
             // Clicking Browse while on it folds the group.
             onNodeWithContentDescription("Browse").performClick()
             waitForIdle()
-            assertTrue(onAllNodesWithTextCount("Discover") == 0)
+            assertTrue(onAllNodesWithTextCount("Search with tags") == 0)
             onNodeWithContentDescription("Comick: signed in as Hana").assertIsDisplayed()
             onNodeWithContentDescription("Connect MangaDex").assertIsDisplayed()
             // The foot is More; the user's name stands above "Settings".

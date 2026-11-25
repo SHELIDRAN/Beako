@@ -28,6 +28,7 @@ class SearchModel(
     private val discovery: Discovery,
     private val comick: ComickApi,
     private val debounceMillis: Long = 400,
+    private val random: kotlin.random.Random = kotlin.random.Random.Default,
 ) {
     var filters by mutableStateOf(ComickFilters(sort = ComickSort.LATEST))
         private set
@@ -57,11 +58,19 @@ class SearchModel(
     var genres by mutableStateOf<Loadable<List<ComickGenre>>>(Loadable.Loading)
         private set
 
+    /** True while the results are random picks for the current filters (see [randomPicks]). */
+    var randomPicks by mutableStateOf(false)
+        private set
+
     /** True while the user has chosen to search MangaDex directly. */
     var mangaDexByHand by mutableStateOf(false)
         private set
 
     private var job: Job? = null
+    private var moreJob: Job? = null
+
+    /** Whether a by-hand MangaDex search was on before random picks, for going back. */
+    private var mangaDexBeforeRandom = false
     private var started = false
 
     fun start(query: String = "") {
@@ -73,12 +82,14 @@ class SearchModel(
     }
 
     fun update(change: (ComickFilters) -> ComickFilters) {
+        randomPicks = false
         filters = change(filters).copy(page = 1)
         run(immediately = false)
     }
 
     fun retryComick() {
         mangaDexByHand = false
+        randomPicks = false
         loadTagLists()
         run(immediately = true)
     }
@@ -88,11 +99,72 @@ class SearchModel(
         run(immediately = true)
     }
 
+    /**
+     * Random titles that match the current tags, genres, types and other filters: a few Comick
+     * pages picked at random, mixed and cut to [count]. Shuffling again gives a new set.
+     */
+    fun randomPicks(count: Int = 12) {
+        job?.cancel()
+        cancelMore()
+        if (!randomPicks) mangaDexBeforeRandom = mangaDexByHand
+        mangaDexByHand = false
+        randomPicks = true
+        job = scope.launch {
+            status = Loadable.Loading
+            status =
+                try {
+                    titles = pickRandom(filters.copy(page = 1), count)
+                    servedBy = Sources.COMICK
+                    fallback = null
+                    hasMore = false
+                    Loadable.Ready(Unit)
+                } catch (e: ApiError) {
+                    // Stays in random picks, so Try again shuffles again.
+                    titles = emptyList()
+                    hasMore = false
+                    Loadable.Failed(e.message.orEmpty())
+                }
+        }
+    }
+
+    /** Leaves random picks for the search as it was (Comick, or MangaDex if chosen by hand). */
+    fun backToResults() {
+        mangaDexByHand = mangaDexBeforeRandom
+        run(immediately = true)
+    }
+
+    private fun cancelMore() {
+        moreJob?.cancel()
+        loadingMore = false
+    }
+
+    private suspend fun pickRandom(base: ComickFilters, count: Int): List<Title> {
+        val found = LinkedHashMap<String, Title>()
+        // Pages past the end come back empty: each miss lowers the highest page tried.
+        var highest = RANDOM_PAGES
+        var tries = 0
+        while (found.size < count && highest >= 1 && tries < RANDOM_TRIES) {
+            tries++
+            val page = random.nextInt(1, highest + 1)
+            val items = comick.search(base.copy(page = page, limit = RANDOM_PAGE_SIZE))
+            // With "Others" chosen, types are filtered after the page arrives, so an empty page
+            // isn't necessarily past the end.
+            if (items.isEmpty() && !base.filtersTypesLocally) highest = page - 1
+            else items.forEach { found.putIfAbsent("${it.source}:${it.id}", it) }
+        }
+        if (found.isEmpty() && highest >= 1) {
+            comick.search(base.copy(page = 1, limit = RANDOM_PAGE_SIZE)).forEach {
+                found.putIfAbsent("${it.source}:${it.id}", it)
+            }
+        }
+        return found.values.shuffled(random).take(count)
+    }
+
     fun loadMore() {
         if (!hasMore || loadingMore || status !is Loadable.Ready) return
         loadingMore = true
         val next = filters.copy(page = filters.page + 1)
-        scope.launch {
+        moreJob = scope.launch {
             try {
                 val outcome =
                     if (servedBy == Sources.MANGADEX) discovery.searchMangaDex(next, fallback)
@@ -110,6 +182,8 @@ class SearchModel(
 
     private fun run(immediately: Boolean) {
         job?.cancel()
+        cancelMore()
+        randomPicks = false
         job = scope.launch {
             if (!immediately) delay(debounceMillis)
             status = Loadable.Loading
@@ -158,5 +232,11 @@ class SearchModel(
                     }
             }
         }
+    }
+
+    private companion object {
+        const val RANDOM_PAGES = 25
+        const val RANDOM_PAGE_SIZE = 20
+        const val RANDOM_TRIES = 6
     }
 }

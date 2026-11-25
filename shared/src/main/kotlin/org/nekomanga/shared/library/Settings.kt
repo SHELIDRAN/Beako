@@ -14,6 +14,8 @@ data class Settings(
     /** Shows only titles and chapters that are downloaded. */
     val downloadedOnly: Boolean = false,
     val reduceMotion: Boolean = false,
+    /** How lively motion feels: "CALM", "BALANCED" or "LIVELY" (see MotionFeel). */
+    val motionFeel: String = "BALANCED",
     val reduceTransparency: Boolean = false,
     /** "AUTO_COLLAPSE", "ALWAYS_EXPANDED" or "ICONS_ONLY". */
     val sidebarMode: String = "AUTO_COLLAPSE",

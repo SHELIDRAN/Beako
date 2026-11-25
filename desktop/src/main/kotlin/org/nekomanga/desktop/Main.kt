@@ -228,6 +228,7 @@ fun main(args: Array<String>) {
                             // Beako's switches add to Windows' own; they never override it.
                             reduceMotion =
                                 settings.reduceMotion || state.systemComfort.reduceMotion,
+                            motion = org.nekomanga.desktop.theme.MotionFeel.of(settings.motionFeel),
                             reduceTransparency =
                                 settings.reduceTransparency ||
                                     state.systemComfort.reduceTransparency,
@@ -246,6 +247,16 @@ fun main(args: Array<String>) {
                             scale = settings.uiScale,
                         ),
                     start = startScreen(System.getenv("BEAKO_OPEN")),
+                    mangaDexSearchShown =
+                        state.mangaDexPage.tab == org.nekomanga.desktop.state.MangaDexTab.SEARCH,
+                    onMangaDexTab = { search ->
+                        val page = state.mangaDexPage
+                        when {
+                            search -> page.select(org.nekomanga.desktop.state.MangaDexTab.SEARCH)
+                            page.tab == org.nekomanga.desktop.state.MangaDexTab.SEARCH ->
+                                page.select(org.nekomanga.desktop.state.MangaDexTab.POPULAR_NEW)
+                        }
+                    },
                     notice = {
                         org.nekomanga.desktop.screens.UpdateNotice(
                             state.appUpdate,

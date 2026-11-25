@@ -105,6 +105,7 @@ import org.nekomanga.desktop.theme.SidebarMode
 import org.nekomanga.desktop.theme.dropShadows
 import org.nekomanga.desktop.theme.dropletSpec
 import org.nekomanga.desktop.theme.focusRing
+import org.nekomanga.desktop.theme.paced
 import org.nekomanga.desktop.theme.press
 
 /** The app's top-level screens, in sidebar order. */
@@ -134,6 +135,7 @@ private object Rows {
     const val SEARCH_CHILD = "browse/search"
     const val DISCOVER = "browse/discover"
     const val MANGADEX = "browse/mangadex"
+    const val MANGADEX_SEARCH = "browse/mangadex/search"
     const val FOOT = "more"
 }
 
@@ -142,8 +144,8 @@ private val IconInset = 13.dp
 
 /**
  * The glass navigation menu down the left edge. Expanded it is the full panel: the logo and a
- * collapse control, a search with its shortcut, the Main destinations (Browse opens into Discover
- * and Search), the Accounts list and More at the foot. Collapsed it is a 68 dp rail of icons, where
+ * collapse control, a search with its shortcut, the Main destinations (Browse opens into Comick and
+ * Search), the Accounts list and More at the foot. Collapsed it is a 68 dp rail of icons, where
  * Browse's pages open in a flyout. The Sidebar setting picks when it expands.
  */
 @Composable
@@ -156,9 +158,11 @@ fun Sidebar(
     /** True while the Search page is open over Browse. */
     searchOpen: Boolean = false,
     onSearch: () -> Unit = {},
-    /** True while the MangaDex page is open over Browse. */
+    /** True while the MangaDex page is open over Browse; [mangaDexSearchOpen] on its Search tab. */
     mangaDexOpen: Boolean = false,
-    onMangaDex: () -> Unit = {},
+    mangaDexSearchOpen: Boolean = false,
+    /** Opens the MangaDex page, on its Search tab when the argument is true. */
+    onMangaDex: (search: Boolean) -> Unit = {},
     /** Small counts shown at the end of a row, e.g. new chapters on Latest updates. */
     counts: Map<Destination, Int> = emptyMap(),
     /** Destinations with something new since they were last opened: an accent dot on the icon. */
@@ -194,8 +198,8 @@ fun Sidebar(
         onSearch()
         went()
     }
-    val goMangaDex: () -> Unit = {
-        onMangaDex()
+    val goMangaDex: (Boolean) -> Unit = {
+        onMangaDex(it)
         went()
     }
     var expanded by remember { mutableStateOf(wantExpanded) }
@@ -208,7 +212,8 @@ fun Sidebar(
     val width by
         animateDpAsState(
             if (expanded) PanelWidth else RailWidth,
-            if (appearance.reduceMotion) snap() else tween(WidthMillis, easing = Motion.InOut),
+            if (appearance.reduceMotion) snap()
+            else tween(paced(WidthMillis), easing = Motion.InOut),
         )
 
     var browseOpen by remember { mutableStateOf(selected == Destination.BROWSE) }
@@ -219,7 +224,11 @@ fun Sidebar(
             selected == Destination.BROWSE && searchOpen ->
                 if (treeShown) Rows.SEARCH_CHILD else Destination.BROWSE.name
             selected == Destination.BROWSE && mangaDexOpen ->
-                if (treeShown) Rows.MANGADEX else Destination.BROWSE.name
+                when {
+                    !treeShown -> Destination.BROWSE.name
+                    mangaDexSearchOpen -> Rows.MANGADEX_SEARCH
+                    else -> Rows.MANGADEX
+                }
             selected == Destination.BROWSE -> if (treeShown) Rows.DISCOVER else selected.name
             selected == Destination.MORE -> Rows.FOOT
             else -> selected.name
@@ -558,7 +567,8 @@ private fun Modifier.reveal(expanded: Boolean, index: Int): Modifier {
             if (expanded) 1f else 0f,
             when {
                 reduceMotion -> snap()
-                expanded -> tween(220, delayMillis = 60 + index * 22, easing = Motion.Out)
+                expanded ->
+                    tween(paced(220), delayMillis = paced(60 + index * 22), easing = Motion.Out)
                 else -> tween(90)
             },
             label = "reveal",
@@ -722,7 +732,7 @@ private fun ColumnScope.BrowseGroup(
     onParent: () -> Unit,
     onDiscover: () -> Unit,
     onSearch: () -> Unit,
-    onMangaDex: () -> Unit,
+    onMangaDex: (Boolean) -> Unit,
 ) {
     val reduceMotion = LocalAppearance.current.reduceMotion
     val index = counter.next()
@@ -737,16 +747,21 @@ private fun ColumnScope.BrowseGroup(
         if (!want) delay(200)
         flyout = want
     }
+    // Each catalog, with its search one step in: Comick (Discover) › Search with tags, and
+    // MangaDex › Search MangaDex.
     val pages =
         listOf(
-            "Discover" to Rows.DISCOVER,
+            "Comick" to Rows.DISCOVER,
+            "Search with tags" to Rows.SEARCH_CHILD,
             "MangaDex" to Rows.MANGADEX,
-            "Search with filters" to Rows.SEARCH_CHILD,
+            "Search MangaDex" to Rows.MANGADEX_SEARCH,
         )
+    val nested = setOf(Rows.SEARCH_CHILD, Rows.MANGADEX_SEARCH)
     val pick: (String) -> Unit = { key ->
         when (key) {
             Rows.DISCOVER -> onDiscover()
-            Rows.MANGADEX -> onMangaDex()
+            Rows.MANGADEX -> onMangaDex(false)
+            Rows.MANGADEX_SEARCH -> onMangaDex(true)
             else -> onSearch()
         }
     }
@@ -786,10 +801,14 @@ private fun ColumnScope.BrowseGroup(
         visible = treeShown,
         enter =
             if (reduceMotion) fadeIn(snap())
-            else expandVertically(tween(360, easing = Motion.InOut)) + fadeIn(tween(200)),
+            else
+                expandVertically(tween(paced(360), easing = Motion.InOut)) +
+                    fadeIn(tween(paced(200))),
         exit =
             if (reduceMotion) fadeOut(snap())
-            else shrinkVertically(tween(360, easing = Motion.InOut)) + fadeOut(tween(120)),
+            else
+                shrinkVertically(tween(paced(360), easing = Motion.InOut)) +
+                    fadeOut(tween(paced(120))),
     ) {
         val line = BeakoColors.TreeLine
         Column(
@@ -830,7 +849,7 @@ private fun ColumnScope.BrowseGroup(
                         height = 36.dp,
                         selected = isCurrent,
                         role = Role.Button,
-                        startPadding = 10.dp,
+                        startPadding = if (key in nested) 26.dp else 10.dp,
                     )
                 }
             }
@@ -878,7 +897,7 @@ private fun Flyout(
                 animateFloatAsState(
                     if (shown) 1f else 0f,
                     if (reduceMotion) snap()
-                    else tween(240, delayMillis = 40 * i, easing = Motion.Out),
+                    else tween(paced(240), delayMillis = paced(40 * i), easing = Motion.Out),
                 )
             val isCurrent = key == current
             Text(

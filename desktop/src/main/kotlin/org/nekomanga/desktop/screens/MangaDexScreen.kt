@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +41,7 @@ import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
 import org.nekomanga.desktop.components.LoadingMessage
+import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.Tabs
 import org.nekomanga.desktop.components.TitleCard
@@ -77,7 +79,15 @@ fun MangaDexScreen(
     val tab = model.tab
     val loaded = if (tab == MangaDexTab.FEED) model.feed.size else model.titles.size
     LaunchedEffect(nearEnd, loaded, tab) { if (nearEnd && loaded > 0) model.loadMore() }
-    LaunchedEffect(tab) { grid.scrollToItem(0) }
+    // Lives outside the grid, so scrolling the field back into view doesn't take focus again.
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(tab) {
+        grid.scrollToItem(0)
+        if (tab == MangaDexTab.SEARCH) {
+            kotlinx.coroutines.delay(50) // once the field is laid out
+            runCatching { searchFocus.requestFocus() }
+        }
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(if (tab == MangaDexTab.FEED) 420.dp else 172.dp),
@@ -129,6 +139,15 @@ fun MangaDexScreen(
                     MangaDexTab.entries.indexOf(tab),
                     { model.select(MangaDexTab.entries[it]) },
                 )
+                if (tab == MangaDexTab.SEARCH) {
+                    SearchField(
+                        model.query,
+                        model::search,
+                        "Search MangaDex by title",
+                        Modifier.fillMaxWidth(),
+                        searchFocus,
+                    )
+                }
             }
         }
         if (tab == MangaDexTab.FEED) feed(model, onOpen, onRead, onConnect)
@@ -150,7 +169,10 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.catalog(
             if (model.titles.isEmpty()) {
                 item("loading", span = { GridItemSpan(maxLineSpan) }) {
                     Box(Modifier.fillMaxWidth().padding(vertical = 64.dp), Alignment.Center) {
-                        LoadingMessage("Loading ${model.tab.label.lowercase()}…")
+                        LoadingMessage(
+                            if (model.tab == MangaDexTab.SEARCH) "Searching MangaDex…"
+                            else "Loading ${model.tab.label.lowercase()}…",
+                        )
                     }
                 }
             }
@@ -163,10 +185,23 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.catalog(
         is Loadable.Ready ->
             if (model.titles.isEmpty()) {
                 item("empty", span = { GridItemSpan(maxLineSpan) }) {
-                    StateMessage(
-                        "Nothing here yet",
-                        "MangaDex has no titles in this list for your languages.",
-                    )
+                    when {
+                        model.tab == MangaDexTab.SEARCH && model.query.isBlank() ->
+                            StateMessage(
+                                "Search MangaDex",
+                                "Type a title, in English, romaji or its original script.",
+                            )
+                        model.tab == MangaDexTab.SEARCH ->
+                            StateMessage(
+                                "No titles found",
+                                "MangaDex has nothing matching “${model.query.trim()}” with chapters in your languages. Try another spelling.",
+                            )
+                        else ->
+                            StateMessage(
+                                "Nothing here yet",
+                                "MangaDex has no titles in this list for your languages.",
+                            )
+                    }
                 }
             }
     }

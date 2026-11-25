@@ -170,10 +170,15 @@ fun Droplet(modifier: Modifier = Modifier, shape: Shape = CircleShape) {
 }
 
 /**
- * The droplet's slide: a soft spring with a little overshoot, or instant with reduce motion.
- * [stiffness] is lower for the slower Swing (about 520 ms).
+ * The droplet's slide: a soft spring, or instant with reduce motion. Its bounce and speed follow
+ * the Motion setting; [stiffness] is lower for the slower Swing (about 520 ms when Lively).
  */
 @Composable
-fun <T> dropletSpec(stiffness: Float = Spring.StiffnessMediumLow): AnimationSpec<T> =
-    if (LocalAppearance.current.reduceMotion) snap()
-    else spring(dampingRatio = 0.62f, stiffness = stiffness)
+fun <T> dropletSpec(stiffness: Float = Spring.StiffnessMediumLow): AnimationSpec<T> {
+    val appearance = LocalAppearance.current
+    if (appearance.reduceMotion) return snap()
+    val feel = appearance.motion
+    // Lively keeps the given stiffness; calmer feels scale it down for a slower glide.
+    val scaled = stiffness * feel.stiffness / MotionFeel.LIVELY.stiffness
+    return spring(dampingRatio = feel.damping, stiffness = scaled)
+}

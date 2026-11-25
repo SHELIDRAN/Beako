@@ -163,6 +163,37 @@ fun MoreScreen(
                     ) {
                         settingsStore.update { s -> s.copy(reduceMotion = it) }
                     }
+                    if (!(settings.reduceMotion || systemComfort.reduceMotion)) {
+                        val feels = org.nekomanga.desktop.theme.MotionFeel.entries
+                        val feel = org.nekomanga.desktop.theme.MotionFeel.of(settings.motionFeel)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Motion",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = BeakoColors.Text,
+                                )
+                                Text(
+                                    "How much the menu and highlights bounce, and how fast they slide. Calm has no bounce.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = BeakoColors.TextMuted,
+                                )
+                            }
+                            org.nekomanga.desktop.components.DropletSegmented(
+                                feels.map { it.label },
+                                feels.indexOf(feel),
+                                { i ->
+                                    settingsStore.update { s -> s.copy(motionFeel = feels[i].name) }
+                                },
+                                label = "Motion",
+                                optionWidth = 84.dp,
+                            )
+                        }
+                    }
                     ToggleRow(
                         "Start in full screen",
                         "Open Beako in full screen. F11 switches full screen on or off at any time.",

@@ -81,6 +81,10 @@ fun BeakoApp(
     newestUpdateAt: Long = 0L,
     /** Saves a new Sidebar setting (the menu's collapse and keep-open controls). */
     onSidebarMode: (SidebarMode) -> Unit = {},
+    /** True while the MangaDex page shows its Search tab (the menu marks Search MangaDex). */
+    mangaDexSearchShown: Boolean = false,
+    /** Picks the MangaDex page's tab when the menu opens it: Search, or the catalog. */
+    onMangaDexTab: (search: Boolean) -> Unit = {},
     /** Floats in the bottom-right corner over every screen but the reader (the update notice). */
     notice: @Composable () -> Unit = {},
 ) {
@@ -189,7 +193,9 @@ fun BeakoApp(
                             },
                             searchOpen = openPage is Page.Search,
                             mangaDexOpen = openPage is Page.MangaDex,
-                            onMangaDex = {
+                            mangaDexSearchOpen = mangaDexSearchShown,
+                            onMangaDex = { search ->
+                                onMangaDexTab(search)
                                 if (openPage !is Page.MangaDex) {
                                     navigator.clear()
                                     navigator.open(Page.MangaDex)

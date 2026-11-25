@@ -997,6 +997,8 @@ enum class SidebarMode {
 data class BeakoAppearance(
     /** Makes every transition instant. */
     val reduceMotion: Boolean = false,
+    /** How much springs bounce and how quickly slides move. */
+    val motion: MotionFeel = MotionFeel.BALANCED,
     /** Replaces glass with solid panels. */
     val reduceTransparency: Boolean = false,
     val sidebarMode: SidebarMode = SidebarMode.AUTO_COLLAPSE,

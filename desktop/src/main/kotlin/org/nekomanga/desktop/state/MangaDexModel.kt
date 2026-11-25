@@ -26,6 +26,7 @@ enum class MangaDexTab(val label: String) {
     RECENT("Recently added"),
     TOP_RATED("Top rated"),
     FEED("Feed"),
+    SEARCH("Search"),
 }
 
 /** One title in the feed with its new chapters, newest first. */
@@ -52,6 +53,11 @@ class MangaDexModel(
 
     private var hasMore = true
     private var loading: Job? = null
+    private var typing: Job? = null
+
+    /** What the Search tab looks for. */
+    var query by mutableStateOf("")
+        private set
 
     /** Why the next page didn't load, while earlier pages stay shown; null when fine. */
     var pageError by mutableStateOf<String?>(null)
@@ -94,6 +100,16 @@ class MangaDexModel(
         }
     }
 
+    /** Typing in the Search tab: searches once the user pauses. */
+    fun search(text: String) {
+        query = text
+        typing?.cancel()
+        typing = scope.launch {
+            kotlinx.coroutines.delay(SEARCH_DELAY)
+            if (tab == MangaDexTab.SEARCH) reload()
+        }
+    }
+
     /** Tries the page that failed again. */
     fun retry() {
         pageError = null
@@ -133,11 +149,16 @@ class MangaDexModel(
 
     private fun loadCatalog(which: MangaDexTab) {
         if (!hasMore) return
+        if (which == MangaDexTab.SEARCH && query.isBlank()) {
+            hasMore = false
+            status = Loadable.Ready(Unit)
+            return
+        }
         loading = scope.launch {
             try {
                 val page =
                     api.search(
-                        query = null,
+                        query = if (which == MangaDexTab.SEARCH) query.trim() else null,
                         offset = titles.size,
                         limit = PAGE,
                         order =
@@ -145,6 +166,7 @@ class MangaDexModel(
                                 MangaDexTab.LATEST -> MangaDexOrder.LATEST_UPLOAD
                                 MangaDexTab.RECENT -> MangaDexOrder.NEWEST
                                 MangaDexTab.TOP_RATED -> MangaDexOrder.RATING
+                                MangaDexTab.SEARCH -> MangaDexOrder.RELEVANCE
                                 else -> MangaDexOrder.MOST_FOLLOWED
                             },
                         translatedLanguage = null,
@@ -237,6 +259,7 @@ class MangaDexModel(
         private const val PAGE = 30
         private const val FEED_PAGE = 60
         private const val NEW_DAYS = 30L
+        private const val SEARCH_DELAY = 400L
 
         /** Chapters grouped under their title, titles ordered by their newest chapter. */
         internal fun group(

@@ -29,11 +29,36 @@ object Motion {
     const val SHADOW = 450
 }
 
+/**
+ * How lively Beako's motion feels (More › Appearance › Motion). [damping] is the springs' damping
+ * ratio (1 = no overshoot) and [pace] stretches slides and fades.
+ */
+enum class MotionFeel(
+    val label: String,
+    val damping: Float,
+    val stiffness: Float,
+    val pace: Float,
+) {
+    /** No bounce, slower slides. */
+    CALM("Calm", 1f, 200f, 1.45f),
+    /** A hint of bounce at a relaxed pace (the default). */
+    BALANCED("Balanced", 0.82f, 260f, 1.2f),
+    /** The original springy feel. */
+    LIVELY("Lively", 0.62f, 400f, 1f);
+
+    companion object {
+        fun of(name: String): MotionFeel = entries.firstOrNull { it.name == name } ?: BALANCED
+    }
+}
+
+/** [millis] stretched to the chosen motion pace. */
+@Composable fun paced(millis: Int): Int = (millis * LocalAppearance.current.motion.pace).toInt()
+
 /** A tween on the Sweep/Rise curve, or instant with Reduce motion. */
 @Composable
 fun <T> sweepSpec(durationMillis: Int = Motion.SWEEP, delayMillis: Int = 0): AnimationSpec<T> =
     if (LocalAppearance.current.reduceMotion) snap()
-    else tween(durationMillis, delayMillis, Motion.InOut)
+    else tween(paced(durationMillis), paced(delayMillis), Motion.InOut)
 
 /** An ease-out tween (shadows, glows), instant with Reduce motion. */
 @Composable

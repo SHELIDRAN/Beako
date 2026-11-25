@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -110,7 +111,7 @@ fun SearchScreen(
                         swingFrom = -90f,
                     )
                     Text(
-                        "Search",
+                        "Search with tags",
                         style = MaterialTheme.typography.displaySmall,
                         color = BeakoColors.Text,
                     )
@@ -136,9 +137,25 @@ fun SearchScreen(
                         onClick = { showFilters = !showFilters },
                         icon = Icons.Outlined.Tune,
                     )
+                    if (!onMangaDex) {
+                        GlassButton(
+                            if (model.randomPicks) "Shuffle again" else "Random picks",
+                            onClick = { model.randomPicks() },
+                            icon = Icons.Outlined.Shuffle,
+                        )
+                    }
                 }
                 AnimatedVisibility(showFilters && !onMangaDex) { FilterPanel(model) }
                 when {
+                    model.randomPicks ->
+                        Banner(
+                            if (filters.activeCount > 0 || filters.hasKeyword)
+                                "Random picks that match your search. Shuffle again for another set."
+                            else
+                                "Random picks from Comick. Choose tags, genres or a type to narrow them.",
+                        ) {
+                            GlassButton("Back to results", onClick = model::backToResults)
+                        }
                     model.fallback == FallbackReason.COMICK_UNAVAILABLE && onMangaDex ->
                         Banner("Showing MangaDex results — Comick is unavailable.") {
                             GlassButton("Try Comick again", onClick = model::retryComick)
@@ -163,8 +180,15 @@ fun SearchScreen(
                 item("failed") {
                     StateMessage("Couldn’t load results", status.message) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            GlassButton("Try again", onClick = model::retryComick, primary = true)
-                            if (filters.hasKeyword) {
+                            GlassButton(
+                                "Try again",
+                                onClick = {
+                                    if (model.randomPicks) model.randomPicks()
+                                    else model.retryComick()
+                                },
+                                primary = true,
+                            )
+                            if (filters.hasKeyword && !model.randomPicks) {
                                 GlassButton("Search MangaDex", onClick = model::searchMangaDex)
                             }
                         }
@@ -191,7 +215,8 @@ fun SearchScreen(
                 } else if (!model.hasMore && model.titles.isNotEmpty()) {
                     item("end") {
                         Text(
-                            "That’s everything — refine the search for more.",
+                            if (model.randomPicks) "Want different ones? Shuffle again."
+                            else "That’s everything — refine the search for more.",
                             style = MaterialTheme.typography.bodySmall,
                             color = BeakoColors.TextMuted,
                             modifier = Modifier.padding(vertical = 20.dp),
