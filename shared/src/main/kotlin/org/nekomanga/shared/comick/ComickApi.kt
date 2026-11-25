@@ -88,6 +88,43 @@ class ComickApi(
             }
         }
 
+    /**
+     * Comick's latest chapter releases ([hot] or newest), one page of 50ish. Only for listing what
+     * was updated: each entry links to its title page. Beako never reads chapters from Comick, so
+     * the chapter's own id is not kept.
+     */
+    suspend fun updates(
+        hot: Boolean,
+        page: Int = 1,
+        language: String = "en",
+        types: Set<ComicType> = emptySet(),
+        contentRatings: Set<String> = setOf("safe"),
+    ): List<ComickUpdate> {
+        val params = buildList {
+            add("order" to if (hot) "hot" else "new")
+            add("page" to page.coerceIn(1, 100).toString())
+            add("lang" to language)
+            contentRatings.forEach { add("content_rating" to it) }
+        }
+        // The type is matched here, from each title's country: the endpoint's own type values
+        // aren't documented.
+        return get("chapter/", params).items().mapNotNull { entry ->
+            val comic = entry["md_comics"] ?: return@mapNotNull null
+            val title = parseTitle(comic).takeIf { it.id.isNotEmpty() } ?: return@mapNotNull null
+            if (types.isNotEmpty() && title.type !in types) return@mapNotNull null
+            ComickUpdate(
+                title = title,
+                chapter = entry.str("chap"),
+                volume = entry.str("vol"),
+                groups =
+                    entry["group_name"].items().mapNotNull {
+                        (it as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    },
+                publishedAt = entry.str("publish_at") ?: entry.str("created_at"),
+            )
+        }
+    }
+
     private fun mature(contentRatings: Set<String>): List<Pair<String, String>> =
         if ("erotica" in contentRatings) listOf("accept_mature_content" to "true") else emptyList()
 
@@ -206,3 +243,13 @@ class ComickApi(
         }
     }
 }
+
+/** One chapter release in Comick's latest updates: which title, which chapter, who and when. */
+data class ComickUpdate(
+    val title: Title,
+    val chapter: String?,
+    val volume: String?,
+    val groups: List<String>,
+    /** ISO-8601 time. */
+    val publishedAt: String?,
+)

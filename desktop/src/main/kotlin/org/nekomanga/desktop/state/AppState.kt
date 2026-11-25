@@ -56,7 +56,13 @@ class AppState(
             container.settings,
             openBrowser,
         )
-    val browse = BrowseModel(scope, container.comick, container.mangaDex)
+    val browse =
+        BrowseModel(
+            scope,
+            container.comick,
+            container.mangaDex,
+            language = { container.settings.current.languages.firstOrNull() ?: "en" },
+        )
     val search =
         SearchModel(
             scope,

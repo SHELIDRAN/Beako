@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -32,7 +33,9 @@ import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.components.Shelf
 import org.nekomanga.desktop.state.BrowseModel
+import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.theme.BeakoColors
+import org.nekomanga.shared.model.ComicType
 import org.nekomanga.shared.model.Title
 
 /** The Browse home: a search field over Comick's charts. */
@@ -133,7 +136,85 @@ fun BrowseScreen(
                     )
                 },
             )
+            UpdatesSection(model, onOpen)
         }
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * Updates: Comick's latest chapter releases, Hot or New, as rows that open the title page (Beako
+ * never reads chapters from Comick). Filter by type; Load more pages through.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun UpdatesSection(model: BrowseModel, onOpen: (Title) -> Unit) {
+    Column(
+        Modifier.padding(horizontal = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Text("Updates", style = MaterialTheme.typography.titleLarge, color = BeakoColors.Text)
+            DropletSegmented(
+                options = listOf("Hot", "New"),
+                selectedIndex = if (model.updatesHot) 0 else 1,
+                onSelect = { model.selectUpdates(it == 0) },
+                label = "Updates order",
+                optionWidth = 60.dp,
+            )
+            listOf(ComicType.MANGA, ComicType.MANHWA, ComicType.MANHUA).forEach { type ->
+                ToggleChip(type.label, type in model.updatesTypes) { model.toggleUpdatesType(type) }
+            }
+        }
+        when (val status = model.updatesStatus) {
+            Loadable.Loading ->
+                repeat(3) {
+                    org.nekomanga.desktop.components.Skeleton(
+                        Modifier.fillMaxWidth().height(146.dp),
+                        16,
+                    )
+                }
+            is Loadable.Failed ->
+                org.nekomanga.desktop.components.StateMessage(
+                    "Couldn’t load updates",
+                    status.message,
+                ) {
+                    GlassButton("Try again", onClick = model::refresh)
+                }
+            is Loadable.Ready ->
+                if (model.updates.isEmpty())
+                    org.nekomanga.desktop.components.StateMessage(
+                        "No updates",
+                        "Comick has no recent chapters for these types in your language.",
+                    )
+        }
+        model.updates.forEachIndexed { index, update ->
+            org.nekomanga.desktop.components.ResultRow(
+                index + 1,
+                update.title,
+                onClick = { onOpen(update.title) },
+            )
+            val line =
+                listOfNotNull(
+                    update.chapter?.let { "Chapter $it" },
+                    update.groups.takeIf { it.isNotEmpty() }?.joinToString(", "),
+                    update.publishedAt?.let { ago(it) }?.takeIf { it.isNotEmpty() },
+                )
+            if (line.isNotEmpty()) {
+                Text(
+                    line.joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = BeakoColors.TextMuted,
+                    modifier = Modifier.padding(start = 56.dp).offset(y = (-6).dp),
+                )
+            }
+        }
+        if (model.updatesMore && model.updates.isNotEmpty()) {
+            GlassButton("Load more", onClick = model::moreUpdates)
+        }
     }
 }

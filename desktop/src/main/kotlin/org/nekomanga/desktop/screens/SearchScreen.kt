@@ -569,7 +569,7 @@ private fun TriStatePicker(
 
 /** A chip that is on or off. */
 @Composable
-private fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun ToggleChip(label: String, selected: Boolean, onClick: () -> Unit) {
     TriStateChip(
         label,
         if (selected) ComickFilters.Use.INCLUDED else ComickFilters.Use.NONE,

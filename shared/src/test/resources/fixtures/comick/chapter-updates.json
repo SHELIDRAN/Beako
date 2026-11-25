@@ -1,0 +1,263 @@
+[
+ {
+  "id": 6726873,
+  "status": "OK",
+  "chap": "229",
+  "vol": null,
+  "last_at": "2026-11-25T14:08:08.291Z",
+  "hid": "pMns4KEd",
+  "created_at": "2026-11-25T14:08:08.291Z",
+  "group_name": [
+   "ARVEN"
+  ],
+  "updated_at": "2026-11-25T19:15:31.679Z",
+  "up_count": 28,
+  "view_count": 0,
+  "lang": "en",
+  "comment_count": 16,
+  "down_count": 0,
+  "external_type": null,
+  "publish_at": "2026-11-25T14:08:08.000Z",
+  "md_chapters_groups": [
+   {
+    "md_groups": {
+     "id": 27399,
+     "title": "ARVEN",
+     "slug": "arven",
+     "official": false,
+     "inactive": false
+    }
+   }
+  ],
+  "md_comics": {
+   "id": 77211,
+   "hid": "99sr80kM",
+   "title": "Pick Me Up",
+   "slug": "02-pick-me-up-1",
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "comment_count": 115,
+   "country": "kr",
+   "status": 1,
+   "translation_completed": false,
+   "last_chapter": 229,
+   "final_chapter": null,
+   "created_at": "2022-12-30T15:11:17.600Z",
+   "genres": [
+    7,
+    244,
+    245,
+    250,
+    252,
+    263,
+    266,
+    272,
+    273,
+    274,
+    277,
+    278,
+    279,
+    282,
+    286,
+    303,
+    305,
+    310,
+    314,
+    318
+   ],
+   "demographic": 1,
+   "is_english_title": false,
+   "md_titles": [
+    {
+     "id": 13084775,
+     "title": "Pick Me Up",
+     "lang": "en",
+     "user_id": "a617eff5-00b8-432a-bd1b-a4af416af15c",
+     "is_default": false
+    },
+    {
+     "id": 14696622,
+     "title": "Pick Me Up, Infinite Gacha",
+     "lang": "en",
+     "user_id": "580cd0f7-27fc-466f-92b6-1e8657bb21b3",
+     "is_default": true
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 720,
+     "h": 1030,
+     "b2key": "pROjm3.jpg"
+    }
+   ]
+  },
+  "count": 1
+ },
+ {
+  "id": 6728266,
+  "status": "OK",
+  "chap": "56",
+  "vol": null,
+  "last_at": "2026-11-25T17:17:36.323Z",
+  "hid": "7QHCSlIS",
+  "created_at": "2026-11-25T17:17:36.323Z",
+  "group_name": [
+   "vortexscans"
+  ],
+  "updated_at": "2026-11-25T19:08:51.332Z",
+  "up_count": 7,
+  "view_count": 0,
+  "lang": "en",
+  "comment_count": 4,
+  "down_count": 0,
+  "external_type": "vortexscans",
+  "publish_at": "2026-11-25T17:17:36.000Z",
+  "md_chapters_groups": [
+   {
+    "md_groups": {
+     "id": 29927,
+     "title": "Vortex Scans",
+     "slug": "vortex-scans",
+     "official": false,
+     "inactive": false
+    }
+   }
+  ],
+  "md_comics": {
+   "id": 127884,
+   "hid": "NZ2bPsj7",
+   "title": "The Archmage Curriculum",
+   "slug": "archmage-curriculum",
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "comment_count": 73,
+   "country": "kr",
+   "status": 1,
+   "translation_completed": false,
+   "last_chapter": 56,
+   "final_chapter": null,
+   "created_at": "2025-11-28T16:02:41.493Z",
+   "genres": [
+    7,
+    30,
+    244,
+    245,
+    247,
+    250,
+    252,
+    256,
+    274,
+    281,
+    282,
+    284,
+    286,
+    303
+   ],
+   "demographic": 1,
+   "is_english_title": null,
+   "md_titles": [
+    {
+     "id": 15911925,
+     "title": "The Archmage Curriculum",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": false
+    },
+    {
+     "id": 13080663,
+     "title": "Archmage Curriculum",
+     "lang": "en",
+     "user_id": "e7e5c740-8797-4912-a3a8-8eded17ec910",
+     "is_default": true
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 900,
+     "h": 1169,
+     "b2key": "kRXNwv.jpg"
+    }
+   ]
+  },
+  "count": 1
+ },
+ {
+  "id": 6726897,
+  "status": "OK",
+  "chap": "74",
+  "vol": null,
+  "last_at": null,
+  "hid": "pHVGaHI9",
+  "created_at": "2026-11-25T14:19:54.764Z",
+  "group_name": [
+   "ARVEN"
+  ],
+  "updated_at": "2026-11-25T19:05:38.540Z",
+  "up_count": 10,
+  "view_count": 0,
+  "lang": "en",
+  "comment_count": 2,
+  "down_count": 0,
+  "external_type": null,
+  "publish_at": "2026-11-25T14:19:55.000Z",
+  "md_chapters_groups": [
+   {
+    "md_groups": {
+     "id": 27399,
+     "title": "ARVEN",
+     "slug": "arven",
+     "official": false,
+     "inactive": false
+    }
+   }
+  ],
+  "md_comics": {
+   "id": 107291,
+   "hid": "lob3fQ0D",
+   "title": "I Alone Level Up: Ragnarok",
+   "slug": "na-honjaman-level-up-ragnarok",
+   "content_rating": "safe",
+   "violence_rating": "none",
+   "comment_count": 17,
+   "country": "kr",
+   "status": 1,
+   "translation_completed": false,
+   "last_chapter": 74,
+   "final_chapter": null,
+   "created_at": "2024-07-31T14:33:36.346Z",
+   "genres": [
+    244,
+    245,
+    252,
+    274,
+    282
+   ],
+   "demographic": 1,
+   "is_english_title": false,
+   "md_titles": [
+    {
+     "id": 12998988,
+     "title": "I Alone Level Up: Ragnarok",
+     "lang": "en",
+     "user_id": "580cd0f7-27fc-466f-92b6-1e8657bb21b3",
+     "is_default": false
+    },
+    {
+     "id": 12998991,
+     "title": "Only I Level Up: Ragnarok",
+     "lang": "en",
+     "user_id": "580cd0f7-27fc-466f-92b6-1e8657bb21b3",
+     "is_default": false
+    }
+   ],
+   "md_covers": [
+    {
+     "w": 720,
+     "h": 1030,
+     "b2key": "6bLg1K.jpg"
+    }
+   ]
+  },
+  "count": 1
+ }
+]

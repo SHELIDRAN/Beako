@@ -1,6 +1,7 @@
 package org.nekomanga.desktop.state
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CoroutineScope
@@ -8,8 +9,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.nekomanga.shared.comick.ComickApi
 import org.nekomanga.shared.comick.ComickChart
+import org.nekomanga.shared.comick.ComickUpdate
 import org.nekomanga.shared.mangadex.MangaDexApi
 import org.nekomanga.shared.mangadex.MangaDexOrder
+import org.nekomanga.shared.model.ComicType
 import org.nekomanga.shared.model.Title
 import org.nekomanga.shared.net.ApiError
 
@@ -18,7 +21,28 @@ class BrowseModel(
     private val scope: CoroutineScope,
     private val comick: ComickApi,
     private val mangaDex: MangaDexApi,
+    /** The language of chapter updates: the first reading language. */
+    private val language: () -> String = { "en" },
 ) {
+    /** Updates: Hot (most read) or New (just released). */
+    var updatesHot by mutableStateOf(true)
+        private set
+
+    /** Types to show in Updates; empty shows all. */
+    var updatesTypes by mutableStateOf<Set<ComicType>>(emptySet())
+        private set
+
+    val updates = mutableStateListOf<ComickUpdate>()
+    var updatesStatus by mutableStateOf<Loadable<Unit>>(Loadable.Loading)
+        private set
+
+    /** More pages can be asked for (Comick stops at page 100). */
+    var updatesMore by mutableStateOf(false)
+        private set
+
+    private var updatesPage = 0
+    private var updatesJob: Job? = null
+
     /** Chart windows offered by the droplet switch, with their labels. */
     val windows = listOf(7 to "7d", 30 to "1m", 90 to "3m")
 
@@ -59,6 +83,46 @@ class BrowseModel(
         comickDown = false
         loadMostFollowedNew()
         loadRecentPopular()
+        loadUpdates(reset = true)
+    }
+
+    fun selectUpdates(hot: Boolean) {
+        if (hot == updatesHot) return
+        updatesHot = hot
+        loadUpdates(reset = true)
+    }
+
+    fun toggleUpdatesType(type: ComicType) {
+        updatesTypes = if (type in updatesTypes) updatesTypes - type else updatesTypes + type
+        loadUpdates(reset = true)
+    }
+
+    fun moreUpdates() {
+        if (updatesJob?.isActive != true && updatesMore) loadUpdates(reset = false)
+    }
+
+    private fun loadUpdates(reset: Boolean) {
+        updatesJob?.cancel()
+        if (reset) {
+            updates.clear()
+            updatesPage = 0
+            updatesStatus = Loadable.Loading
+        }
+        val page = updatesPage + 1
+        updatesJob = scope.launch {
+            try {
+                val found = comick.updates(updatesHot, page, language(), updatesTypes)
+                // A title can have several new chapters; it's listed once, at its newest.
+                val shown = updates.mapTo(HashSet()) { it.title.id }
+                updates += found.filter { shown.add(it.title.id) }
+                updatesPage = page
+                updatesMore = page < 100 && found.isNotEmpty()
+                updatesStatus = Loadable.Ready(Unit)
+            } catch (e: ApiError) {
+                if (updates.isEmpty()) updatesStatus = Loadable.Failed(e.message.orEmpty())
+                updatesMore = updates.isNotEmpty()
+            }
+        }
     }
 
     fun selectPopularWindow(index: Int) {
