@@ -131,9 +131,11 @@ fun SearchScreen(
                     Modifier.fillMaxWidth(),
                     focus,
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                // Wraps onto a second line when the window is narrow or the interface large.
+                FlowRow(
+                    itemVerticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     SortControl(filters.sort) { sort -> model.update { it.copy(sort = sort) } }
                     GlassButton(

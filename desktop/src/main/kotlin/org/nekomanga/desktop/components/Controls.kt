@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -467,8 +468,10 @@ fun Tabs(
             right.animateTo(r, spring)
         }
     }
+    // Scrolls sideways when the tabs don't fit (large interface sizes, narrow windows).
     Row(
         modifier
+            .horizontalScroll(androidx.compose.foundation.rememberScrollState())
             .selectableGroup()
             .drawBehind {
                 val line = 1.dp.toPx()
