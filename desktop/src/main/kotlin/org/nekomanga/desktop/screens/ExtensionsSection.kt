@@ -38,6 +38,7 @@ import org.nekomanga.desktop.state.Loadable
 import org.nekomanga.desktop.state.openInBrowser
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.shared.extensions.ExtensionInfo
+import org.nekomanga.shared.extensions.isRunnable
 
 /** Where to find repositories: the owner's chosen directory. */
 private const val DIRECTORY = "https://wotaku.wiki/ext/mangayomi"
@@ -171,7 +172,7 @@ fun ExtensionsSection(model: ExtensionsModel) {
                             }
                             .sortedWith(
                                 compareBy(
-                                    { !it.isJavaScript },
+                                    { !it.isRunnable },
                                     { it.isUnoriginal },
                                     { it.name.lowercase() },
                                 ),
@@ -190,8 +191,12 @@ fun ExtensionsSection(model: ExtensionsModel) {
                                     listOfNotNull(
                                             info.lang.uppercase(),
                                             "v${info.version}",
-                                            if (info.isJavaScript) "JavaScript"
-                                            else "Dart (not supported yet)",
+                                            when {
+                                                info.isJavaScript -> "JavaScript"
+                                                info.isRunnable ->
+                                                    "${info.typeSource.replaceFirstChar { it.uppercase() }} template"
+                                                else -> "Dart (not supported yet)"
+                                            },
                                             "18+".takeIf { info.isNsfw },
                                         )
                                         .joinToString(" · "),
@@ -203,7 +208,7 @@ fun ExtensionsSection(model: ExtensionsModel) {
                                             style = MaterialTheme.typography.labelLarge,
                                             color = BeakoColors.TextMuted,
                                         )
-                                    !info.isJavaScript -> Unit
+                                    !info.isRunnable -> Unit
                                     model.busy[info.id] == true ->
                                         Text(
                                             "Installing…",

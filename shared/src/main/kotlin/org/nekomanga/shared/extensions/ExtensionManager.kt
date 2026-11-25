@@ -38,9 +38,9 @@ class ExtensionManager(
     val installed: List<InstalledExtension>
         get() = state.value.installed
 
-    /** Sources Beako can run now: installed, enabled JavaScript ones. */
+    /** Sources Beako can run now: installed, enabled, and JavaScript or a ported Dart template. */
     val usable: List<InstalledExtension>
-        get() = installed.filter { it.enabled && it.info.isJavaScript }
+        get() = installed.filter { it.enabled && it.info.isRunnable }
 
     /**
      * Adds a repository from an index URL or a `mangayomi://add-repo` link; returns its sources.
@@ -70,25 +70,24 @@ class ExtensionManager(
     }
 
     /**
-     * Downloads and installs [info]'s code. JavaScript only for now; refuses anything that would
-     * read from Comick.
+     * Installs [info]'s code: a JavaScript source is downloaded; a Dart source built on a ported
+     * template gets Beako's bundled JavaScript version of it, so nothing is downloaded. Refuses
+     * anything that would read from Comick.
      */
     suspend fun install(info: ExtensionInfo, repositoryUrl: String) {
-        if (!info.isJavaScript)
+        if (!info.isRunnable)
             throw IOException(
-                "${info.name} is a Dart source. Beako can run JavaScript sources only, for now.",
+                "${info.name} is a Dart source Beako can’t run yet. Pick a JavaScript source, or one marked Madara, MangaReader or MangaBox.",
             )
         if (HostPolicy.isComick(hostOf(info.baseUrl)))
             throw IOException("Beako doesn’t read from Comick.")
-        if (Repositories.indexUrl(info.sourceCodeUrl) == null)
-            throw IOException("${info.name} has no https download link.")
-        policy(info.sourceCodeUrl)
-        val response = http.get(info.sourceCodeUrl)
-        if (response.code !in 200..299 || response.body.isBlank()) {
-            throw IOException("Couldn’t download ${info.name} (${response.code}).")
-        }
+        val code =
+            if (info.isJavaScript) download(info)
+            else
+                Templates.code(info.typeSource)
+                    ?: throw IOException("Beako’s ${info.typeSource} template is missing.")
         folder.mkdirs()
-        writeAtomically(codeFile(info.id), response.body)
+        writeAtomically(codeFile(info.id), code)
         close(info.id)
         update { data ->
             val previous = data.installed.firstOrNull { it.info.id == info.id }
@@ -102,6 +101,17 @@ class ExtensionManager(
                 )
             data.copy(installed = data.installed.filterNot { it.info.id == info.id } + entry)
         }
+    }
+
+    private suspend fun download(info: ExtensionInfo): String {
+        if (Repositories.indexUrl(info.sourceCodeUrl) == null)
+            throw IOException("${info.name} has no https download link.")
+        policy(info.sourceCodeUrl)
+        val response = http.get(info.sourceCodeUrl)
+        if (response.code !in 200..299 || response.body.isBlank()) {
+            throw IOException("Couldn’t download ${info.name} (${response.code}).")
+        }
+        return response.body
     }
 
     fun uninstall(id: Long) {
@@ -152,8 +162,11 @@ class ExtensionManager(
         val entry =
             installed.firstOrNull { it.info.id == id }
                 ?: throw IOException("That source isn’t installed.")
+        // A template source always runs the template this Beako version bundles, so fixes to a
+        // template reach every source built on it with the app update.
         val code =
-            runCatching { codeFile(id).readText() }.getOrNull()
+            (if (entry.info.isJavaScript) null else Templates.code(entry.info.typeSource))
+                ?: runCatching { codeFile(id).readText() }.getOrNull()
                 ?: throw IOException("${entry.info.name} needs reinstalling.")
         return JsSource(
                 entry.info,
