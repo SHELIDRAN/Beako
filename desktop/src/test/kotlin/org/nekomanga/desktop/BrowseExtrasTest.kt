@@ -85,6 +85,39 @@ class BrowseExtrasTest {
     }
 
     @Test
+    fun filtersAreRememberedWithoutTheKeywordAndPresetsKeepIt() {
+        runTest {
+            val offline = HttpFetcher { throw IOException("offline") }
+            var saved: org.nekomanga.shared.comick.ComickFilters? = null
+            val remembered =
+                org.nekomanga.shared.comick.ComickFilters(
+                    includedTags = listOf("isekai"),
+                    query = "old",
+                )
+            val model =
+                SearchModel(
+                    this,
+                    Discovery(ComickApi(offline), MangaDexApi(offline)),
+                    ComickApi(offline),
+                    initialFilters = remembered,
+                    rememberFilters = { saved = it },
+                )
+            // The saved filters come back, without an old keyword.
+            assertEquals(listOf("isekai"), model.filters.includedTags)
+            assertEquals("", model.filters.query)
+            model.update { it.copy(query = "slime", minChapters = 50) }
+            assertEquals("", saved!!.query)
+            assertEquals(50, saved!!.minChapters)
+            model.applyPreset(
+                org.nekomanga.shared.comick.ComickFilters(includedTags = listOf("villainess")),
+            )
+            assertEquals(listOf("villainess"), model.filters.includedTags)
+            assertEquals("slime", model.filters.query)
+            advanceUntilIdle()
+        }
+    }
+
+    @Test
     fun aFailedShuffleStaysInRandomPicksSoTryAgainShufflesAgain() {
         runTest {
             val down = HttpFetcher { HttpResponse(503, "text/html", "down") }

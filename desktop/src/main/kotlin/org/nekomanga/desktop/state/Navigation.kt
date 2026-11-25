@@ -19,7 +19,11 @@ sealed interface Loadable<out T> {
 
 /** A page opened on top of a sidebar screen. */
 sealed interface Page {
-    data class Search(val query: String = "") : Page
+    /** Search with tags; [preset] applies a saved filter set when it opens. */
+    data class Search(
+        val query: String = "",
+        val preset: org.nekomanga.shared.comick.ComickFilters? = null,
+    ) : Page
 
     /** Browse › MangaDex: MangaDex's catalog in tabs and the follow feed. */
     data object MangaDex : Page

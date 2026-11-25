@@ -330,6 +330,8 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 state.browse,
                 onSearch = { state.navigator.open(Page.Search()) },
                 onOpen = { state.navigator.open(Page.Details(it)) },
+                presets = state.container.settings.settings.collectAsState().value.searchPresets,
+                onPreset = { state.navigator.open(Page.Search(preset = it.filters)) },
                 localTitles =
                     if (state.container.settings.settings.collectAsState().value.localManga) {
                         {
@@ -411,6 +413,10 @@ private fun AppPage(state: AppState, page: Page) {
                 onBack = { state.navigator.back() },
                 onOpen = { state.navigator.open(Page.Details(it)) },
                 menu = { title -> resultMenu(state, title) },
+                preset = page.preset,
+                presets = state.container.settings.settings.collectAsState().value.searchPresets,
+                onSavePreset = state::savePreset,
+                onDeletePreset = state::deletePreset,
             )
         Page.MangaDex ->
             org.nekomanga.desktop.screens.MangaDexScreen(

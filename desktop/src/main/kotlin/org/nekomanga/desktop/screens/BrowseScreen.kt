@@ -43,6 +43,9 @@ fun BrowseScreen(
     onOpen: (Title) -> Unit,
     /** Manga in the local folder; null when local manga is off. */
     localTitles: (suspend () -> List<Title>)? = null,
+    /** Saved Search with tags presets; each opens Search with its filters. */
+    presets: List<org.nekomanga.shared.library.SearchPreset> = emptyList(),
+    onPreset: (org.nekomanga.shared.library.SearchPreset) -> Unit = {},
 ) {
     LaunchedEffect(model) { model.start() }
     Column(
@@ -63,6 +66,14 @@ fun BrowseScreen(
                         .clickable(role = Role.Button, onClickLabel = "Search", onClick = onSearch)
                         .semantics { contentDescription = "Open search" },
                 )
+            }
+            if (presets.isNotEmpty()) {
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    presets.forEach { preset -> GlassButton(preset.name, { onPreset(preset) }) }
+                }
             }
             if (model.comickDown) {
                 Banner("Comick is unavailable right now, so these shelves come from MangaDex.") {

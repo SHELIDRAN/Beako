@@ -1,5 +1,6 @@
 package org.nekomanga.shared.comick
 
+import kotlinx.serialization.Serializable
 import org.nekomanga.shared.model.ComicType
 
 /** Sort orders of Comick's search, named as Beako's Search screen shows them. */
@@ -30,6 +31,7 @@ enum class Demographic(internal val key: Int, val label: String) {
  * [ComickApi.tags] and [ComickApi.genres]. The API's own limits are enforced by [toQuery]: up to 10
  * included and 40 excluded genres, 10 included and 30 excluded tags.
  */
+@Serializable
 data class ComickFilters(
     val query: String = "",
     val includedGenres: List<String> = emptyList(),

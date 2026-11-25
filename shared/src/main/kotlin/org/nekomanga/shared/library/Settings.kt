@@ -31,6 +31,10 @@ data class Settings(
     /** "Later" on the update notice: that version stays quiet until [appUpdateSnoozedUntil]. */
     val appUpdateSnoozedVersion: String = "",
     val appUpdateSnoozedUntil: Long = 0,
+    /** Search with tags' filters (without the keyword), kept between launches. */
+    val searchFilters: org.nekomanga.shared.comick.ComickFilters? = null,
+    /** Named filter sets saved from Search with tags; also listed on Browse. */
+    val searchPresets: List<SearchPreset> = emptyList(),
     /** Where the window was and how big, for the next start; null until it has been moved. */
     val window: WindowBounds? = null,
     /** Open Beako in full screen (F11 switches). */
@@ -210,3 +214,11 @@ data class WindowBounds(
     val height: Float,
     val maximized: Boolean = true,
 )
+
+/** A named set of Search with tags filters. */
+@Serializable
+data class SearchPreset(val name: String, val filters: org.nekomanga.shared.comick.ComickFilters)
+
+/** [presets] with [preset] added, replacing one of the same name (ignoring case). */
+fun withPreset(presets: List<SearchPreset>, preset: SearchPreset): List<SearchPreset> =
+    presets.filterNot { it.name.equals(preset.name, ignoreCase = true) } + preset

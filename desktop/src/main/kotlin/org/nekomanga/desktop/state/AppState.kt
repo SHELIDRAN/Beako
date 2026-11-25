@@ -57,7 +57,35 @@ class AppState(
             openBrowser,
         )
     val browse = BrowseModel(scope, container.comick, container.mangaDex)
-    val search = SearchModel(scope, container.discovery, container.comick)
+    val search =
+        SearchModel(
+            scope,
+            container.discovery,
+            container.comick,
+            initialFilters = container.settings.current.searchFilters,
+            rememberFilters = { f -> container.settings.update { it.copy(searchFilters = f) } },
+        )
+
+    /** Saves the current Search with tags filters under [name] (replacing one of that name). */
+    fun savePreset(name: String) {
+        val preset =
+            org.nekomanga.shared.library.SearchPreset(
+                name.trim(),
+                search.filters.copy(query = "", page = 1),
+            )
+        container.settings.update {
+            it.copy(
+                searchPresets = org.nekomanga.shared.library.withPreset(it.searchPresets, preset),
+            )
+        }
+    }
+
+    fun deletePreset(name: String) {
+        container.settings.update { s ->
+            s.copy(searchPresets = s.searchPresets.filterNot { it.name == name })
+        }
+    }
+
     val mangaDexPage =
         MangaDexModel(
             scope,

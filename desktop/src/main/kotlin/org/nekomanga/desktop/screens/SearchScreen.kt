@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.DropdownMenu
@@ -76,8 +77,14 @@ fun SearchScreen(
     onOpen: (Title) -> Unit,
     /** A result's right-click menu. */
     menu: (Title) -> List<ContextMenuItem> = { emptyList() },
+    /** A saved preset to apply as the page opens (from Browse), or null. */
+    preset: org.nekomanga.shared.comick.ComickFilters? = null,
+    presets: List<org.nekomanga.shared.library.SearchPreset> = emptyList(),
+    onSavePreset: (String) -> Unit = {},
+    onDeletePreset: (String) -> Unit = {},
 ) {
     LaunchedEffect(model) { model.start(initialQuery) }
+    LaunchedEffect(preset) { preset?.let(model::applyPreset) }
     val focus = rememberSearchShortcut()
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     // Open the filters when browsing; keep them out of the way of keyword results.
@@ -146,7 +153,8 @@ fun SearchScreen(
                         )
                     }
                 }
-                AnimatedVisibility(showFilters && !onMangaDex) { FilterPanel(model) }
+                if (presets.isNotEmpty() && !onMangaDex) PresetRow(presets, model, onDeletePreset)
+                AnimatedVisibility(showFilters && !onMangaDex) { FilterPanel(model, onSavePreset) }
                 when {
                     model.randomPicks ->
                         Banner(
@@ -277,7 +285,7 @@ private fun SortControl(sort: ComickSort, onSort: (ComickSort) -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FilterPanel(model: SearchModel) {
+private fun FilterPanel(model: SearchModel, onSavePreset: (String) -> Unit) {
     val filters = model.filters
     Column(
         Modifier.fillMaxWidth()
@@ -363,7 +371,35 @@ private fun FilterPanel(model: SearchModel) {
             }
         }
         if (filters.activeCount > 0) {
-            GlassButton("Clear all filters", { model.update { it.cleared() } })
+            var naming by remember { mutableStateOf(false) }
+            var name by remember { mutableStateOf("") }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                GlassButton("Clear all filters", { model.update { it.cleared() } })
+                if (!naming) {
+                    GlassButton("Save as preset", { naming = true })
+                } else {
+                    GlassTextField(
+                        "Preset name",
+                        name,
+                        { name = it.take(40) },
+                        Modifier.width(220.dp),
+                    )
+                    GlassButton(
+                        "Save",
+                        {
+                            onSavePreset(name)
+                            naming = false
+                            name = ""
+                        },
+                        primary = true,
+                        enabled = name.isNotBlank(),
+                    )
+                    GlassButton("Cancel", { naming = false })
+                }
+            }
         }
     }
 }
@@ -553,4 +589,31 @@ private fun TriStateChip(label: String, use: ComickFilters.Use, onClick: () -> U
         },
         onClick,
     )
+}
+
+/** Saved filter sets: click one to use it, ✕ to delete it. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PresetRow(
+    presets: List<org.nekomanga.shared.library.SearchPreset>,
+    model: SearchModel,
+    onDelete: (String) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Presets", style = MaterialTheme.typography.titleSmall, color = BeakoColors.TextMuted)
+        presets.forEach { preset ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                GlassButton(preset.name, { model.applyPreset(preset.filters) })
+                org.nekomanga.desktop.components.GlassIconButton(
+                    Icons.Outlined.Close,
+                    "Delete preset ${preset.name}",
+                    { onDelete(preset.name) },
+                )
+            }
+        }
+    }
 }

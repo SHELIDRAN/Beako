@@ -29,8 +29,15 @@ class SearchModel(
     private val comick: ComickApi,
     private val debounceMillis: Long = 400,
     private val random: kotlin.random.Random = kotlin.random.Random.Default,
+    /** The filters saved from last time (keyword left out), or null. */
+    initialFilters: ComickFilters? = null,
+    /** Saves the filters (without the keyword) whenever they change. */
+    private val rememberFilters: (ComickFilters) -> Unit = {},
 ) {
-    var filters by mutableStateOf(ComickFilters(sort = ComickSort.LATEST))
+    var filters by
+        mutableStateOf(
+            initialFilters?.copy(query = "", page = 1) ?: ComickFilters(sort = ComickSort.LATEST),
+        )
         private set
 
     var titles by mutableStateOf<List<Title>>(emptyList())
@@ -84,6 +91,7 @@ class SearchModel(
     fun update(change: (ComickFilters) -> ComickFilters) {
         randomPicks = false
         filters = change(filters).copy(page = 1)
+        rememberFilters(filters.copy(query = "", page = 1))
         run(immediately = false)
     }
 
@@ -97,6 +105,11 @@ class SearchModel(
     fun searchMangaDex() {
         mangaDexByHand = true
         run(immediately = true)
+    }
+
+    /** Uses a saved preset's filters, keeping what's typed in the search box. */
+    fun applyPreset(preset: ComickFilters) {
+        update { preset.copy(query = it.query) }
     }
 
     /**
