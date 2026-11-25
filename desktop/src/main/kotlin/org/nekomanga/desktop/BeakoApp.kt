@@ -81,6 +81,8 @@ fun BeakoApp(
     newestUpdateAt: Long = 0L,
     /** Saves a new Sidebar setting (the menu's collapse and keep-open controls). */
     onSidebarMode: (SidebarMode) -> Unit = {},
+    /** Floats in the bottom-right corner over every screen but the reader (the update notice). */
+    notice: @Composable () -> Unit = {},
 ) {
     var destination by remember { mutableStateOf(start) }
     var updatesSeenAt by remember { mutableStateOf(0L) }
@@ -209,6 +211,7 @@ fun BeakoApp(
                                     .fillMaxHeight(),
                         )
                     }
+                    Box(Modifier.align(Alignment.BottomEnd).padding(24.dp)) { notice() }
                 }
             }
         }

@@ -32,6 +32,7 @@ Beako runs on 64-bit Windows 10 and 11 and bundles its own Java runtime, so ther
 - **MangaDex as a fallback.** When Comick can't answer (it's down, rate-limited or finds nothing), Beako searches MangaDex instead and says so, with a **Try Comick again** button.
 
 ### Read
+- **Updates from inside the app.** Beako tells you when a new version is out; **Update now** downloads it, checks it, installs it over the old one (your library and settings stay) and reopens Beako. More › About has Check for updates.
 - **MangaDex discover page.** Browse › MangaDex shows Popular new, Latest updates, Recently added and Top rated, plus your **Feed** of new chapters from titles you follow (sign in under More › Accounts).
 - **One title page for every source.** MangaDex is built in; add Mangayomi-format sources from a repository you choose: JavaScript sources, and Dart sources built on the Madara, MangaReader and MangaBox site templates (Beako runs its own JavaScript ports of those templates, from Mangayomi's Apache-2.0 extensions). Sources are third-party code and run sandboxed. The **Reading from** picker shows every source's state (matched, no match, checking, failed), searches any of them by hand with the title's other names, and remembers your choice.
 - **Gaps filled automatically.** When the source you read from is missing a chapter, Beako takes it from another one and labels where it came from.

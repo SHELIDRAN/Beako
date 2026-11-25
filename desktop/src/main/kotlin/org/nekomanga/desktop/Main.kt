@@ -49,6 +49,7 @@ import org.nekomanga.desktop.state.Page
 import org.nekomanga.desktop.state.UpdateChecker
 import org.nekomanga.desktop.state.WindowControl
 import org.nekomanga.desktop.state.displayName
+import org.nekomanga.desktop.state.openInBrowser
 import org.nekomanga.desktop.theme.BeakoAppearance
 import org.nekomanga.desktop.theme.Palette
 import org.nekomanga.desktop.theme.SidebarMode
@@ -144,6 +145,12 @@ fun main(args: Array<String>) {
                 AppState(
                     container,
                     scope,
+                    quit = {
+                        container.library.flush()
+                        container.extensions.closeAll()
+                        container.discord.close()
+                        exitApplication()
+                    },
                     onUpdates = { updates ->
                         trayState.sendNotification(
                             Notification(
@@ -168,6 +175,7 @@ fun main(args: Array<String>) {
                     }
                 }
                 state.updates.start()
+                state.appUpdate.startAutomatic()
                 // Windows' animation and transparency settings, followed while Beako runs.
                 launch {
                     while (true) {
@@ -238,6 +246,12 @@ fun main(args: Array<String>) {
                             scale = settings.uiScale,
                         ),
                     start = startScreen(System.getenv("BEAKO_OPEN")),
+                    notice = {
+                        org.nekomanga.desktop.screens.UpdateNotice(
+                            state.appUpdate,
+                            ::openInBrowser,
+                        )
+                    },
                     navigator = state.navigator,
                     page = { AppPage(state, it) },
                     screen = { AppScreen(state, it) },
@@ -358,6 +372,13 @@ private fun AppScreen(state: AppState, destination: Destination) {
                 },
                 backup = { BackupSection(state.backups, state.container.settings) },
                 sources = { ExtensionsSection(state.extensions) },
+                appUpdate = {
+                    org.nekomanga.desktop.screens.AppUpdateSection(
+                        state.appUpdate,
+                        state.container.settings,
+                        ::openInBrowser,
+                    )
+                },
             )
     }
 }

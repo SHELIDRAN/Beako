@@ -76,6 +76,8 @@ fun MoreScreen(
     accounts: (@Composable () -> Unit)? = null,
     backup: (@Composable () -> Unit)? = null,
     sources: (@Composable () -> Unit)? = null,
+    /** Beako's own updates, shown under About. */
+    appUpdate: (@Composable () -> Unit)? = null,
     /** Windows' own settings, which Beako follows whatever its switches say. */
     systemComfort: SystemComfort = SystemComfort(),
     /** The local manga folder in use, and the default one. */
@@ -426,6 +428,7 @@ fun MoreScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = BeakoColors.TextMuted,
                     )
+                    appUpdate?.invoke()
                 }
             }
         }

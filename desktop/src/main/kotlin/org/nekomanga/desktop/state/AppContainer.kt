@@ -38,7 +38,7 @@ import org.nekomanga.shared.tracking.comick.ComickTracker
 
 /** The app's long-lived services, created once at start-up. */
 class AppContainer(
-    version: String = System.getProperty("beako.version") ?: "dev",
+    val version: String = System.getProperty("beako.version") ?: "dev",
     val dirs: AppDirs = AppDirs(),
     /** Where sign-in secrets are kept: Credential Manager on Windows. */
     val vault: SecretVault = WindowsVault.forThisSystem(),
@@ -111,6 +111,9 @@ class AppContainer(
     val comick = ComickApi(http)
     val discovery = Discovery(comick, mangaDex)
     val library = LibraryStore(dirs.libraryFile)
+
+    /** Beako's own updates, from its GitHub releases. */
+    val appUpdates = org.nekomanga.shared.update.AppUpdates(http, httpClient)
 
     private val transport = OkHttpTransport(httpClient, userAgent)
 

@@ -12,6 +12,8 @@ class AppState(
     private val scope: CoroutineScope,
     onUpdates: (List<TitleUpdate>) -> Unit = {},
     openBrowser: (String) -> Unit = ::openInBrowser,
+    /** Closes Beako the normal way (saving the library), for installing an update. */
+    quit: () -> Unit = {},
 ) {
     /** Windows' own animation and transparency settings, read now and then. */
     var systemComfort by
@@ -20,6 +22,27 @@ class AppState(
         )
 
     val navigator = Navigator()
+    val appUpdate =
+        AppUpdateModel(
+            scope,
+            container.appUpdates,
+            container.dirs.cache.resolve("updates"),
+            container.version,
+            automatic = { container.settings.current.checkAppUpdates },
+            canInstall = { org.nekomanga.desktop.platform.Installer.canInstall },
+            install = org.nekomanga.desktop.platform.Installer::runAfterExit,
+            quit = quit,
+            snoozed = {
+                container.settings.current.let {
+                    it.appUpdateSnoozedVersion to it.appUpdateSnoozedUntil
+                }
+            },
+            snooze = { version, until ->
+                container.settings.update {
+                    it.copy(appUpdateSnoozedVersion = version, appUpdateSnoozedUntil = until)
+                }
+            },
+        )
     val extensions = ExtensionsModel(scope, container.extensions)
     val backups = BackupModel(scope, container.library, container.settings, container.dirs.backups)
     val accounts =

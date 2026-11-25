@@ -24,6 +24,11 @@ data class Settings(
     val darkPalette: String = "NEUTRAL",
     /** Use [lightPalette] or [darkPalette] to match Windows' app mode. */
     val followSystemTheme: Boolean = false,
+    /** Look for a newer Beako on GitHub after start and twice a day. */
+    val checkAppUpdates: Boolean = true,
+    /** "Later" on the update notice: that version stays quiet until [appUpdateSnoozedUntil]. */
+    val appUpdateSnoozedVersion: String = "",
+    val appUpdateSnoozedUntil: Long = 0,
     /** Open Beako in full screen (F11 switches). */
     val startFullscreen: Boolean = true,
     /** Windows 11's Mica material in the window frame (with a title bar matching the palette). */
