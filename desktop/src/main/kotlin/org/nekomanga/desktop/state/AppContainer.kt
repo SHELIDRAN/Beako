@@ -49,8 +49,8 @@ class AppContainer(
     val pageHeaders = PageHeaders()
     val settings = SettingsStore(dirs.settingsFile)
 
-    /** Shared by API calls and image loading; every request names Beako. */
-    val httpClient: OkHttpClient = run {
+    /** Every request names Beako; [httpClient] adds the MangaDex@Home reports on top. */
+    private val baseClient: OkHttpClient = run {
         // DNS-over-HTTPS queries go through a plain client, so they never resolve through
         // themselves.
         val bootstrap = OkHttpClient()
@@ -105,6 +105,13 @@ class AppContainer(
             }
             .build()
     }
+
+    /** MangaDex@Home load reports, which MangaDex asks readers to send (see [AtHomeReports]). */
+    private val atHomeReports = org.nekomanga.shared.mangadex.AtHomeReports(baseClient)
+
+    /** Shared by API calls and image loading. */
+    val httpClient: OkHttpClient =
+        baseClient.newBuilder().addInterceptor(atHomeReports.interceptor).build()
 
     private val http = OkHttpFetcher(httpClient, userAgent)
     val mangaDex = MangaDexApi(http)
