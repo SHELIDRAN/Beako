@@ -104,6 +104,8 @@ class AppState(
             container.library,
             downloadedKeys = { container.downloads.downloadedTitleKeys() },
             ignoreArticles = { container.settings.current.sortIgnoreArticles },
+            initialCollapsed = container.settings.current.collapsedGroups,
+            saveCollapsed = { set -> container.settings.update { it.copy(collapsedGroups = set) } },
         )
     val updates =
         UpdateChecker(

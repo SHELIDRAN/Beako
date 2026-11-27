@@ -34,7 +34,40 @@ class LibraryModel(
     private val downloadedKeys: () -> Set<String> = { emptySet() },
     /** Sort by title ignoring a leading "a", "an" or "the". */
     private val ignoreArticles: () -> Boolean = { false },
+    /** Groups folded away last time, and where to save changes to them. */
+    initialCollapsed: Set<String> = emptySet(),
+    private val saveCollapsed: (Set<String>) -> Unit = {},
 ) {
+    /** Folded groups, keyed by grouping and name, so each grouping keeps its own. */
+    var collapsed by mutableStateOf(initialCollapsed)
+        private set
+
+    private fun keyOf(group: LibraryGroup) = "${groupBy.name}:${group.name}"
+
+    fun isCollapsed(group: LibraryGroup): Boolean = keyOf(group) in collapsed
+
+    /** Folds or unfolds one group. */
+    fun toggle(group: LibraryGroup) {
+        val key = keyOf(group)
+        saveFolded(if (key in collapsed) collapsed - key else collapsed + key)
+    }
+
+    /** Folds every one of [groups], or unfolds them all when they're all folded already. */
+    fun toggleAll(groups: List<LibraryGroup>) {
+        val keys = groups.filter { it.name.isNotEmpty() }.map(::keyOf).toSet()
+        saveFolded(if (collapsed.containsAll(keys)) collapsed - keys else collapsed + keys)
+    }
+
+    fun allCollapsed(groups: List<LibraryGroup>): Boolean =
+        groups
+            .filter { it.name.isNotEmpty() }
+            .let { named -> named.isNotEmpty() && named.all { keyOf(it) in collapsed } }
+
+    private fun saveFolded(next: Set<String>) {
+        collapsed = next
+        saveCollapsed(next)
+    }
+
     /** Shows only titles with downloaded chapters (the "Downloaded only" mode). */
     var downloadedOnly by mutableStateOf(false)
 

@@ -30,8 +30,6 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -63,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import org.nekomanga.desktop.components.ArrowButton
 import org.nekomanga.desktop.components.ArrowStyle
+import org.nekomanga.desktop.components.BeakoDropdownMenu
+import org.nekomanga.desktop.components.BeakoMenuItem
 import org.nekomanga.desktop.components.Chip
 import org.nekomanga.desktop.components.Cover
 import org.nekomanga.desktop.components.GlassButton
@@ -374,7 +374,7 @@ private fun GroupFilter(model: DetailsModel, groups: List<String>, excluded: Set
             onClick = { open = true },
             icon = Icons.Outlined.FilterList,
         )
-        DropdownMenu(open, onDismissRequest = { open = false }) {
+        BeakoDropdownMenu(open, onDismissRequest = { open = false }) {
             Text(
                 "Show chapters from",
                 style = MaterialTheme.typography.labelMedium,
@@ -383,7 +383,7 @@ private fun GroupFilter(model: DetailsModel, groups: List<String>, excluded: Set
             )
             (groups + excluded.filter { it !in groups }).forEach { group ->
                 val shown = group !in excluded
-                DropdownMenuItem(
+                BeakoMenuItem(
                     text = { Text((if (shown) "✓  " else "     ") + group) },
                     onClick = { model.setGroupHidden(group, hidden = shown) },
                 )
@@ -441,7 +441,7 @@ private fun LibraryButton(
             ghost = true,
             role = Role.Button,
         )
-        DropdownMenu(open, onDismissRequest = { open = false }) {
+        BeakoDropdownMenu(open, onDismissRequest = { open = false }) {
             Text(
                 "Categories (optional)",
                 style = MaterialTheme.typography.labelMedium,
@@ -450,7 +450,7 @@ private fun LibraryButton(
             )
             allCategories.forEach { name ->
                 val on = name in categories
-                DropdownMenuItem(
+                BeakoMenuItem(
                     text = { Text((if (on) "✓  " else "     ") + name) },
                     onClick = {
                         model.setCategories(if (on) categories - name else categories + name)
@@ -480,7 +480,7 @@ private fun LibraryButton(
                     },
                 )
             }
-            DropdownMenuItem(
+            BeakoMenuItem(
                 text = { Text("Remove from library", color = BeakoColors.Danger) },
                 onClick = {
                     model.removeFromLibrary()

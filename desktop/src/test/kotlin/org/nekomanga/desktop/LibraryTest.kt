@@ -67,6 +67,58 @@ class LibraryTest {
     }
 
     @Test
+    fun groupsFoldOneByOneOrAllAtOnceAndEachGroupingKeepsItsOwn() {
+        var saved: Set<String> = emptySet()
+        val model = LibraryModel(store(), saveCollapsed = { saved = it })
+        model.groupBy = GroupBy.CATEGORY
+        val groups = model.groups(model.store.entries)
+        val romance = groups.first { it.name == "Romance" }
+        model.toggle(romance)
+        assertEquals(true, model.isCollapsed(romance))
+        assertEquals(setOf("CATEGORY:Romance"), saved)
+        // Collapse all folds the rest; a second press unfolds everything.
+        model.toggleAll(groups)
+        assertEquals(true, model.allCollapsed(groups))
+        model.toggleAll(groups)
+        assertEquals(false, groups.any(model::isCollapsed))
+        // Folding under Category doesn't fold anything under Type.
+        model.toggle(romance)
+        model.groupBy = GroupBy.TYPE
+        assertEquals(false, model.groups(model.store.entries).any(model::isCollapsed))
+        // What was folded comes back on the next start.
+        val next = LibraryModel(store(), initialCollapsed = saved)
+        next.groupBy = GroupBy.CATEGORY
+        assertEquals(
+            true,
+            next.isCollapsed(next.groups(next.store.entries).first { it.name == "Romance" }),
+        )
+    }
+
+    @Test
+    fun aFoldedGroupHidesItsTitles() {
+        runComposeUiTest {
+            val model = LibraryModel(store())
+            model.groupBy = GroupBy.CATEGORY
+            setContent {
+                BeakoTheme(BeakoAppearance(reduceMotion = true)) {
+                    LibraryScreen(model, onOpen = {}, onSearchSources = {}, onBrowse = {})
+                }
+            }
+            onNodeWithContentDescription("Blue Period").assertIsDisplayed()
+            onNodeWithText("Drama · 1").performClick()
+            waitForIdle()
+            assertEquals(
+                0,
+                onAllNodes(androidx.compose.ui.test.hasContentDescription("Blue Period"))
+                    .fetchSemanticsNodes()
+                    .size,
+            )
+            onNodeWithText("Drama · 1").performClick()
+            onNodeWithContentDescription("Blue Period").assertIsDisplayed()
+        }
+    }
+
+    @Test
     fun groupsByTypeAndCategoryAndSortsByTitle() {
         val model = LibraryModel(store())
         model.sort = LibrarySort.TITLE

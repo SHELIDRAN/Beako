@@ -1,5 +1,6 @@
 package org.nekomanga.desktop.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,16 +11,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.UnfoldLess
+import androidx.compose.material.icons.outlined.UnfoldMore
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,13 +34,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import org.nekomanga.desktop.components.BeakoDropdownMenu
+import org.nekomanga.desktop.components.BeakoMenuItem
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.MorphSelect
 import org.nekomanga.desktop.components.SoftField
 import org.nekomanga.desktop.components.StateMessage
 import org.nekomanga.desktop.components.TitleCard
 import org.nekomanga.desktop.state.GroupBy
+import org.nekomanga.desktop.state.LibraryGroup
 import org.nekomanga.desktop.state.LibraryModel
 import org.nekomanga.desktop.state.LibrarySort
 import org.nekomanga.desktop.state.rememberSearchShortcut
@@ -101,6 +112,15 @@ fun LibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     CategoryMenu(model, data.categories)
+                    if (groups.count { it.name.isNotEmpty() } > 1) {
+                        val all = model.allCollapsed(groups)
+                        GlassButton(
+                            if (all) "Expand all" else "Collapse all",
+                            onClick = { model.toggleAll(groups) },
+                            icon =
+                                if (all) Icons.Outlined.UnfoldMore else Icons.Outlined.UnfoldLess,
+                        )
+                    }
                     Menu(
                         "Group by: ${model.groupBy.label}",
                         GroupBy.entries.map { it.label },
@@ -150,25 +170,22 @@ fun LibraryScreen(
                 }
             else ->
                 groups.forEach { group ->
+                    val folded = group.name.isNotEmpty() && model.isCollapsed(group)
                     if (group.name.isNotEmpty()) {
                         item("g:${group.name}", span = { GridItemSpan(maxLineSpan) }) {
-                            Text(
-                                "${group.name} · ${group.entries.size}",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = BeakoColors.Text,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
+                            GroupHeader(group, folded) { model.toggle(group) }
                         }
                     }
-                    items(group.entries, key = { "${group.name}|${it.key}" }) { entry ->
-                        Box(Modifier.width(172.dp)) {
-                            TitleCard(
-                                entry.title,
-                                onClick = { onOpen(entry.title) },
-                                badge = entry.unreadCount.takeIf { it > 0 }?.toString(),
-                            )
+                    if (!folded)
+                        items(group.entries, key = { "${group.name}|${it.key}" }) { entry ->
+                            Box(Modifier.width(172.dp)) {
+                                TitleCard(
+                                    entry.title,
+                                    onClick = { onOpen(entry.title) },
+                                    badge = entry.unreadCount.takeIf { it > 0 }?.toString(),
+                                )
+                            }
                         }
-                    }
                 }
         }
     }
@@ -186,8 +203,8 @@ private fun CategoryMenu(model: LibraryModel, categories: List<String>) {
         }
     Box {
         GlassButton(label, onClick = { open = true })
-        DropdownMenu(open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
+        BeakoDropdownMenu(open, onDismissRequest = { open = false }) {
+            BeakoMenuItem(
                 text = { Text("All categories") },
                 onClick = {
                     model.categoryFilter = emptySet()
@@ -196,7 +213,7 @@ private fun CategoryMenu(model: LibraryModel, categories: List<String>) {
             )
             categories.forEach { name ->
                 val on = name in model.categoryFilter
-                DropdownMenuItem(
+                BeakoMenuItem(
                     text = { Text((if (on) "✓  " else "     ") + name) },
                     onClick = {
                         model.categoryFilter =
@@ -213,9 +230,9 @@ internal fun Menu(label: String, options: List<String>, onPick: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         GlassButton(label, onClick = { open = true })
-        DropdownMenu(open, onDismissRequest = { open = false }) {
+        BeakoDropdownMenu(open, onDismissRequest = { open = false }) {
             options.forEachIndexed { index, option ->
-                DropdownMenuItem(
+                BeakoMenuItem(
                     text = { Text(option) },
                     onClick = {
                         open = false
@@ -224,6 +241,45 @@ internal fun Menu(label: String, options: List<String>, onPick: (Int) -> Unit) {
                 )
             }
         }
+    }
+}
+
+/**
+ * A group's heading: its name and count with a chevron. Clicking it folds the group's titles away
+ * or brings them back; the choice is remembered.
+ */
+@Composable
+private fun GroupHeader(group: LibraryGroup, folded: Boolean, onToggle: () -> Unit) {
+    val turn by
+        androidx.compose.animation.core.animateFloatAsState(
+            if (folded) -90f else 0f,
+            org.nekomanga.desktop.theme.sweepSpec(),
+            label = "chevron",
+        )
+    Row(
+        Modifier.padding(top = 8.dp)
+            .clip(
+                androidx.compose.foundation.shape.RoundedCornerShape(
+                    org.nekomanga.desktop.theme.Radius.field,
+                ),
+            )
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggle)
+            .semantics { stateDescription = if (folded) "Collapsed" else "Expanded" }
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            Icons.Outlined.ExpandMore,
+            contentDescription = null,
+            tint = BeakoColors.TextMuted,
+            modifier = Modifier.size(22.dp).graphicsLayer { rotationZ = turn },
+        )
+        Text(
+            "${group.name} · ${group.entries.size}",
+            style = MaterialTheme.typography.titleLarge,
+            color = BeakoColors.Text,
+        )
     }
 }
 

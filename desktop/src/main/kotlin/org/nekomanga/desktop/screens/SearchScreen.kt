@@ -24,8 +24,6 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.components.Banner
+import org.nekomanga.desktop.components.BeakoDropdownMenu
+import org.nekomanga.desktop.components.BeakoMenuItem
 import org.nekomanga.desktop.components.DropletSegmented
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.GlassIconButton
@@ -260,9 +260,9 @@ private fun SortControl(sort: ComickSort, onSort: (ComickSort) -> Unit) {
         Box {
             val current = MoreSorts.firstOrNull { it.first == sort }?.second?.first
             GlassButton(current ?: "More", onClick = { menu = true })
-            DropdownMenu(menu, onDismissRequest = { menu = false }) {
+            BeakoDropdownMenu(menu, onDismissRequest = { menu = false }) {
                 MoreSorts.forEach { (value, text) ->
-                    DropdownMenuItem(
+                    BeakoMenuItem(
                         text = {
                             Column {
                                 Text(text.first, style = MaterialTheme.typography.titleMedium)

@@ -1022,7 +1022,14 @@ fun BeakoTheme(appearance: BeakoAppearance = BeakoAppearance(), content: @Compos
             Density(density.density * appearance.scale.coerceIn(0.8f, 1.5f), density.fontScale)
         }
     CompositionLocalProvider(LocalAppearance provides appearance, LocalDensity provides scaled) {
-        MaterialTheme(colorScheme = beakoScheme(), typography = BeakoTypography, content = content)
+        MaterialTheme(colorScheme = beakoScheme(), typography = BeakoTypography) {
+            // Right-click menus get Beako's rounded, rimmed style too.
+            CompositionLocalProvider(
+                androidx.compose.foundation.LocalContextMenuRepresentation provides
+                    org.nekomanga.desktop.components.BeakoContextMenu,
+                content = content,
+            )
+        }
     }
 }
 

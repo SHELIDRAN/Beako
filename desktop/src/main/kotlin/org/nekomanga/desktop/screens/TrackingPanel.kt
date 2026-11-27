@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +26,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import org.nekomanga.desktop.components.Alert
 import org.nekomanga.desktop.components.AlertKind
+import org.nekomanga.desktop.components.BeakoDropdownMenu
+import org.nekomanga.desktop.components.BeakoMenuItem
 import org.nekomanga.desktop.components.GlassButton
 import org.nekomanga.desktop.components.SearchField
 import org.nekomanga.desktop.state.TitleTracking
@@ -99,10 +99,10 @@ private fun TrackerButton(tracking: TitleTracking, tracker: Tracker, track: Trac
             },
             icon = Icons.Outlined.Sync,
         )
-        DropdownMenu(menu && track != null, onDismissRequest = { menu = false }) {
+        BeakoDropdownMenu(menu && track != null, onDismissRequest = { menu = false }) {
             MenuLabel("Status")
             TrackStatus.entries.forEach { status ->
-                DropdownMenuItem(
+                BeakoMenuItem(
                     text = {
                         Text((if (status == track?.status) "✓  " else "     ") + status.label)
                     },
@@ -133,21 +133,21 @@ private fun TrackerButton(tracking: TitleTracking, tracker: Tracker, track: Trac
                 }
             }
             HorizontalDivider(color = BeakoColors.Rim)
-            DropdownMenuItem(
+            BeakoMenuItem(
                 text = { Text("Change linked title…") },
                 onClick = {
                     menu = false
                     tracking.openPicker(service)
                 },
             )
-            DropdownMenuItem(
+            BeakoMenuItem(
                 text = { Text("Stop tracking") },
                 onClick = {
                     menu = false
                     tracking.unlink(service, removeRemote = false)
                 },
             )
-            DropdownMenuItem(
+            BeakoMenuItem(
                 text = {
                     Text("Remove from ${tracker.displayName} list", color = BeakoColors.Danger)
                 },
@@ -158,7 +158,7 @@ private fun TrackerButton(tracking: TitleTracking, tracker: Tracker, track: Trac
             )
         }
         val matches = ui?.matches
-        DropdownMenu(matches != null, onDismissRequest = { tracking.closePicker(service) }) {
+        BeakoDropdownMenu(matches != null, onDismissRequest = { tracking.closePicker(service) }) {
             var query by remember { mutableStateOf("") }
             Row(
                 Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -179,7 +179,7 @@ private fun TrackerButton(tracking: TitleTracking, tracker: Tracker, track: Trac
                 matches.isNullOrEmpty() -> MenuLabel("No matches. Try another name.")
             }
             matches.orEmpty().forEach { match ->
-                DropdownMenuItem(
+                BeakoMenuItem(
                     text = {
                         Text(listOfNotNull(match.title, match.year?.toString()).joinToString(" · "))
                     },

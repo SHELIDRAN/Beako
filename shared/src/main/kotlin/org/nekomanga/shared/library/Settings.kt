@@ -31,6 +31,8 @@ data class Settings(
     /** "Later" on the update notice: that version stays quiet until [appUpdateSnoozedUntil]. */
     val appUpdateSnoozedVersion: String = "",
     val appUpdateSnoozedUntil: Long = 0,
+    /** Library groups folded away, as "<grouping>:<group name>" (e.g. "CATEGORY:Reading"). */
+    val collapsedGroups: Set<String> = emptySet(),
     /** Search with tags' filters (without the keyword), kept between launches. */
     val searchFilters: org.nekomanga.shared.comick.ComickFilters? = null,
     /** Named filter sets saved from Search with tags; also listed on Browse. */
