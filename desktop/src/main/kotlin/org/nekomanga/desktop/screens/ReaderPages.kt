@@ -88,16 +88,19 @@ private const val DefaultAspect = 1.45f
 // ───────────── Image requests ─────────────
 
 /**
- * What to load for a page: with "Crop borders" a request that trims plain margins, else the page
- * itself. Preloading builds the same request, so the cache serves it.
+ * What to load for a page, at its full resolution (with "Crop borders", trimmed of plain margins).
+ * Preloading builds the same request, so the cache serves it.
+ *
+ * Full resolution matters: left to itself, Coil decodes to the size the page has when the request
+ * starts. A webtoon page reached by scrolling fast still has its guessed placeholder height then,
+ * so it was decoded far too small and stretched back up to the strip's width, blurry.
  */
-internal fun pageRequest(url: String, crop: Boolean): Any =
-    if (!crop) pageModel(url)
-    else
-        ImageRequest.Builder(PlatformContext.INSTANCE)
-            .data(pageModel(url))
-            .transformations(CropBorders)
-            .build()
+internal fun pageRequest(url: String, crop: Boolean): ImageRequest =
+    ImageRequest.Builder(PlatformContext.INSTANCE)
+        .data(pageModel(url))
+        .size(coil3.size.Size.ORIGINAL)
+        .apply { if (crop) transformations(CropBorders) }
+        .build()
 
 /** Grey pages for the "Grayscale" setting. */
 internal fun pageFilter(prefs: ReaderPrefs): ColorFilter? =
@@ -111,11 +114,7 @@ internal fun Preload(urls: List<String>, page: Int, prefs: ReaderPrefs) {
         val loader = SingletonImageLoader.get(PlatformContext.INSTANCE)
         for (i in 1..prefs.preload.coerceIn(1, 10)) {
             val url = urls.getOrNull(page + i) ?: break
-            val data = pageRequest(url, prefs.cropBorders)
-            loader.enqueue(
-                data as? ImageRequest
-                    ?: ImageRequest.Builder(PlatformContext.INSTANCE).data(data).build(),
-            )
+            loader.enqueue(pageRequest(url, prefs.cropBorders))
         }
     }
 }
