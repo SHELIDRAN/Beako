@@ -32,6 +32,7 @@ class PrototypeLibraryTest {
             assertEquals(Sources.MANGADEX, komi.title.source)
             assertEquals("a96676e5-8ae2-425e-b549-7f15dd34a6d8", komi.mangaDexId)
             assertEquals(ComicType.MANGA, komi.title.type)
+            assertEquals("jp", komi.title.country)
             assertEquals(
                 "https://uploads.mangadex.org/covers/a96676e5-8ae2-425e-b549-7f15dd34a6d8/cover.jpg.512.jpg",
                 komi.title.coverUrl,

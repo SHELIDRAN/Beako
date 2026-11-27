@@ -12,7 +12,7 @@ class ComickUpdatesTest {
     fun latestChapterReleasesListTheirTitlesNotTheirChapters() {
         runBlocking {
             val http = FakeHttp { json(fixture("comick/chapter-updates.json")) }
-            val updates = ComickApi(http).updates(hot = true, page = 2, language = "fr")
+            val updates = ComickApi(http).updates(hot = true, page = 2, language = "fr").updates
             assertEquals(
                 listOf("Pick Me Up", "The Archmage Curriculum", "I Alone Level Up: Ragnarok"),
                 updates.map { it.title.title },
@@ -35,13 +35,13 @@ class ComickUpdatesTest {
     fun typesAreMatchedFromEachTitlesCountry() {
         runBlocking {
             val http = FakeHttp { json(fixture("comick/chapter-updates.json")) }
-            assertEquals(
-                0,
-                ComickApi(http).updates(hot = false, types = setOf(ComicType.MANGA)).size,
-            )
+            val manga = ComickApi(http).updates(hot = false, types = setOf(ComicType.MANGA))
+            assertEquals(0, manga.updates.size)
+            // No matches on this page, but Comick had entries: there are more pages to read.
+            assertTrue(manga.more)
             assertEquals(
                 3,
-                ComickApi(http).updates(hot = false, types = setOf(ComicType.MANHWA)).size,
+                ComickApi(http).updates(hot = false, types = setOf(ComicType.MANHWA)).updates.size,
             )
         }
     }

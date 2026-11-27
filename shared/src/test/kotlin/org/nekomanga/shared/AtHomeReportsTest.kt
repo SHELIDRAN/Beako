@@ -64,7 +64,8 @@ class AtHomeReportsTest {
                 .build()
 
         val page = "https://abc123.xyz.mangadex.network:443/token/data/hash/1.jpg"
-        client.newCall(Request.Builder().url(page).build()).execute().close()
+        // Reported once the image has been read through.
+        client.newCall(Request.Builder().url(page).build()).execute().use { it.body.bytes() }
         assertTrue(sent.await(5, TimeUnit.SECONDS))
         val (url, body) = reports.single().split(" ", limit = 2)
         assertEquals(AtHomeReports.REPORT_URL, url)
@@ -74,6 +75,27 @@ class AtHomeReportsTest {
         assertTrue(json["success"]!!.jsonPrimitive.boolean)
         assertEquals(1234, json["bytes"]!!.jsonPrimitive.long)
         assertTrue(json["cached"]!!.jsonPrimitive.boolean)
+
+        // A server error is a failure; an image closed early (not needed) isn't reported.
+        val failing =
+            OkHttpClient.Builder()
+                .addInterceptor(atHome.interceptor)
+                .addInterceptor(answer(code = 502))
+                .build()
+        val more = CountDownLatch(1)
+        reports.clear()
+        Thread {
+            while (reports.isEmpty()) Thread.sleep(10)
+            more.countDown()
+        }
+            .start()
+        failing.newCall(Request.Builder().url(page).build()).execute().close()
+        assertTrue(more.await(5, TimeUnit.SECONDS))
+        assertTrue("\"success\":false" in reports.single())
+        reports.clear()
+        client.newCall(Request.Builder().url(page).build()).execute().close()
+        Thread.sleep(300)
+        assertTrue(reports.isEmpty())
 
         // MangaDex's own servers, covers and the API are not reported.
         assertFalse(

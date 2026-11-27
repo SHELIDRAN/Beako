@@ -80,10 +80,23 @@ class SearchModel(
     private var mangaDexBeforeRandom = false
     private var started = false
 
-    fun start(query: String = "") {
-        if (started) return
+    /**
+     * Called as the page opens. The first time it searches for [query]; a [preset] (from Browse)
+     * replaces the filters first, so only one search runs, also when the page was open before.
+     */
+    fun start(query: String = "", preset: ComickFilters? = null) {
+        if (started) {
+            if (preset != null) {
+                randomPicks = false
+                filters = preset.copy(query = filters.query, page = 1)
+                rememberFilters(filters.copy(query = "", page = 1))
+                run(immediately = true)
+            }
+            return
+        }
         started = true
-        filters = filters.copy(query = query)
+        filters = (preset ?: filters).copy(query = query, page = 1)
+        if (preset != null) rememberFilters(filters.copy(query = "", page = 1))
         run(immediately = true)
         loadTagLists()
     }

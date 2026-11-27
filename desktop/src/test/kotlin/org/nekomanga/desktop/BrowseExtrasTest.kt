@@ -118,6 +118,28 @@ class BrowseExtrasTest {
     }
 
     @Test
+    fun updatesFilteredByTypeReadOnPastPagesWithNoMatch() {
+        runTest {
+            // Page 1 is all manhwa, page 2 has a manga.
+            val feed = HttpFetcher { url ->
+                val page = Regex("""[?&]page=(\d+)""").find(url)?.groupValues?.get(1)?.toInt() ?: 1
+                val country = if (page == 1) "kr" else "jp"
+                val body =
+                    if (!url.contains("/chapter/")) "[]"
+                    else
+                        """[{"chap":"1","md_comics":{"hid":"t$page","title":"T$page","country":"$country"}}]"""
+                HttpResponse(200, "application/json", body)
+            }
+            val model =
+                org.nekomanga.desktop.state.BrowseModel(this, ComickApi(feed), MangaDexApi(feed))
+            model.toggleUpdatesType(org.nekomanga.shared.model.ComicType.MANGA)
+            advanceUntilIdle()
+            assertEquals(listOf("t2"), model.updates.map { it.title.id })
+            assertTrue(model.updatesMore)
+        }
+    }
+
+    @Test
     fun aFailedShuffleStaysInRandomPicksSoTryAgainShufflesAgain() {
         runTest {
             val down = HttpFetcher { HttpResponse(503, "text/html", "down") }

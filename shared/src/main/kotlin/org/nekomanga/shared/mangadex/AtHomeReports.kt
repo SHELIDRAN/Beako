@@ -13,6 +13,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.ResponseBody
+import okio.Buffer
+import okio.BufferedSource
+import okio.ForwardingSource
+import okio.buffer
 
 /**
  * MangaDex@Home load reports. MangaDex asks every app that loads pages from its volunteer image
@@ -34,28 +39,73 @@ class AtHomeReports(
     val interceptor = Interceptor { chain ->
         val request = chain.request()
         if (!isAtHomePage(request.url)) return@Interceptor chain.proceed(request)
+        val url = request.url.toString()
         val start = clock()
         val response =
             try {
                 chain.proceed(request)
             } catch (e: IOException) {
-                send(
-                    request.url.toString(),
-                    success = false,
-                    bytes = 0,
-                    millis(start),
-                    cached = false,
-                )
+                // A load Beako cancelled (scrolled past, reader closed) says nothing about the
+                // node.
+                if (!chain.call().isCanceled()) send(url, false, 0, millis(start), cached = false)
                 throw e
             }
-        send(
-            request.url.toString(),
-            success = response.isSuccessful,
-            bytes = response.body.contentLength().coerceAtLeast(0),
-            duration = millis(start),
-            cached = response.header("X-Cache").orEmpty().startsWith("HIT", ignoreCase = true),
-        )
+        val cached = response.header("X-Cache").orEmpty().startsWith("HIT", ignoreCase = true)
+        if (!response.isSuccessful) {
+            send(url, false, 0, millis(start), cached)
+            return@Interceptor response
+        }
+        // Reported once the whole image has arrived (or failed), timed over the full download.
         response
+            .newBuilder()
+            .body(
+                Measured(response.body, chain.call()) { ok, bytes ->
+                    send(url, ok, bytes, millis(start), cached)
+                },
+            )
+            .build()
+    }
+
+    /**
+     * Passes the image through, counting bytes, and reports once: at the end of the image, or on a
+     * read error unless the call was cancelled. A body closed early (not needed after all) isn't
+     * reported.
+     */
+    private class Measured(
+        private val body: ResponseBody,
+        private val call: Call,
+        private val report: (success: Boolean, bytes: Long) -> Unit,
+    ) : ResponseBody() {
+        private var done = false
+        private var bytes = 0L
+
+        override fun contentType() = body.contentType()
+
+        override fun contentLength() = body.contentLength()
+
+        private val counting =
+            object : ForwardingSource(body.source()) {
+                override fun read(sink: Buffer, byteCount: Long): Long {
+                    val n =
+                        try {
+                            super.read(sink, byteCount)
+                        } catch (e: IOException) {
+                            finish(success = false)
+                            throw e
+                        }
+                    if (n == -1L) finish(success = true) else bytes += n
+                    return n
+                }
+            }
+        private val buffered = counting.buffer()
+
+        private fun finish(success: Boolean) {
+            if (done) return
+            done = true
+            if (success || !call.isCanceled()) report(success, bytes)
+        }
+
+        override fun source(): BufferedSource = buffered
     }
 
     private fun millis(start: Long) = TimeUnit.NANOSECONDS.toMillis(clock() - start)

@@ -29,7 +29,7 @@ object Flags {
     /** The flag for an ISO country code ("jp", "kr"…), or null when it isn't bundled. */
     @Synchronized
     fun painter(country: String, density: Density): Painter? =
-        cache.getOrPut(country) {
+        cache.getOrPut("$country@${density.density}") {
             Flags::class.java.getResourceAsStream("/flags/$country.svg")?.use {
                 runCatching { loadSvgPainter(it, density) }.getOrNull()
             }

@@ -87,6 +87,14 @@ object PrototypeLibrary {
                     else -> null
                 },
             type = ComicType.fromOrigin(origin),
+            // As MangaDexApi.toTitle does, so imported titles get their flag.
+            country =
+                when (ComicType.fromOrigin(origin)) {
+                    ComicType.MANGA -> "jp"
+                    ComicType.MANHWA -> "kr"
+                    ComicType.MANHUA -> "cn"
+                    else -> null
+                },
             contentRating = manga.str("content_rating"),
             demographic = manga.str("demographic"),
             tags = manga["tags"].items().mapNotNull { (it as? JsonPrimitive)?.content },

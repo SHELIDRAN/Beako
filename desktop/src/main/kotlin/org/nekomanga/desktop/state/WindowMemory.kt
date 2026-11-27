@@ -67,10 +67,15 @@ fun RememberWindowBounds(
 ) {
     LaunchedEffect(state) {
         snapshotFlow {
-            Triple(state.placement, state.position, state.size) to fullscreen()
+            Triple(state.placement, state.position, state.size) to
+                (fullscreen() to state.isMinimized)
         }
             .distinctUntilChanged()
-            .collectLatest { (window, isFullscreen) ->
+            .collectLatest { (window, flags) ->
+                val (isFullscreen, minimized) = flags
+                // Minimised, Windows parks the window off-screen at a tiny size: keep what was
+                // saved before.
+                if (minimized) return@collectLatest
                 delay(500)
                 val (placement, position, size) = window
                 val floating = placement == WindowPlacement.Floating && !isFullscreen

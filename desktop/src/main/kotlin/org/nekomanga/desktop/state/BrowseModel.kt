@@ -108,15 +108,26 @@ class BrowseModel(
             updatesPage = 0
             updatesStatus = Loadable.Loading
         }
-        val page = updatesPage + 1
         updatesJob = scope.launch {
             try {
-                val found = comick.updates(updatesHot, page, language(), updatesTypes)
+                // With a type chosen, a page can hold no matches: read on (a few pages at most)
+                // until something matches or Comick runs out.
+                var page = updatesPage
+                var more: Boolean
+                var found: List<ComickUpdate>
+                var tries = 0
+                do {
+                    page++
+                    tries++
+                    val result = comick.updates(updatesHot, page, language(), updatesTypes)
+                    found = result.updates
+                    more = result.more
+                } while (found.isEmpty() && more && tries < PAGES_PER_LOAD)
                 // A title can have several new chapters; it's listed once, at its newest.
                 val shown = updates.mapTo(HashSet()) { it.title.id }
                 updates += found.filter { shown.add(it.title.id) }
                 updatesPage = page
-                updatesMore = page < 100 && found.isNotEmpty()
+                updatesMore = more
                 updatesStatus = Loadable.Ready(Unit)
             } catch (e: ApiError) {
                 if (updates.isEmpty()) updatesStatus = Loadable.Failed(e.message.orEmpty())
@@ -174,4 +185,9 @@ class BrowseModel(
         } catch (e: ApiError) {
             Loadable.Failed(e.message.orEmpty())
         }
+
+    private companion object {
+        /** Pages read for one load when the type filter leaves them empty. */
+        const val PAGES_PER_LOAD = 4
+    }
 }

@@ -99,7 +99,7 @@ class ComickApi(
         language: String = "en",
         types: Set<ComicType> = emptySet(),
         contentRatings: Set<String> = setOf("safe"),
-    ): List<ComickUpdate> {
+    ): ComickUpdatesPage {
         val params = buildList {
             add("order" to if (hot) "hot" else "new")
             add("page" to page.coerceIn(1, 100).toString())
@@ -108,7 +108,8 @@ class ComickApi(
         }
         // The type is matched here, from each title's country: the endpoint's own type values
         // aren't documented.
-        return get("chapter/", params).items().mapNotNull { entry ->
+        val entries = get("chapter/", params).items()
+        val updates = entries.mapNotNull { entry ->
             val comic = entry["md_comics"] ?: return@mapNotNull null
             val title = parseTitle(comic).takeIf { it.id.isNotEmpty() } ?: return@mapNotNull null
             if (types.isNotEmpty() && title.type !in types) return@mapNotNull null
@@ -123,6 +124,7 @@ class ComickApi(
                 publishedAt = entry.str("publish_at") ?: entry.str("created_at"),
             )
         }
+        return ComickUpdatesPage(updates, more = entries.isNotEmpty() && page < 100)
     }
 
     private fun mature(contentRatings: Set<String>): List<Pair<String, String>> =
@@ -253,3 +255,9 @@ data class ComickUpdate(
     /** ISO-8601 time. */
     val publishedAt: String?,
 )
+
+/**
+ * One page of [ComickApi.updates]. [more] says whether Comick has further pages, whatever the type
+ * filter kept: a page can have no matches and still not be the last.
+ */
+data class ComickUpdatesPage(val updates: List<ComickUpdate>, val more: Boolean)

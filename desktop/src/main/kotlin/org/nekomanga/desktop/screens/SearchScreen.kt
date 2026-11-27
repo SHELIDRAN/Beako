@@ -83,8 +83,7 @@ fun SearchScreen(
     onSavePreset: (String) -> Unit = {},
     onDeletePreset: (String) -> Unit = {},
 ) {
-    LaunchedEffect(model) { model.start(initialQuery) }
-    LaunchedEffect(preset) { preset?.let(model::applyPreset) }
+    LaunchedEffect(model, preset) { model.start(initialQuery, preset) }
     val focus = rememberSearchShortcut()
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     // Open the filters when browsing; keep them out of the way of keyword results.
@@ -436,7 +435,11 @@ private fun NumberBox(label: String, value: Int?, digits: Int, onValue: (Int?) -
             val clean = typed.filter(Char::isDigit).take(digits)
             text = clean
             val number = clean.toIntOrNull()
-            if (clean.isEmpty() || number != null) onValue(number?.takeIf { it > 0 })
+            // A year applies once it has all four digits, so typing "2015" doesn't search for 2,
+            // 20…
+            val complete = digits != 4 || clean.length == 4
+            if (clean.isEmpty()) onValue(null)
+            else if (number != null && complete) onValue(number.takeIf { it > 0 })
         },
         Modifier.width(104.dp),
     )
