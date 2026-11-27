@@ -77,15 +77,15 @@ class ExtensionManager(
     suspend fun install(info: ExtensionInfo, repositoryUrl: String) {
         if (!info.isRunnable)
             throw IOException(
-                "${info.name} is a Dart source Beako can’t run yet. Pick a JavaScript source, or one marked Madara, MangaReader or MangaBox.",
+                "${info.name} is a Dart source Beako can’t run yet. Pick a JavaScript source, or a Dart one Beako lists as a template or port.",
             )
         if (HostPolicy.isComick(hostOf(info.baseUrl)))
             throw IOException("Beako doesn’t read from Comick.")
         val code =
             if (info.isJavaScript) download(info)
             else
-                Templates.code(info.typeSource)
-                    ?: throw IOException("Beako’s ${info.typeSource} template is missing.")
+                Templates.code(info)
+                    ?: throw IOException("Beako’s port of ${info.name} is missing.")
         folder.mkdirs()
         writeAtomically(codeFile(info.id), code)
         close(info.id)
@@ -165,7 +165,7 @@ class ExtensionManager(
         // A template source always runs the template this Beako version bundles, so fixes to a
         // template reach every source built on it with the app update.
         val code =
-            (if (entry.info.isJavaScript) null else Templates.code(entry.info.typeSource))
+            (if (entry.info.isJavaScript) null else Templates.code(entry.info))
                 ?: runCatching { codeFile(id).readText() }.getOrNull()
                 ?: throw IOException("${entry.info.name} needs reinstalling.")
         return JsSource(

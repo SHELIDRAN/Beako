@@ -226,7 +226,10 @@ fun ExtensionsSection(
                                             when {
                                                 info.isJavaScript -> "JavaScript"
                                                 info.isRunnable ->
-                                                    "${info.typeSource.replaceFirstChar { it.uppercase() }} template"
+                                                    if (info.typeSource.equals("single", true))
+                                                        "Dart, ported"
+                                                    else
+                                                        "${info.typeSource.replaceFirstChar { it.uppercase() }} template"
                                                 else -> "Dart (not supported yet)"
                                             },
                                             "18+".takeIf { info.isNsfw },

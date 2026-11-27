@@ -59,7 +59,14 @@ class TemplatesTest {
         assertTrue(dart("C", "mangabox", "https://c.test").isRunnable)
         assertFalse(dart("D", "nepnep", "https://d.test").isRunnable)
         assertFalse(dart("E", "single", "https://e.test").isRunnable)
-        listOf("madara", "mangareader", "mangabox").forEach { assertNotNull(Templates.code(it)) }
+        assertTrue(dart("F", "mmrcms", "https://f.test").isRunnable)
+        assertTrue(dart("G", "heancms", "https://g.test").isRunnable)
+        assertTrue(dart("MangaHere", "single", "http://www.mangahere.cc").isRunnable)
+        assertTrue(dart("AllAnime", "single", "https://allanime.to").isRunnable)
+        // A single-site source Beako hasn't ported (MangaPark has a JavaScript version instead).
+        assertFalse(dart("MangaPark", "single", "https://mangapark.io").isRunnable)
+        listOf("madara", "mangareader", "mangabox", "mmrcms", "heancms", "mangahere", "allanime")
+            .forEach { assertNotNull(Templates.code(it), it) }
         assertNull(Templates.code("../madara"))
     }
 
@@ -215,6 +222,150 @@ class TemplatesTest {
                 assertNull(detail.chapters[0].dateUpload)
 
                 assertEquals(2, source.pageList("https://x.test/manga/one/chapter-1").size)
+            }
+        }
+    }
+
+    @Test
+    fun mmrcmsListsSearchesReadsChaptersAndPages() {
+        runBlocking {
+            val site =
+                Pages(
+                    listOf(
+                        "/filterList?page=1" to
+                            """<div class="media"><img src="//cdn.v.test/c.jpg"><h5 class="media-heading"><a href="https://v.test/one-piece">One Piece</a></h5></div>""",
+                        "/search?query=" to
+                            """{"suggestions":[{"value":"One Piece","data":"one-piece"}]}""",
+                        "/one-piece/1" to
+                            """<div id="all"><img class="img-responsive" data-src=" //cdn.v.test/p1.jpg "><img class="img-responsive" data-src="https://cdn.v.test/p2.jpg"></div>""",
+                        "/one-piece" to
+                            """<h2 class="widget-title">One Piece</h2><div class="row"><img class="img-responsive" src="https://v.test/cover.jpg">
+                               <div class="well"><h5>Résumé</h5>Pirates.</div>
+                               <dl class="dl-horizontal"><dt>Auteur(s)</dt><dd>Oda</dd><dt>Catégories</dt><dd><a>Action</a><a>Aventure</a></dd></dl></div>
+                               <ul class="chapters"><li><h5 class="chapter-title-rtl"><a href="https://v.test/one-piece/1">One Piece 1 : Romance Dawn</a></h5></li></ul>""",
+                    ),
+                )
+            val info = dart("Scan VF", "mmrcms", "https://v.test")
+            JsSource(info, Templates.code(info)!!, site).use { source ->
+                val popular = source.popular(1)
+                assertEquals("One Piece", popular.titles.single().name)
+                assertEquals("https://cdn.v.test/c.jpg", popular.titles.single().imageUrl)
+                val found = source.search("one piece")
+                // Scan VF keeps titles at the site's root.
+                assertEquals("https://v.test/one-piece", found.titles.single().url)
+                val detail = source.detail("https://v.test/one-piece")
+                assertEquals("Oda", detail.author)
+                assertEquals(listOf("Action", "Aventure"), detail.genres)
+                assertEquals("Pirates.", detail.description)
+                assertEquals(listOf("Chapter 1: Romance Dawn"), detail.chapters.map { it.name })
+                assertEquals(
+                    listOf("https://cdn.v.test/p1.jpg", "https://cdn.v.test/p2.jpg"),
+                    source.pageList("https://v.test/one-piece/1").map { it.url },
+                )
+            }
+        }
+    }
+
+    @Test
+    fun heanCmsReadsTheCurrentApi() {
+        runBlocking {
+            val site =
+                Pages(
+                    listOf(
+                        "/query/?page=1" to
+                            """{"meta":{"current_page":1,"last_page":3},"data":[{"title":"New Town","series_slug":"new-town","thumbnail":"https://media.o.test/t.webp"}]}""",
+                        "/chapter/query?page=1&perPage=100&series_id=764" to
+                            """{"meta":{"current_page":1,"last_page":1},"data":[
+                                {"chapter_name":"Chapter 2","chapter_title":null,"chapter_slug":"chapter-2","price":50,"created_at":"2026-11-27T20:00:00.057+00:00"},
+                                {"chapter_name":"Chapter 1","chapter_title":"Start","chapter_slug":"chapter-1","price":0,"created_at":"2026-11-20T20:00:00.000+00:00"}]}""",
+                        "/chapter/new-town/chapter-1" to
+                            """{"chapter":{"chapter_data":{"images":["https://media.o.test/1.jpg","https://media.o.test/2.jpg"]}}}""",
+                        "/series/new-town" to
+                            """{"id":764,"title":"New Town","thumbnail":"https://media.o.test/t.webp","author":"Kim","description":"<p>A town.</p>","tags":[{"name":"Drama"}]}""",
+                    ),
+                )
+            val info =
+                dart("OmegaScans", "heancms", "https://o.test").copy(apiUrl = "https://api.o.test")
+            JsSource(info, Templates.code(info)!!, site).use { source ->
+                val popular = source.popular(1)
+                assertEquals("/series/new-town", popular.titles.single().url)
+                assertTrue(popular.hasNextPage)
+                assertTrue(site.requests.last().url.startsWith("https://api.o.test/query/"))
+                val detail = source.detail("/series/new-town")
+                assertEquals("A town.", detail.description)
+                assertEquals(listOf("Drama"), detail.genres)
+                // The paid chapter is left out; the free one keeps its date.
+                assertEquals(listOf("Chapter 1: Start"), detail.chapters.map { it.name })
+                assertEquals(1_795_204_800_000, detail.chapters.single().dateUpload)
+                assertEquals(2, source.pageList("/series/new-town/chapter-1").size)
+            }
+        }
+    }
+
+    @Test
+    fun mangaHereListsAndReadsChapters() {
+        runBlocking {
+            val site =
+                Pages(
+                    listOf(
+                        "/directory/1.htm" to
+                            """<ul class="manga-list-1-list"><li><a href="/manga/tower/" title="Tower"><img class="manga-list-1-cover" src="https://fmcdn.h.test/t.jpg"></a></li></ul>""",
+                        "/manga/tower/" to
+                            """<p class="detail-info-right-say"><a>Kim</a></p><p class="fullcontent">A tower.</p>
+                               <p class="detail-info-right-tag-list"><a>Action</a></p>
+                               <ul class="detail-main-list"><li><a href="/manga/tower/c001/1.html"><div><p class="title3">Ch.001</p><p class="title2">Jan 02,2026</p></div></a></li></ul>""",
+                    ),
+                )
+            val info = dart("MangaHere", "single", "http://h.test", "MMM dd,yyyy")
+            JsSource(info, Templates.code(info)!!, site).use { source ->
+                assertEquals("Tower", source.popular(1).titles.single().name)
+                assertEquals("isAdult=1", site.requests.last().headers["Cookie"])
+                val detail = source.detail("/manga/tower/")
+                assertEquals("Kim", detail.author)
+                assertEquals(listOf("Ch.001"), detail.chapters.map { it.name })
+                assertNotNull(detail.chapters.single().dateUpload)
+            }
+        }
+    }
+
+    @Test
+    fun allAnimeUsesItsGraphqlApi() {
+        runBlocking {
+            val requests = mutableListOf<ExtensionRequest>()
+            val api = ExtensionTransport { request ->
+                requests += request
+                val query = request.body.toString()
+                val body =
+                    when {
+                        "queryPopular" in query ->
+                            """{"data":{"queryPopular":{"recommendations":[{"anyCard":{"_id":"abc","name":"Romaji","englishName":"English","thumbnail":"images/c.jpg"}}]}}}"""
+                        "episodeInfos" in query ->
+                            """{"data":{"episodeInfos":[{"episodeIdNum":1,"uploadDates":{"sub":"2026-01-02T00:00:00.000Z"}},{"episodeIdNum":2,"uploadDates":null}]}}"""
+                        "chapterPages" in query ->
+                            """{"data":{"chapterPages":{"edges":[{"pictureUrlHead":"https://head.test/","pictureUrls":[{"url":"p/1.jpg"},{"url":"p/2.jpg"}]}]}}}"""
+                        else ->
+                            """{"data":{"manga":{"_id":"abc","name":"Romaji","englishName":"English","thumbnail":"images/c.jpg","description":"<p>Story</p>","authors":["Ann"],"genres":["Action"],"tags":["Action","Magic"],"status":"Releasing","altNames":["Alt"]}}}"""
+                    }
+                ExtensionResponse(
+                    200,
+                    body,
+                    mapOf("content-type" to "application/json"),
+                    request.url,
+                )
+            }
+            val info = dart("AllAnime", "single", "https://allanime.to")
+            JsSource(info, Templates.code(info)!!, api).use { source ->
+                val popular = source.popular(1)
+                assertEquals("English", popular.titles.single().name)
+                assertEquals("https://allmanga.to/manga/abc", popular.titles.single().url)
+                assertEquals("POST", requests.last().method)
+                val detail = source.detail("https://allmanga.to/manga/abc")
+                assertEquals(listOf("Action", "Magic"), detail.genres)
+                assertEquals(listOf("Chapter 2", "Chapter 1"), detail.chapters.map { it.name })
+                assertNull(detail.chapters[0].dateUpload)
+                assertNotNull(detail.chapters[1].dateUpload)
+                val pages = source.pageList(detail.chapters[1].url)
+                assertEquals("https://ytimgf.youtube-anime.com/p/1.jpg", pages.first().url)
             }
         }
     }
