@@ -103,7 +103,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.nekomanga.desktop.theme.BeakoColors
 import org.nekomanga.desktop.theme.LocalAppearance
@@ -427,6 +429,9 @@ fun RankChip(rank: Int, modifier: Modifier = Modifier) {
 
 // ───────────── Tabs ─────────────
 
+private const val TabTravelMillis = 240
+private const val TabLagMillis = 60L
+
 /**
  * Text tabs on a hairline for views inside one page. The current tab's accent underline
  * **travels**: its leading edge moves first and the trailing edge follows 90 ms later, so it
@@ -444,29 +449,54 @@ fun Tabs(
     val left = remember { Animatable(0f) }
     val right = remember { Animatable(0f) }
     var placed by remember { mutableStateOf(false) }
-    val spring = dropletSpec<Float>()
     val reduceMotion = LocalAppearance.current.reduceMotion
+    val pace = LocalAppearance.current.motion.pace
     val accent = BeakoColors.Accent
     val rim = BeakoColors.Rim
-    LaunchedEffect(selectedIndex, lefts.toList(), rights.toList()) {
-        val l = lefts.getOrNull(selectedIndex) ?: return@LaunchedEffect
-        val r = rights.getOrNull(selectedIndex) ?: return@LaunchedEffect
-        if (r <= l) return@LaunchedEffect
-        if (!placed || reduceMotion) {
-            left.snapTo(l)
-            right.snapTo(r)
-            placed = true
-            return@LaunchedEffect
-        }
-        val movingRight = l > left.value
-        launch {
-            if (!movingRight) delay(0) else delay(90)
-            left.animateTo(l, spring)
-        }
-        launch {
-            if (movingRight) delay(0) else delay(90)
-            right.animateTo(r, spring)
-        }
+    val selected by androidx.compose.runtime.rememberUpdatedState(selectedIndex)
+    // One long-lived effect follows the selected tab's edges. The selected label turns bold and
+    // gets wider; that only nudges the line along (no restart, no fresh delay), so it never
+    // stalls mid-travel.
+    LaunchedEffect(Unit) {
+        var lastIndex = -1
+        androidx.compose.runtime
+            .snapshotFlow {
+                Triple(selected, lefts.getOrNull(selected), rights.getOrNull(selected))
+            }
+            .collectLatest { (index, l, r) ->
+                if (l == null || r == null || r <= l) return@collectLatest
+                // Recorded first: a width change arriving mid-travel cancels this block.
+                val sameTab = index == lastIndex
+                lastIndex = index
+                val travel = tween<Float>((TabTravelMillis * pace).toInt(), easing = Motion.InOut)
+                when {
+                    !placed || reduceMotion -> {
+                        left.snapTo(l)
+                        right.snapTo(r)
+                        placed = true
+                    }
+                    sameTab ->
+                        coroutineScope {
+                            launch { left.animateTo(l, travel) }
+                            launch { right.animateTo(r, travel) }
+                        }
+                    else -> {
+                        // Travel: the leading edge moves first, the trailing one follows.
+                        val movingRight = l > left.value
+                        val lag = (TabLagMillis * pace).toLong()
+                        coroutineScope {
+                            launch {
+                                if (movingRight) delay(lag)
+                                left.animateTo(l, travel)
+                            }
+                            launch {
+                                if (!movingRight) delay(lag)
+                                right.animateTo(r, travel)
+                            }
+                        }
+                    }
+                }
+            }
     }
     // Scrolls sideways when the tabs don't fit (large interface sizes, narrow windows).
     Row(

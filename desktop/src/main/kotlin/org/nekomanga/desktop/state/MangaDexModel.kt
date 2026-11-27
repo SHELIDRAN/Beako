@@ -42,6 +42,7 @@ class MangaDexModel(
     private val account: MangaDexAccount,
     private val languages: () -> List<String> = { listOf("en") },
     private val now: () -> Instant = Instant::now,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     var tab by mutableStateOf(MangaDexTab.POPULAR_NEW)
         private set
@@ -116,9 +117,13 @@ class MangaDexModel(
         loadMore()
     }
 
+    /** When the tab last changed (ms), so new results wait for the tab line to arrive. */
+    private var switchedAt = 0L
+
     fun select(next: MangaDexTab) {
         if (next == tab) return
         tab = next
+        switchedAt = clock()
         reload()
     }
 
@@ -174,6 +179,10 @@ class MangaDexModel(
                         createdAtSince =
                             if (which == MangaDexTab.POPULAR_NEW) since(NEW_DAYS) else null,
                     )
+                if (tab != which) return@launch
+                // A screenful of covers is heavy to draw: let the tab line finish moving first.
+                val wait = switchedAt + SETTLE_MILLIS - clock()
+                if (wait > 0) kotlinx.coroutines.delay(wait)
                 if (tab != which) return@launch
                 val seen = titles.mapTo(HashSet()) { it.id }
                 titles += page.items.filter { seen.add(it.id) }
@@ -260,6 +269,7 @@ class MangaDexModel(
         private const val FEED_PAGE = 60
         private const val NEW_DAYS = 30L
         private const val SEARCH_DELAY = 400L
+        private const val SETTLE_MILLIS = 320L
 
         /** Chapters grouped under their title, titles ordered by their newest chapter. */
         internal fun group(
