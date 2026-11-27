@@ -150,10 +150,14 @@ class JsSource(
             hasNextPage = (json["hasNextPage"] as? JsonPrimitive)?.booleanOrNull ?: false,
         )
 
+    /** The last refusal (4xx/5xx) a site gave during the current call, to explain script errors. */
+    @Volatile private var refusal: String? = null
+
     private suspend fun call(expression: String, async: Boolean = true): JsonElement =
         mutex.withLock {
             withContext(dispatcher) {
                 val js = engine ?: start()
+                refusal = null
                 try {
                     val code =
                         if (async) "await jsonStringify(() => extention.$expression)"
@@ -161,7 +165,13 @@ class JsSource(
                     val text = withTimeout(callTimeoutMillis) { js.evaluate<Any?>(code) } as? String
                     text?.let { BeakoJson.parseToJsonElement(it) } ?: JsonNull
                 } catch (e: QuickJsException) {
-                    throw ExtensionError(info.name, e.message ?: "the script failed", e)
+                    // A script that trips over an error answer ("cannot read property 'items' of
+                    // undefined") is usually a site that changed or blocked it: say that instead.
+                    val message =
+                        refusal?.let {
+                            "$it. The site may have changed; look for an update to this source in its repository."
+                        } ?: e.message ?: "the script failed"
+                    throw ExtensionError(info.name, message, e)
                 } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                     runCatching { js.interruptEvaluation() }
                     throw ExtensionError(info.name, "took too long to answer", e)
@@ -335,6 +345,7 @@ class JsSource(
                     (options?.get("followRedirects") as? JsonPrimitive)?.booleanOrNull ?: true,
             )
         val response = transport.send(request)
+        if (response.statusCode >= 400) refusal = refusalOf(response)
         return buildJsonObject {
             put("body", response.body)
             put("statusCode", response.statusCode)
@@ -364,4 +375,36 @@ class JsSource(
     }
 
     private fun quote(text: String) = JsonPrimitive(text).toString()
+}
+
+/**
+ * "comix.to refused the request (403: Missing token)": the site, the status and the reason the site
+ * gave, from a JSON `message` or `error`, or the start of a plain-text answer. HTML pages
+ * (Cloudflare checks, error pages) give no reason worth showing.
+ */
+internal fun refusalOf(response: ExtensionResponse): String {
+    val host = runCatching {
+        java.net.URI(response.finalUrl).host
+    }
+        .getOrNull()
+        ?.removePrefix("www.")
+    val body = response.body.trim()
+    val reason =
+        runCatching {
+            val json = BeakoJson.parseToJsonElement(body) as? JsonObject
+            listOf("message", "error", "detail").firstNotNullOfOrNull { key ->
+                (json?.get(key) as? JsonPrimitive)?.contentOrNull
+            }
+        }
+            .getOrNull()
+            ?: body.takeIf { it.isNotEmpty() && !it.startsWith("<") }?.lineSequence()?.first()
+    val what =
+        when {
+            response.statusCode == 403 && body.contains("cloudflare", ignoreCase = true) ->
+                "blocked the request with a Cloudflare check"
+            response.statusCode >= 500 -> "had a server error"
+            else -> "refused the request"
+        }
+    val detail = listOfNotNull(response.statusCode.toString(), reason?.take(100)).joinToString(": ")
+    return "${host ?: "The site"} $what ($detail)"
 }

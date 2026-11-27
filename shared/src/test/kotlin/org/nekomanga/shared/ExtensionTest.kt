@@ -426,6 +426,38 @@ class ExtensionTest {
     }
 
     @Test
+    fun aScriptBrokenByASiteChangeSaysWhatTheSiteAnswered() {
+        runBlocking {
+            // Like Comix after comix.to started asking for a token.
+            val code =
+                """
+                class DefaultExtension extends MProvider {
+                    async search(query, page, filters) {
+                        const res = await new Client().get("https://comix.to/api/v1/manga?keyword=" + query);
+                        return { list: JSON.parse(res.body).result.items, hasNextPage: false };
+                    }
+                }
+                """
+            val transport = ExtensionTransport { request ->
+                ExtensionResponse(
+                    403,
+                    """{"message":"Missing token.","code":"missing_token"}""",
+                    mapOf("content-type" to "application/json"),
+                    request.url,
+                )
+            }
+            JsSource(info, code, transport).use { source ->
+                val error = assertFailsWith<ExtensionError> { source.search("itoko") }
+                assertTrue(
+                    "comix.to refused the request (403: Missing token.)" in error.message!!,
+                    error.message,
+                )
+                assertTrue("update to this source" in error.message!!)
+            }
+        }
+    }
+
+    @Test
     fun sourcesWithoutAFilterListStillSearch() {
         runBlocking {
             // Like Mangafire: getFilterList throws "not implemented".
