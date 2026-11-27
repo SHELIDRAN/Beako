@@ -112,11 +112,18 @@ fun ReaderScreen(
     var controls by remember { mutableStateOf(true) }
     var settingsOpen by remember { mutableStateOf(false) }
     val listState = remember(model.index) { LazyListState() }
-    // Each chapter opens with its controls showing and the reader holding focus, whatever was
-    // clicked to get there.
+    // The reader holds focus whatever was clicked to get there. The controls show briefly when
+    // the reader opens, then get out of the way; later chapters keep them as they were (hidden
+    // while reading), showing them only while a chapter loads.
+    var opened by remember { mutableStateOf(false) }
     LaunchedEffect(model.index) {
-        controls = true
         runCatching { focus.requestFocus() }
+        if (!opened) {
+            opened = true
+            controls = true
+            kotlinx.coroutines.delay(CONTROLS_INTRO_MILLIS)
+            if (!settingsOpen) controls = false
+        }
     }
 
     // Full screen from before the reader opened (e.g. Beako starting in full screen) stays on
@@ -144,7 +151,14 @@ fun ReaderScreen(
             }
             return true
         }
-        when (keys.actionFor(event.key.nativeKeyCode)) {
+        val action = keys.actionFor(event.key.nativeKeyCode)
+        // Reading with the keys hides the controls, like turning a page by hand.
+        if (
+            action != null && action != ReaderAction.SETTINGS && action != ReaderAction.FULL_SCREEN
+        ) {
+            controls = false
+        }
+        when (action) {
             ReaderAction.FULL_SCREEN -> window?.toggleFullscreen()
             ReaderAction.PREVIOUS_CHAPTER -> model.previousChapter()
             ReaderAction.NEXT_CHAPTER -> model.nextChapter()
@@ -405,3 +419,6 @@ private fun readerBackground(name: String): Color =
         "GRAY" -> Color(0xFF26272B)
         else -> Color.Black
     }
+
+/** How long the controls show when the reader opens. */
+private const val CONTROLS_INTRO_MILLIS = 2_500L

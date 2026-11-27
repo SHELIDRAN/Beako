@@ -74,8 +74,13 @@ fun main(args: Array<String>) {
     }
     val container = AppContainer()
     DiagnosticLog.start(container.dirs.data)
+    // The graphics mode must be chosen before the first window exists.
+    graphicsMode(container.settings.current.graphics)?.let {
+        System.setProperty("skiko.renderApi", it)
+    }
     DiagnosticLog.info(
-        "Beako ${System.getProperty("beako.version") ?: "dev"} started on ${System.getProperty("os.name")}",
+        "Beako ${System.getProperty("beako.version") ?: "dev"} started on ${System.getProperty("os.name")}" +
+            (System.getProperty("skiko.renderApi")?.let { ", graphics $it" } ?: ""),
     )
     Thread.setDefaultUncaughtExceptionHandler { thread, error ->
         DiagnosticLog.error("Uncaught error on ${thread.name}", error)
@@ -576,3 +581,12 @@ private object ImageFailureLog : coil3.EventListener() {
         }
     }
 }
+
+/** Skia's render API for the Graphics setting, or null for its own choice. */
+internal fun graphicsMode(setting: String): String? =
+    when (setting.uppercase()) {
+        "OPENGL" -> "OPENGL"
+        "SOFTWARE" -> "SOFTWARE"
+        "DIRECT3D" -> "DIRECT3D"
+        else -> null
+    }

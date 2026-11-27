@@ -104,9 +104,28 @@ class ReaderScreenTest {
         onRoot().performKeyInput { pressKey(Key.DirectionRight) }
         waitForIdle()
         assertEquals(1, model.page, "the arrow key turns the page after a chapter change")
-        onNodeWithContentDescription("Close reader (Esc)").assertIsDisplayed()
+        // Reading with the keys hides the controls…
+        assertEquals(
+            0,
+            onAllNodes(androidx.compose.ui.test.hasContentDescription("Close reader (Esc)"))
+                .fetchSemanticsNodes()
+                .size,
+        )
+        // …and the next chapter doesn't bring them back.
+        onRoot().performKeyInput { pressKey(Key.RightBracket) }
+        waitForIdle()
+        assertEquals(1, model.index, "already on the last chapter")
+        onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
+        waitForIdle()
+        assertEquals(
+            0,
+            onAllNodes(androidx.compose.ui.test.hasContentDescription("Close reader (Esc)"))
+                .fetchSemanticsNodes()
+                .size,
+        )
 
-        onNodeWithContentDescription("Close reader (Esc)").performClick()
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+        waitForIdle()
         assertEquals(true, closed)
     }
 }

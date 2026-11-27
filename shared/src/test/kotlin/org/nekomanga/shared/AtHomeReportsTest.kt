@@ -111,4 +111,53 @@ class AtHomeReportsTest {
             ),
         )
     }
+
+    @Test
+    fun imagesPassThroughByteForByte() {
+        val image = kotlin.random.Random(42).nextBytes(3_000_000)
+        val reporter =
+            OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    Response.Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(ByteArray(0).toResponseBody(null))
+                        .build()
+                }
+                .build()
+        val client =
+            OkHttpClient.Builder()
+                .addInterceptor(AtHomeReports(reporter).interceptor)
+                .addInterceptor { chain ->
+                    Response.Builder()
+                        .request(chain.request())
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(image.toResponseBody("image/jpeg".toMediaType()))
+                        .build()
+                }
+                .build()
+        val page = "https://abc.xyz.mangadex.network/token/data/hash/1.jpg"
+        // Read in small, uneven pieces, as a decoder might.
+        val read =
+            client.newCall(Request.Builder().url(page).build()).execute().use { response ->
+                val source = response.body.source()
+                val out = okio.Buffer()
+                var step = 1L
+                while (true) {
+                    val n = source.read(out, step)
+                    if (n == -1L) break
+                    step = (step * 7 + 3) % 20_000 + 1
+                }
+                out.readByteArray()
+            }
+        assertTrue(image.contentEquals(read), "the image must arrive unchanged")
+        // And through the usual whole-body read.
+        val whole =
+            client.newCall(Request.Builder().url(page).build()).execute().use { it.body.bytes() }
+        assertTrue(image.contentEquals(whole))
+    }
 }

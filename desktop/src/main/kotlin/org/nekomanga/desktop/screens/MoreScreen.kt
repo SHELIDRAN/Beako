@@ -194,6 +194,28 @@ fun MoreScreen(
                             )
                         }
                     }
+                    val graphicsModes =
+                        listOf(
+                            "AUTO" to "Automatic (Direct3D)",
+                            "OPENGL" to "OpenGL",
+                            "SOFTWARE" to "Software (slowest, always works)",
+                        )
+                    LabeledMenu(
+                        "Graphics",
+                        graphicsModes.firstOrNull { it.first == settings.graphics }?.second
+                            ?: graphicsModes.first().second,
+                        graphicsModes.map { it.second },
+                    ) { i ->
+                        settingsStore.update { it.copy(graphics = graphicsModes[i].first) }
+                    }
+                    Text(
+                        if (settings.graphics != (System.getProperty("skiko.renderApi") ?: "AUTO"))
+                            "Restart Beako to use the new graphics mode."
+                        else
+                            "If pages show coloured blocks or patches, try OpenGL, then Software. Applies after a restart.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = BeakoColors.TextMuted,
+                    )
                     ToggleRow(
                         "Start in full screen",
                         "Open Beako in full screen. F11 switches full screen on or off at any time.",

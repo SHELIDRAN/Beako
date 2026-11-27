@@ -45,6 +45,12 @@ data class Settings(
     val searchPresets: List<SearchPreset> = emptyList(),
     /** Where the window was and how big, for the next start; null until it has been moved. */
     val window: WindowBounds? = null,
+    /**
+     * How Beako draws: "AUTO" (Windows' default, Direct3D), "OPENGL" or "SOFTWARE". Some graphics
+     * drivers draw pages with coloured blocks under Direct3D; another mode avoids it. Applies at
+     * the next start.
+     */
+    val graphics: String = "AUTO",
     /** Open Beako in full screen (F11 switches). */
     val startFullscreen: Boolean = true,
     /** Windows 11's Mica material in the window frame (with a title bar matching the palette). */
