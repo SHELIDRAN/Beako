@@ -349,7 +349,19 @@ fun DetailsScreen(
                 }
         }
         item("similar") {
-            val similar = model.similar
+            // Candidates ranked by the user's weights (More → Library → More like this).
+            val similar =
+                when (val pool = model.similar) {
+                    is Loadable.Ready ->
+                        Loadable.Ready(
+                            org.nekomanga.shared.discovery.Similar.rank(
+                                model.title,
+                                pool.value,
+                                settings.similarWeights,
+                            ),
+                        )
+                    else -> pool
+                }
             if (similar !is Loadable.Ready || similar.value.isNotEmpty()) {
                 Shelf(
                     "More like this",

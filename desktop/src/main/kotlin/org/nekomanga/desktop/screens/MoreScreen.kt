@@ -559,7 +559,7 @@ internal fun Settings.sidebarText() = sidebarLabel(sidebarMode)
 
 /** A slider that previews while dragging and saves when released. */
 @Composable
-private fun SliderRow(
+internal fun SliderRow(
     title: String,
     valueText: String,
     value: Float,

@@ -95,6 +95,43 @@ internal fun LibrarySettings(
             }
         }
 
+        Section("More like this") {
+            Text(
+                "How the title page picks similar titles: each one shares some of the title's genres and " +
+                    "themes, then these weights put them in order. Off ignores a quality.",
+                style = MaterialTheme.typography.bodySmall,
+                color = BeakoColors.TextMuted,
+            )
+            val w = settings.similarWeights
+            fun set(
+                change:
+                    (
+                        org.nekomanga.shared.discovery.SimilarWeights,
+                    ) -> org.nekomanga.shared.discovery.SimilarWeights,
+            ) = settingsStore.update { it.copy(similarWeights = change(it.similarWeights)) }
+            fun shown(v: Float) = if (v <= 0f) "Off" else "${(v * 100).toInt()}%"
+            SliderRow("Shared genres", shown(w.genres), w.genres, 0f..1f) { v ->
+                set { it.copy(genres = v) }
+            }
+            SliderRow("Popularity", shown(w.popularity), w.popularity, 0f..1f) { v ->
+                set { it.copy(popularity = v) }
+            }
+            SliderRow("Rating", shown(w.rating), w.rating, 0f..1f) { v ->
+                set { it.copy(rating = v) }
+            }
+            SliderRow("Same type", shown(w.sameType), w.sameType, 0f..1f) { v ->
+                set { it.copy(sameType = v) }
+            }
+            SliderRow("Newer titles", shown(w.newer), w.newer, 0f..1f) { v ->
+                set { it.copy(newer = v) }
+            }
+            if (w != org.nekomanga.shared.discovery.SimilarWeights()) {
+                GlassButton(
+                    "Reset to defaults",
+                    { set { org.nekomanga.shared.discovery.SimilarWeights() } },
+                )
+            }
+        }
         Section("Library") {
             ToggleRow(
                 "Sort by ignoring articles",

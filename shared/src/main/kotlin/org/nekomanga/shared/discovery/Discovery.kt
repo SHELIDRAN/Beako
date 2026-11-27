@@ -36,11 +36,12 @@ class Discovery(private val comick: ComickApi, private val mangaDex: MangaDexApi
     @Volatile private var genres: List<ComickGenre>? = null
 
     /**
-     * "More like this": popular Comick titles that share this title's rarest genres and themes
-     * (Comick has no recommendations endpoint). Works for MangaDex titles too, by matching their
-     * tag names to Comick's genres. Empty when the title has no usable genres.
+     * "More like this" candidates: popular Comick titles that share this title's rarest genres and
+     * themes (Comick has no recommendations endpoint), most popular first. [Similar.rank] orders
+     * them by the user's weights. Works for MangaDex titles too, by matching their tag names to
+     * Comick's genres. Empty when the title has no usable genres.
      */
-    suspend fun similar(title: Title, limit: Int = 20): List<Title> {
+    suspend fun similar(title: Title, limit: Int = 40): List<Title> {
         val all = genres ?: comick.genres().also { genres = it }
         val names = title.tags.map { it.lowercase() }.toSet()
         val picks =

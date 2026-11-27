@@ -31,6 +31,9 @@ data class Settings(
     /** "Later" on the update notice: that version stays quiet until [appUpdateSnoozedUntil]. */
     val appUpdateSnoozedVersion: String = "",
     val appUpdateSnoozedUntil: Long = 0,
+    /** How "More like this" ranks similar titles. */
+    val similarWeights: org.nekomanga.shared.discovery.SimilarWeights =
+        org.nekomanga.shared.discovery.SimilarWeights(),
     /** More → Sources: the language shown ("" for all) and whether sources are sorted by it. */
     val sourcesLanguage: String = "",
     val sourcesByLanguage: Boolean = false,
