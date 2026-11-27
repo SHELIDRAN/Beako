@@ -391,7 +391,20 @@ private fun AppScreen(state: AppState, destination: Destination) {
                     )
                 },
                 backup = { BackupSection(state.backups, state.container.settings) },
-                sources = { ExtensionsSection(state.extensions) },
+                sources = {
+                    val settings by state.container.settings.settings.collectAsState()
+                    ExtensionsSection(
+                        state.extensions,
+                        language = settings.sourcesLanguage,
+                        byLanguage = settings.sourcesByLanguage,
+                        onLanguage = { lang ->
+                            state.container.settings.update { it.copy(sourcesLanguage = lang) }
+                        },
+                        onByLanguage = { on ->
+                            state.container.settings.update { it.copy(sourcesByLanguage = on) }
+                        },
+                    )
+                },
                 appUpdate = {
                     org.nekomanga.desktop.screens.AppUpdateSection(
                         state.appUpdate,

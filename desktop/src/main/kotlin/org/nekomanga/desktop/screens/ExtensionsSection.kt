@@ -46,7 +46,14 @@ private const val DIRECTORY = "https://wotaku.wiki/ext/mangayomi"
 /** More → Sources: add repositories, install sources, keep them updated. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ExtensionsSection(model: ExtensionsModel) {
+fun ExtensionsSection(
+    model: ExtensionsModel,
+    /** The language shown ("" for all) and whether to sort by language, kept in settings. */
+    language: String = "",
+    byLanguage: Boolean = false,
+    onLanguage: (String) -> Unit = {},
+    onByLanguage: (Boolean) -> Unit = {},
+) {
     LaunchedEffect(model) { model.start() }
     val data by model.manager.data.collectAsState()
     var repoText by remember { mutableStateOf("") }
@@ -101,27 +108,31 @@ fun ExtensionsSection(model: ExtensionsModel) {
                 style = MaterialTheme.typography.titleMedium,
                 color = BeakoColors.Text,
             )
-            data.installed
-                .sortedBy { it.info.name.lowercase() }
-                .forEach { source ->
-                    val update = model.updates[source.info.id]
-                    SourceRow(
-                        source.info,
-                        detail = "v${source.info.version} · ${source.info.lang.uppercase()}",
-                    ) {
-                        if (update != null) {
-                            GlassButton(
-                                "Update to v${update.first.version}",
-                                { model.install(update.first, update.second) },
-                            )
-                        }
+            LanguageGrouped(
+                data.installed
+                    .filter { language.isEmpty() || it.info.lang.equals(language, true) }
+                    .sortedWith(sourceOrder(byLanguage) { it.info }),
+                byLanguage,
+                { it.info.lang },
+            ) { source ->
+                val update = model.updates[source.info.id]
+                SourceRow(
+                    source.info,
+                    detail = "v${source.info.version} · ${source.info.lang.uppercase()}",
+                ) {
+                    if (update != null) {
                         GlassButton(
-                            if (source.enabled) "Turn off" else "Turn on",
-                            { model.manager.setEnabled(source.info.id, !source.enabled) },
+                            "Update to v${update.first.version}",
+                            { model.install(update.first, update.second) },
                         )
-                        GlassButton("Remove", { model.uninstall(source.info.id) })
                     }
+                    GlassButton(
+                        if (source.enabled) "Turn off" else "Turn on",
+                        { model.manager.setEnabled(source.info.id, !source.enabled) },
+                    )
+                    GlassButton("Remove", { model.uninstall(source.info.id) })
                 }
+            }
         }
 
         data.repositories.forEach { repo ->
@@ -156,34 +167,55 @@ fun ExtensionsSection(model: ExtensionsModel) {
                         color = BeakoColors.Danger,
                     )
                 is Loadable.Ready -> {
-                    SearchField(
-                        filter,
-                        { filter = it },
-                        "Filter sources by name or language",
-                        Modifier.width(360.dp),
-                    )
+                    val visible = sources.value.filter { data.showNsfw || !it.isNsfw }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        SearchField(
+                            filter,
+                            { filter = it },
+                            "Filter sources by name or language",
+                            Modifier.width(360.dp),
+                        )
+                        // Languages this repository offers, most sources first.
+                        val languages =
+                            visible
+                                .groupingBy { it.lang.lowercase() }
+                                .eachCount()
+                                .entries
+                                .sortedByDescending { it.value }
+                        Menu(
+                            "Language: ${if (language.isEmpty()) "All" else languageName(language)}",
+                            listOf("All languages · ${visible.size}") +
+                                languages.map { (code, n) -> "${languageName(code)} · $n" },
+                        ) { index ->
+                            onLanguage(if (index == 0) "" else languages[index - 1].key)
+                        }
+                        Menu(
+                            "Sort: ${if (byLanguage) "Language" else "Name"}",
+                            listOf("Name", "Language"),
+                        ) {
+                            onByLanguage(it == 1)
+                        }
+                    }
                     val shown =
-                        sources.value
-                            .filter { data.showNsfw || !it.isNsfw }
+                        visible
+                            .filter { language.isEmpty() || it.lang.equals(language, true) }
                             .filter {
                                 filter.isBlank() ||
                                     it.name.contains(filter, true) ||
-                                    it.lang.equals(filter, true)
+                                    it.lang.equals(filter, true) ||
+                                    languageName(it.lang).contains(filter, true)
                             }
-                            .sortedWith(
-                                compareBy(
-                                    { !it.isRunnable },
-                                    { it.isUnoriginal },
-                                    { it.name.lowercase() },
-                                ),
-                            )
+                            .sortedWith(sourceOrder(byLanguage) { it })
                     Column(
                         Modifier.fillMaxWidth()
                             .heightIn(max = 420.dp)
                             .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        shown.forEach { info ->
+                        LanguageGrouped(shown, byLanguage, { it.lang }) { info ->
                             val installed = data.installed.any { it.info.id == info.id }
                             SourceRow(
                                 info,
@@ -278,3 +310,53 @@ private fun SourceRow(info: ExtensionInfo, detail: String, actions: @Composable 
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { actions() }
     }
 }
+
+/**
+ * Sources in order: by name (runnable first, copies marked "unoriginal" last), or with [byLanguage]
+ * by language first, in the order of the languages' names.
+ */
+private fun <T> sourceOrder(byLanguage: Boolean, info: (T) -> ExtensionInfo): Comparator<T> {
+    val byName =
+        compareBy<T>(
+            { !info(it).isRunnable },
+            { info(it).isUnoriginal },
+            { info(it).name.lowercase() },
+        )
+    return if (byLanguage) compareBy<T> { languageName(info(it).lang) }.then(byName) else byName
+}
+
+/** [items] as they are, or under a heading for each language when [byLanguage] is on. */
+@Composable
+private fun <T> LanguageGrouped(
+    items: List<T>,
+    byLanguage: Boolean,
+    lang: (T) -> String,
+    row: @Composable (T) -> Unit,
+) {
+    var previous: String? = null
+    items.forEach { item ->
+        val name = languageName(lang(item))
+        if (byLanguage && name != previous) {
+            Text(
+                name,
+                style = MaterialTheme.typography.labelLarge,
+                color = BeakoColors.TextMuted,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            previous = name
+        }
+        row(item)
+    }
+}
+
+/** "English", "Portuguese (Brazil)", "Multiple languages" for Mangayomi's language codes. */
+internal fun languageName(code: String): String =
+    when (code.trim().lowercase()) {
+        "",
+        "all",
+        "multi" -> "Multiple languages"
+        else ->
+            java.util.Locale.forLanguageTag(code.trim())
+                .getDisplayName(java.util.Locale.ENGLISH)
+                .ifBlank { code.uppercase() }
+    }

@@ -31,6 +31,9 @@ data class Settings(
     /** "Later" on the update notice: that version stays quiet until [appUpdateSnoozedUntil]. */
     val appUpdateSnoozedVersion: String = "",
     val appUpdateSnoozedUntil: Long = 0,
+    /** More → Sources: the language shown ("" for all) and whether sources are sorted by it. */
+    val sourcesLanguage: String = "",
+    val sourcesByLanguage: Boolean = false,
     /** Library groups folded away, as "<grouping>:<group name>" (e.g. "CATEGORY:Reading"). */
     val collapsedGroups: Set<String> = emptySet(),
     /** Search with tags' filters (without the keyword), kept between launches. */
