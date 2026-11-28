@@ -63,6 +63,51 @@ class DnsTest {
     }
 
     @Test
+    fun aSlowDnsOverHttpsDoesNotHoldUpWindowsAnswer() {
+        // 0.1.12: DNS over HTTPS never answered on the owner's network, so every first lookup
+        // waited ~10 s for its timeouts although Windows DNS had already answered.
+        val release = java.util.concurrent.CountDownLatch(1)
+        val slow = Counting {
+            release.await()
+            real
+        }
+        val system = Counting { poisoned }
+        val dns =
+            SwitchableDns({ DnsMode.AUTOMATIC }, system, System::currentTimeMillis, 100L) { slow }
+
+        val started = System.nanoTime()
+        assertEquals(poisoned, dns.lookup("comick.dev"))
+        val tookMillis = (System.nanoTime() - started) / 1_000_000
+        kotlin.test.assertTrue(tookMillis < 2_000, "answered in $tookMillis ms")
+
+        // When the over-HTTPS answer turns up later, the next lookup gets both.
+        release.countDown()
+        val deadline = System.currentTimeMillis() + 5_000
+        while (dns.lookup("comick.dev") != real + poisoned) {
+            kotlin.test.assertTrue(System.currentTimeMillis() < deadline, "late answer was kept")
+            Thread.sleep(10)
+        }
+    }
+
+    @Test
+    fun withoutAWindowsAnswerItWaitsForDnsOverHttps() {
+        val slow = Counting {
+            Thread.sleep(300)
+            real
+        }
+        val dns =
+            SwitchableDns(
+                { DnsMode.AUTOMATIC },
+                Counting { throw UnknownHostException("blocked") },
+                System::currentTimeMillis,
+                50L,
+            ) {
+                slow
+            }
+        assertEquals(real, dns.lookup("comix.to"))
+    }
+
+    @Test
     fun nothingResolvesOnlyWhenBothFail() {
         val dns =
             SwitchableDns(

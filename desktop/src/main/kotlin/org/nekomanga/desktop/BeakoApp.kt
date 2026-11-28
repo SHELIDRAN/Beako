@@ -100,6 +100,10 @@ fun BeakoApp(
     val openPage = navigator.top
     // The reader takes the whole window; every other page keeps the sidebar.
     val immersive = openPage is Page.Reader
+    androidx.compose.runtime.SideEffect {
+        org.nekomanga.desktop.platform.OnScreen.page =
+            openPage?.let { it::class.simpleName } ?: destination.name
+    }
     val haze = remember { HazeState() }
     val searchShortcut = remember { SearchShortcut() }
     val windowControl = org.nekomanga.desktop.state.LocalWindowControl.current
