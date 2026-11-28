@@ -38,12 +38,23 @@ class SwitchableDns(
     private val mode: () -> String,
     private val system: Dns = Dns.SYSTEM,
     private val now: () -> Long = System::currentTimeMillis,
+    /**
+     * How long a lookup waits for DNS over HTTPS once Windows DNS has answered. A later answer
+     * still lands in the cache for the next lookup.
+     */
+    private val graceMillis: Long = GRACE_MILLIS,
     private val doh: (DohProvider) -> Dns,
 ) : Dns {
     constructor(
         mode: () -> String,
         bootstrapClient: OkHttpClient,
-    ) : this(mode, Dns.SYSTEM, System::currentTimeMillis, dohFactory(bootstrapClient))
+    ) : this(
+        mode,
+        Dns.SYSTEM,
+        System::currentTimeMillis,
+        GRACE_MILLIS,
+        dohFactory(bootstrapClient),
+    )
 
     private val resolvers = java.util.concurrent.ConcurrentHashMap<DohProvider, Dns>()
     private val cache =
@@ -61,9 +72,30 @@ class SwitchableDns(
         // Both sources, merged: the connection then races every address (OkHttp's fast fallback)
         // and keeps the first that answers. A network that poisons Windows DNS, and one where
         // DNS-over-HTTPS answers don't connect (0.1.2 QA: even MangaDex timed out), both work.
+        // The two are asked at the same time, and once Windows has answered, DNS over HTTPS gets
+        // only a short grace: where it never answers (0.1.12), waiting out its timeouts held up
+        // every first request by about 10 seconds.
+        val overHttps =
+            if (now() < dohDownUntil) null
+            else
+                java.util.concurrent.CompletableFuture.supplyAsync(
+                    { lookupOverHttps(hostname) },
+                    dohExecutor,
+                )
         val fromSystem = runCatching { system.lookup(hostname) }
-        val fromDoh = if (now() < dohDownUntil) null else lookupOverHttps(hostname)
-        val merged = (fromDoh.orEmpty() + fromSystem.getOrNull().orEmpty()).distinct()
+        val fromDoh = overHttps?.let { future ->
+            val wait = if (fromSystem.isSuccess) graceMillis else Long.MAX_VALUE
+            runCatching { future.get(wait, java.util.concurrent.TimeUnit.MILLISECONDS) }
+                .getOrElse {
+                    // Too slow: answer with Windows' addresses now, and add the over-HTTPS
+                    // ones to the cache if they turn up.
+                    future.thenAccept { late ->
+                        if (!late.isNullOrEmpty()) cacheMerged(hostname, late, fromSystem)
+                    }
+                    null
+                }
+        }
+        val merged = cacheMerged(hostname, fromDoh, fromSystem)
         if (merged.isEmpty())
             throw fromSystem.exceptionOrNull() ?: java.net.UnknownHostException(hostname)
         if (logged.add(hostname)) {
@@ -72,8 +104,20 @@ class SwitchableDns(
                     "over HTTPS ${fromDoh?.map { it.hostAddress } ?: "unavailable"}",
             )
         }
-        if (cache.size > 500) cache.clear()
-        cache[hostname] = now() to merged
+        return merged
+    }
+
+    /** Caches the merged answer (over-HTTPS addresses first) and returns it; empty isn't cached. */
+    private fun cacheMerged(
+        hostname: String,
+        fromDoh: List<InetAddress>?,
+        fromSystem: Result<List<InetAddress>>,
+    ): List<InetAddress> {
+        val merged = (fromDoh.orEmpty() + fromSystem.getOrNull().orEmpty()).distinct()
+        if (merged.isNotEmpty()) {
+            if (cache.size > 500) cache.clear()
+            cache[hostname] = now() to merged
+        }
         return merged
     }
 
@@ -104,6 +148,13 @@ class SwitchableDns(
         private val AUTOMATIC_ORDER = listOf(DohProvider.CLOUDFLARE, DohProvider.GOOGLE)
         private const val CACHE_MILLIS = 5 * 60_000L
         private const val DOWN_MILLIS = 10 * 60_000L
+        private const val GRACE_MILLIS = 1_500L
+
+        /** Runs over-HTTPS lookups beside Windows DNS; daemon threads, so exit isn't held up. */
+        private val dohExecutor =
+            java.util.concurrent.Executors.newCachedThreadPool { task ->
+                Thread(task, "beako-doh").apply { isDaemon = true }
+            }
 
         private fun dohFactory(bootstrapClient: OkHttpClient): (DohProvider) -> Dns {
             // Short timeouts, so a blocked provider falls back quickly.

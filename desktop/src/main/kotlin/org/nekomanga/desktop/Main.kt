@@ -74,6 +74,8 @@ fun main(args: Array<String>) {
     }
     val container = AppContainer()
     DiagnosticLog.start(container.dirs.data)
+    // Logs UI stalls (dropped frames) with what the UI thread was doing.
+    org.nekomanga.desktop.platform.StallWatchdog.forApp().start()
     // The graphics mode must be chosen before the first window exists.
     graphicsMode(container.settings.current.graphics)?.let {
         System.setProperty("skiko.renderApi", it)

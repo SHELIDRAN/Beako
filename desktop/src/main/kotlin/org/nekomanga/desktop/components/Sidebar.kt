@@ -215,6 +215,14 @@ fun Sidebar(
             if (appearance.reduceMotion) snap()
             else tween(paced(WidthMillis), easing = Motion.InOut),
         )
+    androidx.compose.runtime.SideEffect {
+        org.nekomanga.desktop.platform.OnScreen.menu =
+            when (width) {
+                PanelWidth -> "open"
+                RailWidth -> "closed"
+                else -> if (expanded) "opening" else "closing"
+            }
+    }
 
     var browseOpen by remember { mutableStateOf(selected == Destination.BROWSE) }
     LaunchedEffect(selected) { if (selected == Destination.BROWSE) browseOpen = true }
