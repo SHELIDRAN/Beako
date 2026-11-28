@@ -83,19 +83,18 @@ class SwitchableDns(
                     dohExecutor,
                 )
         val fromSystem = runCatching { system.lookup(hostname) }
-        val fromDoh =
-            overHttps?.let { future ->
-                val wait = if (fromSystem.isSuccess) graceMillis else Long.MAX_VALUE
-                runCatching { future.get(wait, java.util.concurrent.TimeUnit.MILLISECONDS) }
-                    .getOrElse {
-                        // Too slow: answer with Windows' addresses now, and add the over-HTTPS
-                        // ones to the cache if they turn up.
-                        future.thenAccept { late ->
-                            if (!late.isNullOrEmpty()) cacheMerged(hostname, late, fromSystem)
-                        }
-                        null
+        val fromDoh = overHttps?.let { future ->
+            val wait = if (fromSystem.isSuccess) graceMillis else Long.MAX_VALUE
+            runCatching { future.get(wait, java.util.concurrent.TimeUnit.MILLISECONDS) }
+                .getOrElse {
+                    // Too slow: answer with Windows' addresses now, and add the over-HTTPS
+                    // ones to the cache if they turn up.
+                    future.thenAccept { late ->
+                        if (!late.isNullOrEmpty()) cacheMerged(hostname, late, fromSystem)
                     }
-            }
+                    null
+                }
+        }
         val merged = cacheMerged(hostname, fromDoh, fromSystem)
         if (merged.isEmpty())
             throw fromSystem.exceptionOrNull() ?: java.net.UnknownHostException(hostname)
