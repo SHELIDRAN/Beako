@@ -63,7 +63,7 @@ class StallWatchdog(
                 append("UI stalled $stalledMillis ms on $onScreen")
                 if (stack.isEmpty()) append(" (no stack captured)")
                 for (frame in stack.take(STACK_FRAMES)) append("\n\tat ").append(frame)
-            }
+            },
         )
     }
 
