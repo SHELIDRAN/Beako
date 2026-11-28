@@ -45,11 +45,31 @@ class LibraryStore(
 
     fun contains(title: Title): Boolean = entry(title) != null
 
+    /** What has been read of [title], in the library or not. */
+    fun readState(title: Title): ReadState {
+        val key = LibraryEntry.keyOf(title)
+        entry(key)?.let {
+            return ReadState(it.readChapterIds, it.progress)
+        }
+        val kept = state.value.reading[key] ?: ReadState()
+        if (kept.progress != null) return kept
+        // Read before Beako kept reading state outside the library: the history still knows the
+        // last chapter and page.
+        val last = state.value.history.firstOrNull { LibraryEntry.keyOf(it.title) == key }
+        return if (last == null) kept
+        else
+            kept.copy(
+                progress = Progress(last.chapter.id, last.chapter.number, last.page, last.readAt),
+            )
+    }
+
     fun add(title: Title, categories: List<String> = emptyList(), mangaDexId: String? = null) =
         update { data ->
             if (data.entries.any { it.key == LibraryEntry.keyOf(title) }) data
             else
                 data.copy(
+                    // What was read before adding comes along.
+                    reading = data.reading - LibraryEntry.keyOf(title),
                     entries =
                         data.entries +
                             LibraryEntry(
@@ -57,13 +77,23 @@ class LibraryStore(
                                 mangaDexId,
                                 categories.distinct(),
                                 addedAt = now(),
+                                readChapterIds =
+                                    data.reading[LibraryEntry.keyOf(title)]
+                                        ?.readChapterIds
+                                        .orEmpty(),
+                                progress = data.reading[LibraryEntry.keyOf(title)]?.progress,
                             ),
                     categories = (data.categories + categories).distinct(),
                 )
         }
 
+    /** Removes [title] from the library, keeping what was read so its title page still knows. */
     fun remove(title: Title) = update { data ->
-        data.copy(entries = data.entries.filterNot { it.key == LibraryEntry.keyOf(title) })
+        val key = LibraryEntry.keyOf(title)
+        val gone = data.entries.firstOrNull { it.key == key } ?: return@update data
+        data.copy(entries = data.entries.filterNot { it.key == key }).withReading(key) {
+            ReadState(gone.readChapterIds, gone.progress)
+        }
     }
 
     fun setCategories(title: Title, categories: List<String>) = update { data ->
@@ -225,19 +255,34 @@ class LibraryStore(
                     data.history.filterNot {
                         LibraryEntry.keyOf(it.title) == LibraryEntry.keyOf(title)
                     }
-            data
-                .withEntry(LibraryEntry.keyOf(title)) {
-                    it.copy(
-                        progress = Progress(chapter.id, chapter.number, page, time),
-                        newChapters = it.newChapters.filterNot { n -> n.chapter.id == chapter.id },
-                    )
-                }
-                .copy(history = history.take(MAX_HISTORY))
+            val key = LibraryEntry.keyOf(title)
+            val progress = Progress(chapter.id, chapter.number, page, time)
+            val withProgress =
+                if (data.entries.any { it.key == key })
+                    data.withEntry(key) {
+                        it.copy(
+                            progress = progress,
+                            newChapters =
+                                it.newChapters.filterNot { n -> n.chapter.id == chapter.id },
+                        )
+                    }
+                else data.withReading(key) { it.copy(progress = progress) }
+            withProgress.copy(history = history.take(MAX_HISTORY))
         }
     }
 
     fun setRead(title: Title, chapterIds: Collection<String>, read: Boolean) = update { data ->
-        data.withEntry(LibraryEntry.keyOf(title)) {
+        val key = LibraryEntry.keyOf(title)
+        if (data.entries.none { it.key == key }) {
+            return@update data.withReading(key) {
+                it.copy(
+                    readChapterIds =
+                        if (read) it.readChapterIds + chapterIds
+                        else it.readChapterIds - chapterIds.toSet(),
+                )
+            }
+        }
+        data.withEntry(key) {
             it.copy(
                 readChapterIds =
                     if (read) it.readChapterIds + chapterIds
@@ -259,6 +304,9 @@ class LibraryStore(
     }
 
     fun clearHistory() = update { it.copy(history = emptyList()) }
+
+    /** Tests: puts the store in a given state, e.g. one written by an older Beako. */
+    internal fun replaceForTest(data: LibraryData) = update { data }
 
     /**
      * Stores the result of an update check. Chapters not seen before become new chapters, except on
@@ -312,6 +360,26 @@ class LibraryStore(
 
     private fun LibraryData.withEntry(key: String, change: (LibraryEntry) -> LibraryEntry) =
         copy(entries = entries.map { if (it.key == key) change(it) else it })
+
+    /**
+     * Changes the reading state kept for a title outside the library. Only the most recently read
+     * [MAX_READING] are kept.
+     */
+    private fun LibraryData.withReading(
+        key: String,
+        change: (ReadState) -> ReadState,
+    ): LibraryData {
+        val next = change(reading[key] ?: ReadState())
+        val all = reading + (key to next)
+        val kept =
+            if (all.size <= MAX_READING) all
+            else
+                all.entries
+                    .sortedByDescending { it.value.progress?.updatedAt ?: 0L }
+                    .take(MAX_READING)
+                    .associate { it.key to it.value }
+        return copy(reading = kept)
+    }
 
     @Synchronized
     private fun update(change: (LibraryData) -> LibraryData) {
@@ -367,6 +435,8 @@ class LibraryStore(
 
     companion object {
         const val MAX_HISTORY = 500
+        /** Titles outside the library whose reading state is kept. */
+        const val MAX_READING = 500
         const val MAX_NEW = 200
     }
 }

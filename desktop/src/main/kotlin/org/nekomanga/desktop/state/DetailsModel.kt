@@ -204,6 +204,9 @@ class DetailsModel(
     /** The library entry, read fresh so the page follows changes made elsewhere. */
     fun entry(): LibraryEntry? = library.entry(title)
 
+    /** What has been read of this title, whether or not it's in the library. */
+    fun readState(): org.nekomanga.shared.library.ReadState = library.readState(title)
+
     val categories: List<String>
         get() = library.data.value.categories
 
@@ -236,7 +239,7 @@ class DetailsModel(
 
     /** Unread chapters in reading order, for "Download unread". */
     fun unreadChapters(): List<Chapter> {
-        val read = entry()?.readChapterIds.orEmpty()
+        val read = readState().readChapterIds
         return readingOrder().filter { it.id !in read && it.externalUrl == null }
     }
 
@@ -249,7 +252,7 @@ class DetailsModel(
 
     /** The highest chapter number read, for a tracker's progress; null when none is numbered. */
     fun readProgress(): String? {
-        val read = entry()?.readChapterIds.orEmpty()
+        val read = readState().readChapterIds
         return readingOrder().filter { it.id in read }.highestNumber()
     }
 
@@ -300,18 +303,39 @@ class DetailsModel(
         return default == null
     }
 
+    /**
+     * Set when the page was opened to carry on reading ("Resume" in Reading history): once the
+     * chapters load, the screen opens the reader where reading stopped and clears it.
+     */
+    var resumeOnLoad by mutableStateOf(false)
+
+    /**
+     * Where to carry on: the chapter (index in [readingOrder]) and page, the saved position if it's
+     * in the list, else the first unread chapter from its start, else the first chapter.
+     */
+    fun continueAt(): Pair<Int, Int> {
+        val order = readingOrder()
+        val index = continueIndex() ?: 0
+        val saved = readState().progress
+        val page =
+            if (saved != null && order.getOrNull(index)?.id == saved.chapterId) saved.page else 0
+        return index to page
+    }
+
     /** Where "Continue" should open: the saved chapter, else the first unread one. */
     fun continueIndex(): Int? {
         val order =
             readingOrder().ifEmpty {
                 return null
             }
-        val entry = entry() ?: return null
-        entry.progress?.let { progress ->
+        val state = readState()
+        state.progress?.let { progress ->
             val saved = order.indexOfFirst { it.id == progress.chapterId }
             if (saved >= 0) return saved
         }
-        val unread = order.indexOfFirst { it.id !in entry.readChapterIds }
+        // Nothing read yet: "Start reading" from the first chapter.
+        if (state.readChapterIds.isEmpty()) return null
+        val unread = order.indexOfFirst { it.id !in state.readChapterIds }
         return if (unread >= 0) unread else null
     }
 

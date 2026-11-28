@@ -129,4 +129,17 @@ data class LibraryData(
     val entries: List<LibraryEntry> = emptyList(),
     val categories: List<String> = emptyList(),
     val history: List<HistoryEntry> = emptyList(),
+    /**
+     * Read chapters and the last position for titles that aren't in the library, by title key, so
+     * their title page can still continue where you left off. Moves into the entry when the title
+     * is added.
+     */
+    val reading: Map<String, ReadState> = emptyMap(),
+)
+
+/** What has been read of a title: finished chapters and where reading stopped. */
+@Serializable
+data class ReadState(
+    val readChapterIds: Set<String> = emptySet(),
+    val progress: Progress? = null,
 )

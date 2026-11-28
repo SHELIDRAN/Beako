@@ -278,11 +278,12 @@ class ReaderModel(
 
     private fun markRead(done: Chapter) {
         val store = library ?: return
-        if (!store.contains(title) || incognito()) return
+        if (incognito()) return
         // Only a newly finished chapter syncs, so moving around the last page sends nothing more.
-        if (done.id in store.entry(title)?.readChapterIds.orEmpty()) return
+        if (done.id in store.readState(title).readChapterIds) return
+        // Titles outside the library remember what was read too; only library titles sync.
         store.setRead(title, listOf(done.id), true)
-        onChapterRead(done)
+        if (store.contains(title)) onChapterRead(done)
     }
 
     private fun open(newIndex: Int, atEnd: Boolean) {

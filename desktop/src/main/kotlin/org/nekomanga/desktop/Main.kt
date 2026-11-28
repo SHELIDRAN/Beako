@@ -370,7 +370,11 @@ private fun AppScreen(state: AppState, destination: Destination) {
         Destination.HISTORY ->
             HistoryScreen(
                 state.container.library,
-                onResume = { state.navigator.open(Page.Details(it.title)) },
+                // Straight back into the chapter and page where reading stopped.
+                onResume = {
+                    state.details(it.title).resumeOnLoad = true
+                    state.navigator.open(Page.Details(it.title))
+                },
                 onBrowse = { state.navigator.show(Destination.BROWSE) },
             )
         Destination.MORE ->

@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
@@ -105,11 +106,20 @@ fun DetailsScreen(
     val queue by model.downloads.queue.collectAsState()
     val downloadChanges by model.downloads.changes.collectAsState()
     val entry = remember(libraryData) { model.entry() }
+    val reading = remember(libraryData) { model.readState() }
     val title = model.title
     var expanded by remember { mutableStateOf(false) }
     val chapters = model.chapters
     val excluded = model.excludedGroups
     val readingOrder = remember(chapters, excluded) { model.readingOrder() }
+    // "Resume" from Reading history: straight into the reader once the chapters are here.
+    LaunchedEffect(readingOrder, model.resumeOnLoad) {
+        if (model.resumeOnLoad && readingOrder.isNotEmpty()) {
+            model.resumeOnLoad = false
+            val (index, page) = model.continueAt()
+            onRead(readingOrder, index, page)
+        }
+    }
     val visible = remember(chapters, excluded) { model.visibleChapters() }
     // The cover of the volume being read, with "Dynamic covers".
     val cover = remember(chapters, entry, model.volumeCovers) { model.coverUrl() }
@@ -197,20 +207,12 @@ fun DetailsScreen(
                             ) {
                                 if (readingOrder.isNotEmpty()) {
                                     val resume =
-                                        remember(entry, readingOrder) { model.continueIndex() }
-                                    val saved = entry?.progress
+                                        remember(reading, readingOrder) { model.continueIndex() }
                                     ArrowButton(
                                         if (resume == null) "Start reading"
                                         else "Continue ${readingOrder[resume].displayName()}",
                                         onClick = {
-                                            val index = resume ?: 0
-                                            val page =
-                                                if (
-                                                    saved != null &&
-                                                        readingOrder[index].id == saved.chapterId
-                                                )
-                                                    saved.page
-                                                else 0
+                                            val (index, page) = model.continueAt()
                                             onRead(readingOrder, index, page)
                                         },
                                         style = ArrowStyle.ACCENT,
@@ -282,9 +284,9 @@ fun DetailsScreen(
                     }
                 } else {
                     items(visible, key = { it.id }) { chapter ->
-                        val read = entry != null && chapter.id in entry.readChapterIds
+                        val read = chapter.id in reading.readChapterIds
                         val isNew = entry?.newChapters?.any { it.chapter.id == chapter.id } == true
-                        val page = entry?.progress?.takeIf { it.chapterId == chapter.id }?.page
+                        val page = reading.progress?.takeIf { it.chapterId == chapter.id }?.page
                         val job = queue.firstOrNull {
                             it.chapter.id == chapter.id && it.title.id == model.title.id
                         }
@@ -313,21 +315,19 @@ fun DetailsScreen(
                                         },
                                     )
                                 else emptyList()) +
-                                    if (entry == null) emptyList()
-                                    else
-                                        listOf(
-                                            if (read)
-                                                ContextMenuItem("Mark as unread") {
-                                                    model.setRead(listOf(chapter), false)
-                                                }
-                                            else
-                                                ContextMenuItem("Mark as read") {
-                                                    model.setRead(listOf(chapter), true)
-                                                },
-                                            ContextMenuItem("Mark this and earlier as read") {
-                                                model.markReadUpTo(chapter)
+                                    listOf(
+                                        if (read)
+                                            ContextMenuItem("Mark as unread") {
+                                                model.setRead(listOf(chapter), false)
+                                            }
+                                        else
+                                            ContextMenuItem("Mark as read") {
+                                                model.setRead(listOf(chapter), true)
                                             },
-                                        )
+                                        ContextMenuItem("Mark this and earlier as read") {
+                                            model.markReadUpTo(chapter)
+                                        },
+                                    )
                             },
                         ) {
                             ChapterRow(
@@ -528,7 +528,16 @@ private fun ChapterRow(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .semantics(mergeDescendants = true) { contentDescription = name }
+            .semantics(mergeDescendants = true) {
+                contentDescription =
+                    when {
+                        read -> "$name, read"
+                        page != null -> "$name, reading, page ${page + 1}"
+                        else -> name
+                    }
+            }
+            // Read chapters step back, so what's left to read stands out.
+            .alpha(if (read) 0.45f else 1f)
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -552,12 +561,37 @@ private fun ChapterRow(
                         from?.let { "from $it" },
                         chapter.group,
                         chapter.publishedAt.take(10),
-                        if (read) "Read" else page?.let { "Page ${it + 1}" },
                         download,
                     )
                     .joinToString("  •  "),
                 style = MaterialTheme.typography.bodySmall,
                 color = BeakoColors.TextMuted,
+            )
+            // The chapter you're partway through: where you are, in the accent colour.
+            if (!read && page != null) {
+                Text(
+                    if (chapter.pages > 0) "Reading · page ${page + 1} of ${chapter.pages}"
+                    else "Reading · page ${page + 1}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = BeakoColors.Accent,
+                )
+                if (chapter.pages > 0) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { ((page + 1).toFloat() / chapter.pages).coerceIn(0f, 1f) },
+                        modifier = Modifier.width(160.dp).height(3.dp),
+                        color = BeakoColors.Accent,
+                        trackColor = BeakoColors.ChipRim,
+                        drawStopIndicator = {},
+                    )
+                }
+            }
+        }
+        if (read) {
+            Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = BeakoColors.Positive,
+                modifier = Modifier.size(18.dp),
             )
         }
         if (chapter.externalUrl != null) {
