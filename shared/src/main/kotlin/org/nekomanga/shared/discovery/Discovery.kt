@@ -72,6 +72,44 @@ class Discovery(private val comick: ComickApi, private val mangaDex: MangaDexApi
         return found.values.take(limit)
     }
 
+    /**
+     * A synopsis for [title] when it arrived without one: Comick's catalog entry, then MangaDex
+     * (the title itself or [mangaDexId], its linked entry), then a Comick title with the same name.
+     * Cleaned of links and markup; null when none has one.
+     */
+    suspend fun synopsis(title: Title, mangaDexId: String? = null): String? {
+        suspend fun attempt(find: suspend () -> String?): String? =
+            try {
+                find()?.let(::cleanSynopsis)?.takeIf { it.isNotBlank() }
+            } catch (e: ApiError) {
+                null
+            }
+        if (title.source == Sources.COMICK) {
+            attempt { comick.details(title.slug ?: title.id)?.description }
+                ?.let {
+                    return it
+                }
+        }
+        val md = if (title.source == Sources.MANGADEX) title.id else mangaDexId
+        if (md != null)
+            attempt { mangaDex.title(md).description }
+                ?.let {
+                    return it
+                }
+        if (title.source != Sources.COMICK) {
+            attempt {
+                comick
+                    .search(ComickFilters(query = title.title, limit = 5))
+                    .firstOrNull { sameName(it, title) || isSame(it, title) }
+                    ?.description
+            }
+                ?.let {
+                    return it
+                }
+        }
+        return null
+    }
+
     private fun isSame(a: Title, b: Title): Boolean =
         (a.source == b.source && a.id == b.id) ||
             a.title.equals(b.title, ignoreCase = true) ||
@@ -146,3 +184,35 @@ class Discovery(private val comick: ComickApi, private val mangaDex: MangaDexApi
 
 /** Comick genre groups that describe a story ("genre", "theme"), unlike format or content. */
 private val SIMILAR_GROUPS = setOf("genre", "theme")
+
+/**
+ * A synopsis as plain paragraphs: Markdown links and emphasis reduced to their text, HTML tags and
+ * "---" separators dropped, and trailing link lists ("Links:", "Official…") cut off.
+ */
+fun cleanSynopsis(raw: String): String {
+    var text = raw.replace("\r", "")
+    text =
+        text
+            .replace(Regex("""<br\s*/?>""", RegexOption.IGNORE_CASE), "\n")
+            .replace(Regex("<[^>]+>"), "")
+    text = text.replace(Regex("""\[([^\]]+)]\([^)]*\)"""), "$1")
+    text =
+        text
+            .replace(Regex("""(\*\*|__|~~)"""), "")
+            .replace(Regex("""(?<![\w*])\*(?!\s)|(?<!\s)\*(?![\w*])"""), "")
+    text =
+        text
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+    // MangaDex and Comick often end with a rule and a list of links.
+    text = text.split(Regex("""\n\s*(---+|___+|\*\*\*+)\s*\n""")).first()
+    val lines = text.lines().map { it.trim() }
+    val cut = lines.indexOfFirst {
+        Regex("""^(links?|official|raw|sources?)\s*[:：]""", RegexOption.IGNORE_CASE)
+            .containsMatchIn(it)
+    }
+    val kept = if (cut > 0) lines.take(cut) else lines
+    return kept.joinToString("\n").replace(Regex("""\n{3,}"""), "\n\n").trim()
+}

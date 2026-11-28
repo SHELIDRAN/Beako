@@ -184,9 +184,9 @@ fun DetailsScreen(
                                 }
                                 title.follows?.let { Chip("${formatCount(it)} follows") }
                             }
-                            if (title.description.isNotBlank()) {
+                            if (model.synopsis.isNotBlank()) {
                                 Text(
-                                    title.description,
+                                    model.synopsis,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = BeakoColors.TextMuted,
                                     maxLines = if (expanded) Int.MAX_VALUE else 5,

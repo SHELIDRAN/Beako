@@ -127,6 +127,12 @@ class ComickApi(
         return ComickUpdatesPage(updates, more = entries.isNotEmpty() && page < 100)
     }
 
+    /** A title's full catalog entry (synopsis and all), by its slug or HID. */
+    suspend fun details(slugOrHid: String): Title? =
+        get("v1.0/comic/${slugOrHid.trim('/')}/", listOf("title_locale" to "en"))["comic"]?.let(
+            ::parseTitle,
+        )
+
     private fun mature(contentRatings: Set<String>): List<Pair<String, String>> =
         if ("erotica" in contentRatings) listOf("accept_mature_content" to "true") else emptyList()
 

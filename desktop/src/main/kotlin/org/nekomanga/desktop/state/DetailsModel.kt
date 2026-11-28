@@ -50,6 +50,33 @@ class DetailsModel(
     var chapters by mutableStateOf<Loadable<List<Chapter>>>(Loadable.Loading)
         private set
 
+    /**
+     * The synopsis: the title's own, the library's saved one, or one looked up when the title
+     * arrived without (titles from charts, history or sources often do).
+     */
+    var synopsis by
+        mutableStateOf(
+            cleanOrEmpty(
+                title.description.ifBlank { library.entry(title)?.title?.description.orEmpty() },
+            ),
+        )
+        private set
+
+    private var synopsisAsked = false
+
+    private fun loadSynopsis() {
+        if (synopsis.isNotBlank() || synopsisAsked || title.source == Sources.LOCAL) return
+        synopsisAsked = true
+        scope.launch {
+            val found = discovery.synopsis(title, mangaDexId) ?: return@launch
+            synopsis = found
+            // Library titles keep it, for next time and offline.
+            if (library.contains(title)) {
+                library.refreshTitle(LibraryEntry.keyOf(title), title.copy(description = found))
+            }
+        }
+    }
+
     /** Where this title can be read: MangaDex first when it has it, then installed sources. */
     var availableOn by mutableStateOf<List<SourceMatch>>(emptyList())
         private set
@@ -357,6 +384,8 @@ class DetailsModel(
             return
         }
         if (similar !is Loadable.Ready) loadSimilar()
+        // Comick titles look theirs up straight away; others once their MangaDex link is known.
+        if (title.source == Sources.COMICK) loadSynopsis()
         chapters = Loadable.Loading
         mangaDexError = null
         mangaDexChecked = false
@@ -365,14 +394,17 @@ class DetailsModel(
             // MangaDex first (it's quick and keyed by shared ids), then installed sources.
             val mangaDexMatch =
                 try {
-                    (mangaDexId ?: discovery.findOnMangaDex(title)?.id)?.let { id ->
-                        if (mangaDexId == null) {
-                            mangaDexId = id
-                            if (library.contains(title)) library.setMangaDexId(title, id)
+                    (mangaDexId ?: discovery.findOnMangaDex(title)?.id)
+                        ?.let { id ->
+                            if (mangaDexId == null) {
+                                mangaDexId = id
+                                if (library.contains(title)) library.setMangaDexId(title, id)
+                            }
+                            SourceMatch(Sources.MANGADEX, MangaDexApi.SERVICE, id)
                         }
-                        SourceMatch(Sources.MANGADEX, MangaDexApi.SERVICE, id)
-                    }
+                        .also { loadSynopsis() }
                 } catch (e: ApiError) {
+                    loadSynopsis()
                     if (readingSources == null) {
                         chapters = Loadable.Failed(e.message.orEmpty())
                         return@launch
@@ -567,3 +599,6 @@ fun withoutDuplicates(order: List<Chapter>): List<Chapter> {
 
 /** A title found by a search in the source picker; [url] is its address (or MangaDex id). */
 data class PickerResult(val name: String, val url: String, val imageUrl: String?)
+
+private fun cleanOrEmpty(text: String): String =
+    if (text.isBlank()) "" else org.nekomanga.shared.discovery.cleanSynopsis(text)
